@@ -1,0 +1,419 @@
+/* Estilos específicos para o Dashboard do Decorador - Up.Baloes */
+
+/* ========== SIDEBAR ========== */
+
+/* Sidebar principal */
+#sidebar {
+    transition: transform 0.3s ease-in-out;
+}
+
+#sidebar.show {
+    transform: translateX(0);
+}
+
+/* Seções de navegação */
+.nav-section {
+    margin-bottom: 1.5rem;
+}
+
+.nav-section h3 {
+    margin-bottom: 0.75rem;
+    padding-left: 0.75rem;
+}
+
+/* Itens de navegação */
+.nav-item {
+    display: flex;
+    align-items: center;
+    space-x: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.5rem;
+    color: #6b7280;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    position: relative;
+}
+
+.nav-item i {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.75rem;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.nav-item:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+    transform: translateX(4px);
+}
+
+.nav-item.active {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background: white;
+    border-radius: 0 2px 2px 0;
+}
+
+/* ========== CONTEÚDO PRINCIPAL ========== */
+
+/* Módulos de conteúdo */
+.module-content {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.module-content.hidden {
+    display: none;
+}
+
+/* Cards de estatísticas */
+.stats-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== HEADER SUPERIOR ========== */
+
+/* Botão de menu mobile */
+#menu-toggle {
+    transition: all 0.2s ease;
+}
+
+#menu-toggle:hover {
+    transform: scale(1.1);
+}
+
+/* Notificações */
+.notification-badge {
+    animation: pulse 2s infinite;
+}
+
+/* ========== RESPONSIVIDADE ========== */
+
+/* Mobile */
+@media (max-width: 1023px) {
+    #sidebar {
+        width: 280px;
+    }
+    
+    .nav-item {
+        padding: 1rem;
+        font-size: 0.95rem;
+    }
+    
+    .nav-item i {
+        font-size: 1.1rem;
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .stats-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+    .nav-item:hover {
+        transform: translateX(6px);
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-6px);
+    }
+}
+
+/* ========== ANIMAÇÕES ========== */
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Animações de entrada */
+.sidebar-enter {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+.content-enter {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* ========== ESTADOS DE LOADING ========== */
+
+/* Loading para módulos */
+.module-loading {
+    position: relative;
+    min-height: 200px;
+}
+
+.module-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 4px solid #f3f4f6;
+    border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ========== MELHORIAS DE ACESSIBILIDADE ========== */
+
+/* Focus states */
+.nav-item:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ========== CUSTOMIZAÇÕES ESPECÍFICAS ========== */
+
+/* Gradientes personalizados */
+.gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.gradient-warning {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.gradient-info {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+/* Efeitos de hover para cards */
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== DARK MODE (PREPARAÇÃO) ========== */
+
+@media (prefers-color-scheme: dark) {
+    .dark-mode #sidebar {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+    
+    .dark-mode .nav-item {
+        color: #d1d5db;
+    }
+    
+    .dark-mode .nav-item:hover {
+        background-color: #374151;
+        color: #f9fafb;
+    }
+    
+    .dark-mode .nav-section h3 {
+        color: #9ca3af;
+    }
+}
+
+/* ========== UTILITÁRIOS ========== */
+
+/* Espaçamentos personalizados */
+.space-y-1 > * + * {
+    margin-top: 0.25rem;
+}
+
+.space-y-2 > * + * {
+    margin-top: 0.5rem;
+}
+
+.space-y-3 > * + * {
+    margin-top: 0.75rem;
+}
+
+.space-y-4 > * + * {
+    margin-top: 1rem;
+}
+
+.space-y-6 > * + * {
+    margin-top: 1.5rem;
+}
+
+/* Larguras personalizadas */
+.w-64 {
+    width: 16rem;
+}
+
+.w-72 {
+    width: 18rem;
+}
+
+.w-80 {
+    width: 20rem;
+}
+
+/* Alturas personalizadas */
+.h-screen {
+    height: 100vh;
+}
+
+.h-full {
+    height: 100%;
+}
+
+/* Posicionamento */
+.fixed {
+    position: fixed;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.relative {
+    position: relative;
+}
+
+/* Z-index */
+.z-40 {
+    z-index: 40;
+}
+
+.z-50 {
+    z-index: 50;
+}
+
+/* Overflow */
+.overflow-hidden {
+    overflow: hidden;
+}
+
+.overflow-y-auto {
+    overflow-y: auto;
+}
+
+/* Transformações */
+.transform {
+    transform: translateZ(0);
+}
+
+.translate-x-0 {
+    transform: translateX(0);
+}
+
+.-translate-x-full {
+    transform: translateX(-100%);
+}
+
+/* Transições */
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+.transition-transform {
+    transition: transform 0.3s ease;
+}
+
+.duration-300 {
+    transition-duration: 300ms;
+}
+
+.ease-in-out {
+    transition-timing-function: ease-in-out;
+}
+
+/* ========== ESTADOS ESPECIAIS ========== */
+
+/* Estado de erro */
+.error-state {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+/* Estado de sucesso */
+.success-state {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+/* Estado de aviso */
+.warning-state {
+    border-color: #f59e0b;
+    background-color: #fffbeb;
+}
+
+/* Estado de informação */
+.info-state {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
