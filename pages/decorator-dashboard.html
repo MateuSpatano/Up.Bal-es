@@ -11,6 +11,9 @@
     <!-- TailwindCSS para estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+    
     <!-- CSS personalizado -->
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/decorator-dashboard.css">
@@ -110,20 +113,52 @@
                 
                 <div class="flex items-center space-x-4">
                     <!-- Notificações -->
-                    <button class="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                        <i class="fas fa-bell text-lg"></i>
-                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
-                    </button>
+                    <div class="relative">
+                        <button id="notifications-btn" class="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span id="notification-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </button>
+                        
+                        <!-- Dropdown de Notificações -->
+                        <div id="notifications-dropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2 z-50">
+                            <div class="p-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-800">Notificações</h3>
+                                <p class="text-sm text-gray-500">Orçamentos recebidos recentemente</p>
+                            </div>
+                            <div id="notifications-list" class="max-h-96 overflow-y-auto">
+                                <!-- Lista de notificações será carregada aqui -->
+                            </div>
+                            <div class="p-4 border-t border-gray-200">
+                                <button id="view-all-budgets" class="w-full text-center text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Ver todos os orçamentos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Perfil Rápido -->
                     <div class="relative">
-                        <button class="flex items-center space-x-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                        <button id="user-btn" class="flex items-center space-x-2 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                                 <i class="fas fa-user text-white text-sm"></i>
                             </div>
-                            <span class="hidden sm:block text-sm font-medium">João Silva</span>
+                            <span class="hidden sm:block text-sm font-medium" id="user-display-name">João Silva</span>
                             <i class="fas fa-chevron-down text-xs"></i>
                         </button>
+                        
+                        <!-- Dropdown do Usuário -->
+                        <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2 z-50">
+                            <div class="py-2">
+                                <a href="#account" id="manage-account-btn" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                                    <i class="fas fa-user-cog mr-3"></i>
+                                    Gerenciar Conta
+                                </a>
+                                <button id="logout-header-btn" class="w-full text-left dropdown-item flex items-center px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200">
+                                    <i class="fas fa-sign-out-alt mr-3"></i>
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -196,7 +231,7 @@
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-800">Painel Gerencial</h2>
-                                <p class="text-sm text-gray-600 mt-1">Visualize e gerencie todos os serviços solicitados</p>
+                                <p class="text-sm text-gray-600 mt-1">Visualize e gerencie todos os orçamentos e serviços</p>
                             </div>
                             
                             <!-- Botões de Visualização -->
@@ -215,37 +250,40 @@
 
                     <!-- Filtros -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status do Orçamento</label>
                                 <select id="status-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     <option value="">Todos os status</option>
-                                    <option value="pendente">Pendente</option>
-                                    <option value="confirmado">Confirmado</option>
-                                    <option value="em-andamento">Em Andamento</option>
-                                    <option value="concluido">Concluído</option>
-                                    <option value="cancelado">Cancelado</option>
+                                    <option value="pendente">Pendentes</option>
+                                    <option value="aprovado">Aprovados</option>
+                                    <option value="recusado">Recusados</option>
+                                    <option value="cancelado">Cancelados</option>
+                                    <option value="enviado">Enviados</option>
                                 </select>
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Período</label>
-                                <select id="period-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <option value="hoje">Hoje</option>
-                                    <option value="semana">Esta Semana</option>
-                                    <option value="mes">Este Mês</option>
-                                    <option value="todos">Todos</option>
-                                </select>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
+                                <input type="date" id="date-from" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
+                                <input type="date" id="date-to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Buscar Cliente</label>
                                 <input type="text" id="client-filter" placeholder="Nome do cliente" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                             
-                            <div class="flex items-end">
-                                <button id="apply-filters" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                            <div class="flex items-end space-x-2">
+                                <button id="apply-filters" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
                                     <i class="fas fa-search mr-2"></i>Filtrar
+                                </button>
+                                <button id="clear-filters" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </div>
                         </div>
@@ -253,92 +291,39 @@
 
                     <!-- Conteúdo - Visualização em Lista -->
                     <div id="list-view" class="p-6">
-                        <div class="space-y-4">
-                            <!-- Serviço 1 -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center space-x-3 mb-2">
-                                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">Confirmado</span>
-                                            <span class="text-sm text-gray-500">#001</span>
-                                        </div>
-                                        <h3 class="text-lg font-semibold text-gray-800">Decoração de Aniversário</h3>
-                                        <p class="text-gray-600 text-sm">Cliente: Maria Silva</p>
-                                        <p class="text-gray-600 text-sm">Data: 15/12/2024 - 14:00</p>
-                                        <p class="text-gray-600 text-sm">Local: Rua das Flores, 123</p>
+                        <!-- Indicador de Filtros Ativos -->
+                        <div id="active-filters-indicator" class="mb-4 hidden">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-filter text-blue-500"></i>
+                                        <span class="text-sm font-medium text-blue-800">Filtros ativos:</span>
+                                        <span id="active-filters-text" class="text-sm text-blue-700"></span>
                                     </div>
-                                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 lg:mt-0">
-                                        <button class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 transition-colors">
-                                            <i class="fas fa-eye mr-1"></i>Ver Detalhes
-                                        </button>
-                                        <button class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded hover:bg-yellow-200 transition-colors">
-                                            <i class="fas fa-edit mr-1"></i>Editar
-                                        </button>
-                                    </div>
+                                    <button id="clear-filters-quick" class="text-blue-600 hover:text-blue-800 text-sm">
+                                        <i class="fas fa-times mr-1"></i>Limpar
+                                    </button>
                                 </div>
                             </div>
-
-                            <!-- Serviço 2 -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center space-x-3 mb-2">
-                                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">Pendente</span>
-                                            <span class="text-sm text-gray-500">#002</span>
-                                        </div>
-                                        <h3 class="text-lg font-semibold text-gray-800">Decoração de Casamento</h3>
-                                        <p class="text-gray-600 text-sm">Cliente: João Santos</p>
-                                        <p class="text-gray-600 text-sm">Data: 20/12/2024 - 16:00</p>
-                                        <p class="text-gray-600 text-sm">Local: Salão de Festas Central</p>
-                                    </div>
-                                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 lg:mt-0">
-                                        <button class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 transition-colors">
-                                            <i class="fas fa-eye mr-1"></i>Ver Detalhes
-                                        </button>
-                                        <button class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded hover:bg-yellow-200 transition-colors">
-                                            <i class="fas fa-edit mr-1"></i>Editar
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Serviço 3 -->
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center space-x-3 mb-2">
-                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">Em Andamento</span>
-                                            <span class="text-sm text-gray-500">#003</span>
-                                        </div>
-                                        <h3 class="text-lg font-semibold text-gray-800">Decoração de Formatura</h3>
-                                        <p class="text-gray-600 text-sm">Cliente: Ana Costa</p>
-                                        <p class="text-gray-600 text-sm">Data: 18/12/2024 - 19:00</p>
-                                        <p class="text-gray-600 text-sm">Local: Faculdade Central</p>
-                                    </div>
-                                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 lg:mt-0">
-                                        <button class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 transition-colors">
-                                            <i class="fas fa-eye mr-1"></i>Ver Detalhes
-                                        </button>
-                                        <button class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded hover:bg-yellow-200 transition-colors">
-                                            <i class="fas fa-edit mr-1"></i>Editar
-                                        </button>
-                                    </div>
-                                </div>
+                        </div>
+                        
+                        <!-- Lista Unificada de Orçamentos -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-list text-blue-500 mr-2"></i>
+                                Todos os Orçamentos
+                                <span id="total-count" class="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">0</span>
+                            </h3>
+                            <div id="all-budgets" class="space-y-4">
+                                <!-- Orçamentos serão carregados dinamicamente aqui -->
                             </div>
                         </div>
                     </div>
 
                     <!-- Conteúdo - Visualização em Calendário -->
                     <div id="calendar-view" class="p-6 hidden">
-                        <div class="bg-gray-50 rounded-lg p-6 text-center">
-                            <div class="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-calendar text-2xl text-blue-600"></i>
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Visualização em Calendário</h3>
-                            <p class="text-gray-600 mb-4">Aqui será exibido o calendário com todos os serviços agendados</p>
-                            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-plus mr-2"></i>Implementar Calendário
-                            </button>
+                        <div class="bg-white rounded-lg border border-gray-200">
+                            <div id="calendar" class="p-4"></div>
                         </div>
                     </div>
                 </div>
@@ -393,6 +378,195 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- Botão Flutuante de + para Criar Orçamento -->
+    <button id="floating-add-btn" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-200 z-40 flex items-center justify-center">
+        <i class="fas fa-plus text-xl"></i>
+    </button>
+
+    <!-- Modal de Criação de Orçamento -->
+    <div id="create-budget-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="create-budget-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-4xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-plus text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Criar Novo Orçamento</h3>
+                                <p class="text-blue-100 text-sm">Preencha os dados do orçamento</p>
+                            </div>
+                        </div>
+                        <button id="close-create-budget-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="create-budget-form" class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Cliente -->
+                        <div class="space-y-2">
+                            <label for="budget-client" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-user mr-2 text-blue-600"></i>Cliente
+                            </label>
+                            <input type="text" id="budget-client" name="client" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Nome do cliente">
+                        </div>
+
+                        <!-- Email do Cliente -->
+                        <div class="space-y-2">
+                            <label for="budget-email" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-envelope mr-2 text-blue-600"></i>Email
+                            </label>
+                            <input type="email" id="budget-email" name="email" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="email@cliente.com">
+                        </div>
+
+                        <!-- Telefone -->
+                        <div class="space-y-2">
+                            <label for="budget-phone" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-phone mr-2 text-blue-600"></i>Telefone
+                            </label>
+                            <input type="tel" id="budget-phone" name="phone"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="(11) 99999-9999">
+                        </div>
+
+                        <!-- Data do Evento -->
+                        <div class="space-y-2">
+                            <label for="budget-event-date" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-calendar mr-2 text-blue-600"></i>Data do Evento
+                            </label>
+                            <input type="date" id="budget-event-date" name="event_date" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+
+                        <!-- Hora do Evento -->
+                        <div class="space-y-2">
+                            <label for="budget-event-time" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-clock mr-2 text-blue-600"></i>Hora do Evento
+                            </label>
+                            <input type="time" id="budget-event-time" name="event_time" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+
+                        <!-- Local do Evento -->
+                        <div class="space-y-2">
+                            <label for="budget-event-location" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Local do Evento
+                            </label>
+                            <input type="text" id="budget-event-location" name="event_location" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Endereço do evento">
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Serviço -->
+                    <div class="space-y-2">
+                        <label for="budget-service-type" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-gift mr-2 text-blue-600"></i>Tipo de Serviço
+                        </label>
+                        <select id="budget-service-type" name="service_type" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            <option value="">Selecione o tipo de serviço</option>
+                            <option value="arco-tradicional">Arco-Tradicional</option>
+                            <option value="arco-desconstruido">Arco-Desconstruído</option>
+                            <option value="escultura-balao">Escultura de Balão</option>
+                            <option value="centro-mesa">Centro de Mesa</option>
+                            <option value="baloes-piscina">Balões na Piscina</option>
+                        </select>
+                    </div>
+
+                    <!-- Descrição do Evento -->
+                    <div class="space-y-2">
+                        <label for="budget-description" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-align-left mr-2 text-blue-600"></i>Descrição do Evento
+                        </label>
+                        <textarea id="budget-description" name="description" rows="4"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Descreva os detalhes do evento e decoração desejada"></textarea>
+                    </div>
+
+                    <!-- Valor Estimado -->
+                    <div class="space-y-2">
+                        <label for="budget-estimated-value" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-dollar-sign mr-2 text-blue-600"></i>Valor Estimado
+                        </label>
+                        <input type="number" id="budget-estimated-value" name="estimated_value" step="0.01" min="0"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="0.00">
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="space-y-2">
+                        <label for="budget-notes" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-sticky-note mr-2 text-blue-600"></i>Observações
+                        </label>
+                        <textarea id="budget-notes" name="notes" rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Observações adicionais"></textarea>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" id="cancel-create-budget" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="submit" id="save-create-budget"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Criar Orçamento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes do Orçamento -->
+    <div id="budget-details-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="budget-details-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-2xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-green-600 to-emerald-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-eye text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Detalhes do Orçamento</h3>
+                                <p class="text-green-100 text-sm">Visualize as informações completas</p>
+                            </div>
+                        </div>
+                        <button id="close-budget-details-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div id="budget-details-content" class="p-6">
+                    <!-- Conteúdo será carregado dinamicamente -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal de Gerenciamento de Conta (reutilizado do sistema principal) -->
@@ -586,6 +760,9 @@
         </div>
     </div>
 
+    <!-- FullCalendar JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    
     <!-- JavaScript -->
     <script src="../js/main.js"></script>
     <script src="../js/decorator-dashboard.js"></script>
