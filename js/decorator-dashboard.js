@@ -1109,9 +1109,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CONFIGURAÇÃO DOS MODAIS DE ORÇAMENTO ==========
     
     function setupBudgetModals() {
-        // Botão flutuante de +
+        // Botão flutuante de + - funcionalidade contextual
         if (floatingAddBtn) {
-            floatingAddBtn.addEventListener('click', openCreateBudgetModal);
+            floatingAddBtn.addEventListener('click', function() {
+                // Verificar qual módulo está ativo
+                if (currentModule === 'portfolio') {
+                    // Se estiver no módulo de portfólio, abrir modal de adicionar serviço
+                    if (typeof openAddServiceModal === 'function') {
+                        openAddServiceModal();
+                    }
+                } else {
+                    // Se estiver em outros módulos, abrir modal de orçamento
+                    openCreateBudgetModal();
+                }
+            });
         }
         
         // Modal de criação de orçamento
@@ -2631,6 +2642,465 @@ document.addEventListener('DOMContentLoaded', function() {
             closeUserDropdown();
         }
     });
+
+    // ========== FUNCIONALIDADES DO PORTFÓLIO ==========
+    
+    // Elementos do portfólio
+    const addServiceBtn = document.getElementById('add-service-btn');
+    const addFirstServiceBtn = document.getElementById('add-first-service-btn');
+    const serviceModal = document.getElementById('service-modal');
+    const closeServiceModal = document.getElementById('close-service-modal');
+    const cancelService = document.getElementById('cancel-service');
+    const serviceModalOverlay = document.getElementById('service-modal-overlay');
+    const serviceForm = document.getElementById('service-form');
+    const saveService = document.getElementById('save-service');
+    const servicesGrid = document.getElementById('services-grid');
+    const emptyPortfolio = document.getElementById('empty-portfolio');
+    const deleteServiceModal = document.getElementById('delete-service-modal');
+    const cancelDeleteService = document.getElementById('cancel-delete-service');
+    const confirmDeleteService = document.getElementById('confirm-delete-service');
+    const deleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay');
+    
+    // Variáveis do portfólio
+    let portfolioServices = [];
+    let editingServiceId = null;
+    let deletingServiceId = null;
+    
+    // Carregar serviços do portfólio
+    function loadPortfolioServices() {
+        const saved = localStorage.getItem('portfolio_services');
+        if (saved) {
+            portfolioServices = JSON.parse(saved);
+        }
+        renderPortfolioServices();
+    }
+    
+    // Salvar serviços do portfólio
+    function savePortfolioServices() {
+        localStorage.setItem('portfolio_services', JSON.stringify(portfolioServices));
+        // Atualizar portfólio na página inicial
+        updateHomepagePortfolio();
+    }
+    
+    // Renderizar serviços do portfólio
+    async function renderPortfolioServices() {
+        if (portfolioServices.length === 0) {
+            servicesGrid.innerHTML = '';
+            emptyPortfolio.classList.remove('hidden');
+            return;
+        }
+        
+        emptyPortfolio.classList.add('hidden');
+        servicesGrid.innerHTML = '';
+        
+        // Mostrar loading enquanto processa as imagens
+        servicesGrid.innerHTML = `
+            <div class="col-span-full flex justify-center items-center py-8">
+                <div class="flex items-center space-x-2 text-gray-600">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Processando imagens...</span>
+                </div>
+            </div>
+        `;
+        
+        // Processar cada serviço de forma assíncrona
+        for (const service of portfolioServices) {
+            try {
+                const serviceCard = await createServiceCard(service);
+                servicesGrid.appendChild(serviceCard);
+            } catch (error) {
+                console.error('Erro ao criar card do serviço:', error);
+                // Criar card de fallback em caso de erro
+                const fallbackCard = document.createElement('div');
+                fallbackCard.className = 'bg-white rounded-lg shadow-md border border-gray-200 p-4';
+                fallbackCard.innerHTML = `
+                    <div class="text-center text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Erro ao carregar serviço</p>
+                    </div>
+                `;
+                servicesGrid.appendChild(fallbackCard);
+            }
+        }
+    }
+    
+    // Função para redimensionar imagem automaticamente mantendo proporção
+    function createResponsiveImage(imageSrc, altText, containerClass = 'w-full h-48') {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous'; // Permitir CORS se necessário
+            
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Dimensões do container baseadas no tamanho da tela
+                    const screenWidth = window.innerWidth;
+                    let containerWidth, containerHeight;
+                    
+                    if (screenWidth < 640) {
+                        // Mobile
+                        containerWidth = 280;
+                        containerHeight = 160;
+                    } else if (screenWidth < 1024) {
+                        // Tablet
+                        containerWidth = 300;
+                        containerHeight = 180;
+                    } else {
+                        // Desktop
+                        containerWidth = 320;
+                        containerHeight = 200;
+                    }
+                    
+                    // Calcular dimensões mantendo proporção
+                    let { width, height } = calculateAspectRatio(
+                        this.naturalWidth, 
+                        this.naturalHeight, 
+                        containerWidth, 
+                        containerHeight
+                    );
+                    
+                    // Configurar canvas com qualidade otimizada
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Melhorar qualidade da renderização
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    
+                    // Desenhar imagem redimensionada
+                    ctx.drawImage(this, 0, 0, width, height);
+                    
+                    // Determinar qualidade baseada no tamanho da imagem
+                    const quality = this.naturalWidth > 1000 ? 0.8 : 0.9;
+                    
+                    // Converter para data URL com qualidade otimizada
+                    const resizedImageSrc = canvas.toDataURL('image/jpeg', quality);
+                    
+                    // Criar elemento img com classes responsivas
+                    const imgElement = document.createElement('img');
+                    imgElement.src = resizedImageSrc;
+                    imgElement.alt = altText;
+                    imgElement.className = 'service-image';
+                    imgElement.loading = 'lazy'; // Lazy loading para performance
+                    
+                    resolve(imgElement.outerHTML);
+                } catch (error) {
+                    console.error('Erro ao processar imagem:', error);
+                    resolve(`
+                        <div class="service-image-placeholder">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    `);
+                }
+            };
+            
+            img.onerror = function() {
+                console.warn('Erro ao carregar imagem:', imageSrc);
+                // Se houver erro ao carregar a imagem, mostrar placeholder
+                resolve(`
+                    <div class="service-image-placeholder">
+                        <i class="fas fa-image"></i>
+                    </div>
+                `);
+            };
+            
+            // Timeout para evitar carregamento infinito
+            setTimeout(() => {
+                if (!img.complete) {
+                    console.warn('Timeout ao carregar imagem:', imageSrc);
+                    resolve(`
+                        <div class="service-image-placeholder">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    `);
+                }
+            }, 10000); // 10 segundos timeout
+            
+            img.src = imageSrc;
+        });
+    }
+    
+    // Função para calcular proporção mantendo aspect ratio
+    function calculateAspectRatio(originalWidth, originalHeight, maxWidth, maxHeight) {
+        const aspectRatio = originalWidth / originalHeight;
+        const containerAspectRatio = maxWidth / maxHeight;
+        
+        let width, height;
+        
+        if (aspectRatio > containerAspectRatio) {
+            // Imagem é mais larga que o container
+            width = maxWidth;
+            height = maxWidth / aspectRatio;
+        } else {
+            // Imagem é mais alta que o container
+            height = maxHeight;
+            width = maxHeight * aspectRatio;
+        }
+        
+        return { width, height };
+    }
+    
+    // Criar card de serviço
+    async function createServiceCard(service) {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200';
+        
+        // Processar imagem se existir
+        let imageHtml = '';
+        if (service.image) {
+            try {
+                imageHtml = await createResponsiveImage(service.image, service.title, 'w-full h-48');
+            } catch (error) {
+                console.error('Erro ao processar imagem:', error);
+                imageHtml = `
+                    <div class="service-image-placeholder">
+                        <i class="fas fa-image"></i>
+                    </div>
+                `;
+            }
+        } else {
+            imageHtml = `
+                <div class="service-image-placeholder">
+                    <i class="fas fa-image"></i>
+                </div>
+            `;
+        }
+        
+        card.innerHTML = `
+            <div class="relative">
+                <div class="service-image-container">
+                    ${imageHtml}
+                </div>
+                <div class="absolute top-2 right-2 flex space-x-1">
+                    <button class="edit-service-btn w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors duration-200" data-id="${service.id}">
+                        <i class="fas fa-edit text-sm"></i>
+                    </button>
+                    <button class="delete-service-btn w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors duration-200" data-id="${service.id}">
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="mb-2">
+                    <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
+                        ${service.type}
+                    </span>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title}</h3>
+                <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description}</p>
+                ${service.price ? `<p class="text-green-600 font-semibold">R$ ${parseFloat(service.price).toFixed(2)}</p>` : ''}
+            </div>
+        `;
+        
+        // Adicionar event listeners aos botões
+        const editBtn = card.querySelector('.edit-service-btn');
+        const deleteBtn = card.querySelector('.delete-service-btn');
+        
+        editBtn.addEventListener('click', () => editService(service.id));
+        deleteBtn.addEventListener('click', () => confirmDeleteServiceAction(service.id));
+        
+        return card;
+    }
+    
+    // Abrir modal para adicionar serviço
+    function openAddServiceModal() {
+        editingServiceId = null;
+        serviceForm.reset();
+        document.getElementById('service-modal-title').textContent = 'Adicionar Serviço';
+        document.getElementById('service-modal-subtitle').textContent = 'Preencha as informações do seu serviço';
+        document.getElementById('image-preview').classList.add('hidden');
+        serviceModal.classList.remove('hidden');
+    }
+    
+    // Abrir modal para editar serviço
+    function editService(serviceId) {
+        const service = portfolioServices.find(s => s.id === serviceId);
+        if (!service) return;
+        
+        editingServiceId = serviceId;
+        document.getElementById('service-modal-title').textContent = 'Editar Serviço';
+        document.getElementById('service-modal-subtitle').textContent = 'Atualize as informações do seu serviço';
+        
+        // Preencher formulário
+        document.getElementById('service-type').value = service.type;
+        document.getElementById('service-title').value = service.title;
+        document.getElementById('service-description').value = service.description;
+        document.getElementById('service-price').value = service.price || '';
+        
+        // Mostrar preview da imagem se existir
+        if (service.image) {
+            const preview = document.getElementById('image-preview');
+            const previewImg = document.getElementById('preview-img');
+            previewImg.src = service.image;
+            preview.classList.remove('hidden');
+        } else {
+            document.getElementById('image-preview').classList.add('hidden');
+        }
+        
+        serviceModal.classList.remove('hidden');
+    }
+    
+    // Confirmar exclusão de serviço
+    function confirmDeleteServiceAction(serviceId) {
+        deletingServiceId = serviceId;
+        deleteServiceModal.classList.remove('hidden');
+    }
+    
+    // Excluir serviço
+    function deleteService() {
+        if (deletingServiceId) {
+            portfolioServices = portfolioServices.filter(s => s.id !== deletingServiceId);
+            savePortfolioServices();
+            renderPortfolioServices();
+            deleteServiceModal.classList.add('hidden');
+            deletingServiceId = null;
+        }
+    }
+    
+    // Processar imagem
+    function processImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    // Salvar serviço
+    async function saveServiceData(formData) {
+        const serviceData = {
+            id: editingServiceId || Date.now().toString(),
+            type: formData.get('type'),
+            title: formData.get('title'),
+            description: formData.get('description'),
+            price: formData.get('price') || null,
+            image: null
+        };
+        
+        // Processar imagem se fornecida
+        const imageFile = formData.get('image');
+        if (imageFile && imageFile.size > 0) {
+            serviceData.image = await processImage(imageFile);
+        } else if (editingServiceId) {
+            // Manter imagem existente se não for fornecida nova imagem
+            const existingService = portfolioServices.find(s => s.id === editingServiceId);
+            if (existingService) {
+                serviceData.image = existingService.image;
+            }
+        }
+        
+        if (editingServiceId) {
+            // Editar serviço existente
+            const index = portfolioServices.findIndex(s => s.id === editingServiceId);
+            if (index !== -1) {
+                portfolioServices[index] = serviceData;
+            }
+        } else {
+            // Adicionar novo serviço
+            portfolioServices.push(serviceData);
+        }
+        
+        savePortfolioServices();
+        renderPortfolioServices();
+        serviceModal.classList.add('hidden');
+    }
+    
+    // Atualizar portfólio na página inicial
+    function updateHomepagePortfolio() {
+        // Esta função será chamada quando a página inicial for carregada
+        // Por enquanto, apenas salva os dados no localStorage
+        localStorage.setItem('homepage_portfolio', JSON.stringify(portfolioServices));
+    }
+    
+    // Configurar event listeners do portfólio
+    function setupPortfolioEventListeners() {
+        // Botões para abrir modal de adicionar serviço
+        if (addServiceBtn) {
+            addServiceBtn.addEventListener('click', openAddServiceModal);
+        }
+        
+        if (addFirstServiceBtn) {
+            addFirstServiceBtn.addEventListener('click', openAddServiceModal);
+        }
+        
+        // Fechar modal de serviço
+        if (closeServiceModal) {
+            closeServiceModal.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        }
+        
+        if (cancelService) {
+            cancelService.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        }
+        
+        if (serviceModalOverlay) {
+            serviceModalOverlay.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        }
+        
+        // Preview de imagem
+        const serviceImageInput = document.getElementById('service-image');
+        if (serviceImageInput) {
+            serviceImageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const preview = document.getElementById('image-preview');
+                        const previewImg = document.getElementById('preview-img');
+                        previewImg.src = e.target.result;
+                        preview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Salvar serviço
+        if (serviceForm) {
+            serviceForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(serviceForm);
+                await saveServiceData(formData);
+            });
+        }
+        
+        // Modal de confirmação de exclusão
+        if (cancelDeleteService) {
+            cancelDeleteService.addEventListener('click', () => deleteServiceModal.classList.add('hidden'));
+        }
+        
+        if (confirmDeleteService) {
+            confirmDeleteService.addEventListener('click', deleteService);
+        }
+        
+        if (deleteServiceModalOverlay) {
+            deleteServiceModalOverlay.addEventListener('click', () => deleteServiceModal.classList.add('hidden'));
+        }
+    }
+    
+    // Função para recarregar imagens quando a tela for redimensionada
+    function handleResize() {
+        if (currentModule === 'portfolio' && portfolioServices.length > 0) {
+            // Debounce para evitar muitas chamadas durante o redimensionamento
+            clearTimeout(window.resizeTimeout);
+            window.resizeTimeout = setTimeout(() => {
+                renderPortfolioServices();
+            }, 300);
+        }
+    }
+    
+    // Inicializar portfólio
+    function initPortfolio() {
+        loadPortfolioServices();
+        setupPortfolioEventListeners();
+        
+        // Adicionar listener para redimensionamento da tela
+        window.addEventListener('resize', handleResize);
+    }
+    
+    // Chamar inicialização do portfólio
+    initPortfolio();
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });

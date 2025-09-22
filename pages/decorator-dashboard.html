@@ -331,16 +331,41 @@
 
             <!-- Módulo Portfólio -->
             <div id="portfolio-module" class="module-content hidden">
-                <div class="bg-white rounded-xl shadow-sm p-6">
-                    <div class="text-center py-12">
-                        <div class="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-briefcase text-4xl text-purple-600"></i>
+                <div class="bg-white rounded-xl shadow-sm">
+                    <!-- Header do Portfólio -->
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
+                                <p class="text-sm text-gray-600 mt-1">Gerencie seus trabalhos, fotos e projetos de decoração com balões</p>
+                            </div>
+                            
+                            <!-- Botão Adicionar Serviço -->
+                            <button id="add-service-btn" class="mt-4 sm:mt-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105 flex items-center space-x-2">
+                                <i class="fas fa-plus"></i>
+                                <span>Adicionar Serviço</span>
+                            </button>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Meu Portfólio</h2>
-                        <p class="text-gray-600 mb-6">Gerencie seus trabalhos, fotos e projetos de decoração com balões.</p>
-                        <button class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105">
-                            <i class="fas fa-plus mr-2"></i>Adicionar Projeto
-                        </button>
+                    </div>
+
+                    <!-- Conteúdo do Portfólio -->
+                    <div class="p-6">
+                        <!-- Grid de Serviços -->
+                        <div id="services-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- Os cards de serviços serão carregados dinamicamente aqui -->
+                        </div>
+
+                        <!-- Estado Vazio -->
+                        <div id="empty-portfolio" class="text-center py-12 hidden">
+                            <div class="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i class="fas fa-briefcase text-4xl text-purple-600"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-800 mb-2">Nenhum serviço adicionado</h3>
+                            <p class="text-gray-600 mb-6">Comece adicionando seus primeiros serviços ao portfólio</p>
+                            <button id="add-first-service-btn" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105">
+                                <i class="fas fa-plus mr-2"></i>Adicionar Primeiro Serviço
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -380,7 +405,7 @@
         </main>
     </div>
 
-    <!-- Botão Flutuante de + para Criar Orçamento -->
+    <!-- Botão Flutuante de + (Contextual) -->
     <button id="floating-add-btn" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-200 z-40 flex items-center justify-center">
         <i class="fas fa-plus text-xl"></i>
     </button>
@@ -756,6 +781,157 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Adicionar/Editar Serviço -->
+    <div id="service-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="service-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-2xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-purple-600 to-pink-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-briefcase text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white" id="service-modal-title">Adicionar Serviço</h3>
+                                <p class="text-purple-100 text-sm" id="service-modal-subtitle">Preencha as informações do seu serviço</p>
+                            </div>
+                        </div>
+                        <button id="close-service-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="service-form" class="p-6 space-y-6">
+                    <!-- Imagem do Serviço -->
+                    <div class="space-y-2">
+                        <label for="service-image" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-image mr-2 text-purple-600"></i>Imagem do Serviço
+                        </label>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-1">
+                                <input type="file" id="service-image" name="image" accept="image/*" 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200">
+                            </div>
+                            <div id="image-preview" class="w-20 h-20 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center hidden">
+                                <img id="preview-img" src="" alt="Preview" class="w-full h-full object-cover rounded-lg">
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Formatos aceitos: JPG, PNG, GIF (máx. 5MB)
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Serviço -->
+                    <div class="space-y-2">
+                        <label for="service-type" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-tag mr-2 text-purple-600"></i>Tipo de Serviço
+                        </label>
+                        <select id="service-type" name="type" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200">
+                            <option value="">Selecione o tipo de serviço</option>
+                            <option value="Arco-Tradicional">Arco Tradicional</option>
+                            <option value="Arco-Desconstruído">Arco Desconstruído</option>
+                            <option value="Escultura-de-Balao">Escultura de Balão</option>
+                            <option value="Centro-de-Mesa">Centro de Mesa</option>
+                            <option value="Balões-na-Piscina">Balões na Piscina</option>
+                        </select>
+                    </div>
+
+                    <!-- Título do Serviço -->
+                    <div class="space-y-2">
+                        <label for="service-title" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-heading mr-2 text-purple-600"></i>Título do Serviço
+                        </label>
+                        <input type="text" id="service-title" name="title" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Ex: Arco de Balões para Aniversário">
+                    </div>
+
+                    <!-- Descrição -->
+                    <div class="space-y-2">
+                        <label for="service-description" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-align-left mr-2 text-purple-600"></i>Descrição
+                        </label>
+                        <textarea id="service-description" name="description" rows="4"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Descreva os detalhes do seu serviço..."></textarea>
+                    </div>
+
+                    <!-- Preço (opcional) -->
+                    <div class="space-y-2">
+                        <label for="service-price" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-dollar-sign mr-2 text-purple-600"></i>Preço (opcional)
+                        </label>
+                        <input type="number" id="service-price" name="price" step="0.01" min="0"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                               placeholder="0.00">
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" id="cancel-service" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="submit" id="save-service"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Salvar Serviço
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="delete-service-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="delete-service-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-md p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-exclamation-triangle text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-white">Confirmar Exclusão</h3>
+                            <p class="text-red-100 text-sm">Esta ação não pode ser desfeita</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <p class="text-gray-700 mb-6">Tem certeza que deseja excluir este serviço do seu portfólio?</p>
+                    
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button type="button" id="cancel-delete-service" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="button" id="confirm-delete-service"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-trash mr-2"></i>Excluir
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

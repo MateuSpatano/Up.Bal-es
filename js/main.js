@@ -870,3 +870,88 @@ function loginUser(email, password) {
         }, 1000);
     });
 }
+
+// ========== FUNCIONALIDADES DO PORTFÓLIO ==========
+
+// Carregar portfólio na página inicial
+function loadHomepagePortfolio() {
+    const portfolioGrid = document.getElementById('homepage-portfolio-grid');
+    const emptyPortfolio = document.getElementById('homepage-empty-portfolio');
+    
+    if (!portfolioGrid || !emptyPortfolio) return;
+    
+    // Carregar dados do portfólio do localStorage
+    const savedPortfolio = localStorage.getItem('homepage_portfolio');
+    let portfolioServices = [];
+    
+    if (savedPortfolio) {
+        portfolioServices = JSON.parse(savedPortfolio);
+    }
+    
+    // Renderizar portfólio
+    if (portfolioServices.length === 0) {
+        portfolioGrid.innerHTML = '';
+        emptyPortfolio.classList.remove('hidden');
+        return;
+    }
+    
+    emptyPortfolio.classList.add('hidden');
+    portfolioGrid.innerHTML = '';
+    
+    // Mostrar apenas os primeiros 8 serviços
+    const servicesToShow = portfolioServices.slice(0, 8);
+    
+    servicesToShow.forEach(service => {
+        const serviceCard = createHomepageServiceCard(service);
+        portfolioGrid.appendChild(serviceCard);
+    });
+}
+
+// Criar card de serviço para a página inicial
+function createHomepageServiceCard(service) {
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200 group';
+    card.innerHTML = `
+        <div class="relative overflow-hidden">
+            <div class="aspect-w-16 aspect-h-12 bg-gray-200 rounded-t-lg overflow-hidden">
+                ${service.image ? 
+                    `<img src="${service.image}" alt="${service.title}" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">` :
+                    `<div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                        <i class="fas fa-image text-4xl text-purple-400"></i>
+                    </div>`
+                }
+            </div>
+            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <i class="fas fa-eye text-white text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="p-4">
+            <div class="mb-2">
+                <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
+                    ${service.type}
+                </span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title}</h3>
+            <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description}</p>
+            ${service.price ? `<p class="text-green-600 font-semibold">R$ ${parseFloat(service.price).toFixed(2)}</p>` : ''}
+        </div>
+    `;
+    
+    return card;
+}
+
+// Inicializar portfólio na página inicial
+function initHomepagePortfolio() {
+    loadHomepagePortfolio();
+    
+    // Recarregar portfólio quando a página ganhar foco (caso tenha sido atualizado no dashboard)
+    window.addEventListener('focus', loadHomepagePortfolio);
+    
+    // Recarregar portfólio a cada 5 segundos (para capturar atualizações)
+    setInterval(loadHomepagePortfolio, 5000);
+}
+
+// Inicializar portfólio quando a página carregar
+initHomepagePortfolio();
