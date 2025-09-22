@@ -189,8 +189,23 @@ document.addEventListener('DOMContentLoaded', function() {
         // Atualizar estado atual
         currentModule = moduleName;
         
+        // Controlar visibilidade do botão flutuante
+        toggleFloatingButton(moduleName);
+        
         // Simular carregamento de dados do módulo
         loadModuleData(moduleName);
+    }
+    
+    function toggleFloatingButton(moduleName) {
+        const floatingBtn = document.getElementById('floating-add-btn');
+        if (!floatingBtn) return;
+        
+        // Ocultar botão no módulo de agenda
+        if (moduleName === 'agenda') {
+            floatingBtn.style.display = 'none';
+        } else {
+            floatingBtn.style.display = 'flex';
+        }
     }
     
     function updateActiveNavItem(activeItem) {
@@ -856,11 +871,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadAgendaData() {
-        // Simular carregamento de dados da agenda
         console.log('Carregando dados da agenda...');
         
-        // Aqui você pode implementar carregamento de eventos
-        // Por exemplo, compromissos, entregas, etc.
+        // Configurar funcionalidades da agenda
+        setupAgendaFeatures();
+        
+        // Carregar configurações de disponibilidade
+        loadAvailabilitySettings();
+        
+        // Inicializar calendário da agenda
+        initializeAgendaCalendar();
     }
     
     function loadAccountData() {
@@ -869,6 +889,844 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Aqui você pode implementar carregamento de dados do usuário
         // Por exemplo, informações pessoais, configurações, etc.
+    }
+    
+    // ========== FUNCIONALIDADES DA AGENDA ==========
+    
+    function setupAgendaFeatures() {
+        // Formulário de disponibilidade
+        const availabilityForm = document.getElementById('availability-form');
+        const addTimeScheduleBtn = document.getElementById('add-time-schedule');
+        const resetAvailabilityBtn = document.getElementById('reset-availability');
+        const saveAvailabilityBtn = document.getElementById('save-availability');
+        
+        // Adicionar horário
+        if (addTimeScheduleBtn) {
+            addTimeScheduleBtn.addEventListener('click', addTimeSchedule);
+        }
+        
+        // Resetar configurações
+        if (resetAvailabilityBtn) {
+            resetAvailabilityBtn.addEventListener('click', resetAvailabilitySettings);
+        }
+        
+        // Salvar configurações
+        if (availabilityForm) {
+            availabilityForm.addEventListener('submit', handleAvailabilitySubmit);
+        }
+        
+        // Configurar checkboxes dos dias da semana
+        setupDayCheckboxes();
+        
+        // Inicializar intervalos padrão se não houver nenhum
+        initializeDefaultIntervals();
+        
+        // Adicionar event listener alternativo para o botão de adicionar intervalo
+        setupIntervalButtonListener();
+        
+        // Configurar funcionalidades de datas bloqueadas
+        setupBlockedDatesFeatures();
+    }
+    
+    function setupDayCheckboxes() {
+        const dayCheckboxes = document.querySelectorAll('.availability-day-checkbox');
+        dayCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const dayItem = this.closest('.availability-day-item');
+                if (this.checked) {
+                    dayItem.classList.add('selected');
+                } else {
+                    dayItem.classList.remove('selected');
+                }
+            });
+        });
+    }
+    
+    function addTimeSchedule() {
+        const container = document.getElementById('time-schedules-container');
+        if (!container) return;
+        
+        const scheduleId = 'schedule_' + Date.now();
+        const scheduleHTML = `
+            <div class="time-schedule-item" data-schedule-id="${scheduleId}">
+                <div class="time-schedule-header">
+                    <div class="time-schedule-title">
+                        <i class="fas fa-clock"></i>
+                        Horário de Atendimento
+                    </div>
+                    <div class="time-schedule-actions">
+                        <button type="button" class="time-schedule-action-btn edit-schedule-btn" onclick="editTimeSchedule('${scheduleId}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="time-schedule-action-btn delete-schedule-btn" onclick="deleteTimeSchedule('${scheduleId}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="time-schedule-fields">
+                    <div class="time-schedule-field">
+                        <label>Dia da Semana</label>
+                        <select name="schedule_day" required>
+                            <option value="">Selecione o dia</option>
+                            <option value="monday">Segunda-feira</option>
+                            <option value="tuesday">Terça-feira</option>
+                            <option value="wednesday">Quarta-feira</option>
+                            <option value="thursday">Quinta-feira</option>
+                            <option value="friday">Sexta-feira</option>
+                            <option value="saturday">Sábado</option>
+                            <option value="sunday">Domingo</option>
+                        </select>
+                    </div>
+                    <div class="time-schedule-field">
+                        <label>Horário de Início</label>
+                        <input type="time" name="start_time" required>
+                    </div>
+                    <div class="time-schedule-field">
+                        <label>Horário de Fim</label>
+                        <input type="time" name="end_time" required>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', scheduleHTML);
+        
+        // Scroll para o novo item
+        const newItem = container.querySelector(`[data-schedule-id="${scheduleId}"]`);
+        if (newItem) {
+            newItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    
+    function editTimeSchedule(scheduleId) {
+        const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
+        if (!scheduleItem) return;
+        
+        // Implementar edição inline ou modal
+        console.log('Editando horário:', scheduleId);
+    }
+    
+    function deleteTimeSchedule(scheduleId) {
+        if (confirm('Tem certeza que deseja excluir este horário?')) {
+            const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
+            if (scheduleItem) {
+                scheduleItem.remove();
+            }
+        }
+    }
+    
+    function resetAvailabilitySettings() {
+        if (confirm('Tem certeza que deseja resetar todas as configurações de disponibilidade?')) {
+            // Resetar checkboxes dos dias
+            const dayCheckboxes = document.querySelectorAll('.availability-day-checkbox');
+            dayCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                const dayItem = checkbox.closest('.availability-day-item');
+                dayItem.classList.remove('selected');
+            });
+            
+            // Limpar horários
+            const timeContainer = document.getElementById('time-schedules-container');
+            if (timeContainer) {
+                timeContainer.innerHTML = '';
+            }
+            
+            // Limpar intervalos
+            const intervalContainer = document.getElementById('service-intervals-container');
+            if (intervalContainer) {
+                intervalContainer.innerHTML = '';
+            }
+            
+            // Resetar máximo de serviços
+            const maxDailyServices = document.getElementById('max-daily-services');
+            if (maxDailyServices) maxDailyServices.value = '3';
+            
+            showNotification('Configurações resetadas!', 'info');
+        }
+    }
+    
+    async function handleAvailabilitySubmit(e) {
+        e.preventDefault();
+        
+        // Validar formulário
+        if (!validateAvailabilityForm()) {
+            return;
+        }
+        
+        // Mostrar loading
+        const saveBtn = document.getElementById('save-availability');
+        if (saveBtn) {
+            saveBtn.classList.add('btn-loading');
+            saveBtn.disabled = true;
+        }
+        
+        try {
+            // Coletar dados do formulário
+            const formData = new FormData(e.target);
+            const availabilityData = collectAvailabilityData(formData);
+            
+            // Salvar configurações
+            await saveAvailabilitySettings(availabilityData);
+            
+            showNotification('Configurações de disponibilidade salvas com sucesso!', 'success');
+            
+        } catch (error) {
+            showNotification('Erro ao salvar configurações. Tente novamente.', 'error');
+            console.error('Erro ao salvar disponibilidade:', error);
+        } finally {
+            // Remover loading
+            if (saveBtn) {
+                saveBtn.classList.remove('btn-loading');
+                saveBtn.disabled = false;
+            }
+        }
+    }
+    
+    function validateAvailabilityForm() {
+        // Verificar se pelo menos um dia foi selecionado
+        const selectedDays = document.querySelectorAll('.availability-day-checkbox:checked');
+        if (selectedDays.length === 0) {
+            showNotification('Selecione pelo menos um dia da semana', 'error');
+            return false;
+        }
+        
+        // Verificar se há pelo menos um horário configurado
+        const timeSchedules = document.querySelectorAll('.time-schedule-item');
+        if (timeSchedules.length === 0) {
+            showNotification('Adicione pelo menos um horário de atendimento', 'error');
+            return false;
+        }
+        
+        // Validar horários
+        let hasValidSchedule = false;
+        timeSchedules.forEach(schedule => {
+            const day = schedule.querySelector('select[name="schedule_day"]');
+            const startTime = schedule.querySelector('input[name="start_time"]');
+            const endTime = schedule.querySelector('input[name="end_time"]');
+            
+            if (day && day.value && startTime && startTime.value && endTime && endTime.value) {
+                if (startTime.value < endTime.value) {
+                    hasValidSchedule = true;
+                } else {
+                    showNotification('Horário de início deve ser anterior ao horário de fim', 'error');
+                    return false;
+                }
+            }
+        });
+        
+        if (!hasValidSchedule) {
+            showNotification('Configure pelo menos um horário válido', 'error');
+            return false;
+        }
+        
+        // Verificar se há pelo menos um intervalo configurado
+        const serviceIntervals = document.querySelectorAll('.service-interval-item');
+        if (serviceIntervals.length === 0) {
+            showNotification('Configure pelo menos um intervalo entre serviços', 'error');
+            return false;
+        }
+        
+        // Validar intervalos
+        let hasValidInterval = false;
+        serviceIntervals.forEach(interval => {
+            const day = interval.querySelector('select[name="interval_day"]');
+            const intervalValue = interval.querySelector('input[name="interval_value"]');
+            const unit = interval.querySelector('select[name="interval_unit"]');
+            
+            if (day && day.value && intervalValue && intervalValue.value && unit && unit.value) {
+                const value = parseInt(intervalValue.value);
+                if (value >= 0) {
+                    hasValidInterval = true;
+                } else {
+                    showNotification('Intervalo deve ser maior ou igual a zero', 'error');
+                    return false;
+                }
+            }
+        });
+        
+        if (!hasValidInterval) {
+            showNotification('Configure pelo menos um intervalo válido', 'error');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    function collectAvailabilityData(formData) {
+        const data = {
+            available_days: [],
+            time_schedules: [],
+            service_intervals: [],
+            max_daily_services: parseInt(formData.get('max_daily_services')) || 3
+        };
+        
+        // Coletar dias selecionados
+        const selectedDays = document.querySelectorAll('.availability-day-checkbox:checked');
+        selectedDays.forEach(checkbox => {
+            data.available_days.push(checkbox.value);
+        });
+        
+        // Coletar horários
+        const timeSchedules = document.querySelectorAll('.time-schedule-item');
+        timeSchedules.forEach(schedule => {
+            const day = schedule.querySelector('select[name="schedule_day"]');
+            const startTime = schedule.querySelector('input[name="start_time"]');
+            const endTime = schedule.querySelector('input[name="end_time"]');
+            
+            if (day && day.value && startTime && startTime.value && endTime && endTime.value) {
+                data.time_schedules.push({
+                    day: day.value,
+                    start_time: startTime.value,
+                    end_time: endTime.value
+                });
+            }
+        });
+        
+        // Coletar intervalos por dia
+        const serviceIntervals = document.querySelectorAll('.service-interval-item');
+        serviceIntervals.forEach(interval => {
+            const day = interval.querySelector('select[name="interval_day"]');
+            const intervalValue = interval.querySelector('input[name="interval_value"]');
+            const unit = interval.querySelector('select[name="interval_unit"]');
+            
+            if (day && day.value && intervalValue && intervalValue.value && unit && unit.value) {
+                data.service_intervals.push({
+                    day: day.value,
+                    interval: parseInt(intervalValue.value),
+                    unit: unit.value
+                });
+            }
+        });
+        
+        return data;
+    }
+    
+    async function saveAvailabilitySettings(data) {
+        try {
+            const response = await fetch('../services/availability.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'save',
+                    ...data
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.message || 'Erro ao salvar configurações');
+            }
+            
+            if (!result.success) {
+                throw new Error(result.message || 'Erro ao salvar configurações');
+            }
+            
+            // Salvar no localStorage como backup
+            localStorage.setItem('availabilitySettings', JSON.stringify(data));
+            
+            return result;
+            
+        } catch (error) {
+            console.error('Erro ao salvar configurações:', error);
+            throw error;
+        }
+    }
+    
+    async function loadAvailabilitySettings() {
+        try {
+            // Tentar carregar do servidor
+            const response = await fetch('../services/availability.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'load'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                populateAvailabilityForm(result.data);
+                return;
+            }
+        } catch (error) {
+            console.warn('Erro ao carregar do servidor, tentando localStorage:', error);
+        }
+        
+        // Fallback para localStorage
+        try {
+            const storedData = localStorage.getItem('availabilitySettings');
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                populateAvailabilityForm(data);
+            }
+        } catch (error) {
+            console.warn('Erro ao carregar do localStorage:', error);
+        }
+    }
+    
+    function populateAvailabilityForm(data) {
+        // Preencher dias selecionados
+        if (data.available_days) {
+            data.available_days.forEach(day => {
+                const checkbox = document.querySelector(`input[name="available_days"][value="${day}"]`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    const dayItem = checkbox.closest('.availability-day-item');
+                    dayItem.classList.add('selected');
+                }
+            });
+        }
+        
+        // Preencher horários
+        if (data.time_schedules && data.time_schedules.length > 0) {
+            const container = document.getElementById('time-schedules-container');
+            if (container) {
+                container.innerHTML = '';
+                
+                data.time_schedules.forEach(schedule => {
+                    const scheduleId = 'schedule_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    const scheduleHTML = `
+                        <div class="time-schedule-item" data-schedule-id="${scheduleId}">
+                            <div class="time-schedule-header">
+                                <div class="time-schedule-title">
+                                    <i class="fas fa-clock"></i>
+                                    Horário de Atendimento
+                                </div>
+                                <div class="time-schedule-actions">
+                                    <button type="button" class="time-schedule-action-btn edit-schedule-btn" onclick="editTimeSchedule('${scheduleId}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="time-schedule-action-btn delete-schedule-btn" onclick="deleteTimeSchedule('${scheduleId}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="time-schedule-fields">
+                                <div class="time-schedule-field">
+                                    <label>Dia da Semana</label>
+                                    <select name="schedule_day" required>
+                                        <option value="">Selecione o dia</option>
+                                        <option value="monday" ${schedule.day === 'monday' ? 'selected' : ''}>Segunda-feira</option>
+                                        <option value="tuesday" ${schedule.day === 'tuesday' ? 'selected' : ''}>Terça-feira</option>
+                                        <option value="wednesday" ${schedule.day === 'wednesday' ? 'selected' : ''}>Quarta-feira</option>
+                                        <option value="thursday" ${schedule.day === 'thursday' ? 'selected' : ''}>Quinta-feira</option>
+                                        <option value="friday" ${schedule.day === 'friday' ? 'selected' : ''}>Sexta-feira</option>
+                                        <option value="saturday" ${schedule.day === 'saturday' ? 'selected' : ''}>Sábado</option>
+                                        <option value="sunday" ${schedule.day === 'sunday' ? 'selected' : ''}>Domingo</option>
+                                    </select>
+                                </div>
+                                <div class="time-schedule-field">
+                                    <label>Horário de Início</label>
+                                    <input type="time" name="start_time" value="${schedule.start_time}" required>
+                                </div>
+                                <div class="time-schedule-field">
+                                    <label>Horário de Fim</label>
+                                    <input type="time" name="end_time" value="${schedule.end_time}" required>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.insertAdjacentHTML('beforeend', scheduleHTML);
+                });
+            }
+        }
+        
+        // Preencher intervalos por dia
+        if (data.service_intervals && data.service_intervals.length > 0) {
+            const container = document.getElementById('service-intervals-container');
+            if (container) {
+                container.innerHTML = '';
+                
+                data.service_intervals.forEach(interval => {
+                    const intervalId = 'interval_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    const intervalHTML = `
+                        <div class="service-interval-item bg-white rounded-lg p-4 mb-4 border border-gray-200" data-interval-id="${intervalId}">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Dia da Semana</label>
+                                    <select name="interval_day" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                        <option value="">Selecione o dia</option>
+                                        <option value="monday" ${interval.day === 'monday' ? 'selected' : ''}>Segunda-feira</option>
+                                        <option value="tuesday" ${interval.day === 'tuesday' ? 'selected' : ''}>Terça-feira</option>
+                                        <option value="wednesday" ${interval.day === 'wednesday' ? 'selected' : ''}>Quarta-feira</option>
+                                        <option value="thursday" ${interval.day === 'thursday' ? 'selected' : ''}>Quinta-feira</option>
+                                        <option value="friday" ${interval.day === 'friday' ? 'selected' : ''}>Sexta-feira</option>
+                                        <option value="saturday" ${interval.day === 'saturday' ? 'selected' : ''}>Sábado</option>
+                                        <option value="sunday" ${interval.day === 'sunday' ? 'selected' : ''}>Domingo</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo</label>
+                                    <input type="number" name="interval_value" value="${interval.interval}" min="0" max="24" required 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                                    <select name="interval_unit" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                        <option value="hours" ${interval.unit === 'hours' ? 'selected' : ''}>Horas</option>
+                                        <option value="minutes" ${interval.unit === 'minutes' ? 'selected' : ''}>Minutos</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" onclick="removeServiceInterval('${intervalId}')" class="mt-2 text-red-600 hover:text-red-800 text-sm">
+                                <i class="fas fa-trash mr-1"></i>Remover
+                            </button>
+                        </div>
+                    `;
+                    
+                    container.insertAdjacentHTML('beforeend', intervalHTML);
+                });
+            }
+        }
+        
+        if (data.max_daily_services) {
+            const maxDailyServices = document.getElementById('max-daily-services');
+            if (maxDailyServices) maxDailyServices.value = data.max_daily_services;
+        }
+    }
+    
+    function initializeAgendaCalendar() {
+        const calendarElement = document.getElementById('agenda-calendar');
+        if (!calendarElement) return;
+        
+        // Inicializar calendário da agenda (similar ao calendário principal)
+        // Por enquanto, apenas um placeholder
+        calendarElement.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-calendar-alt text-4xl mb-4"></i>
+                <p>Calendário da agenda será implementado aqui</p>
+            </div>
+        `;
+    }
+    
+    // ========== FUNCIONALIDADES DE DATAS BLOQUEADAS ==========
+    
+    function setupBlockedDatesFeatures() {
+        // Formulário de datas bloqueadas
+        const blockedDateForm = document.getElementById('blocked-date-form');
+        
+        if (blockedDateForm) {
+            blockedDateForm.addEventListener('submit', handleBlockedDateSubmit);
+        }
+        
+        // Carregar datas bloqueadas
+        loadBlockedDates();
+    }
+    
+    async function handleBlockedDateSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const blockedDateData = {
+            blocked_date: formData.get('blocked_date'),
+            reason: formData.get('reason') || 'Data bloqueada pelo decorador',
+            is_recurring: formData.has('is_recurring')
+        };
+        
+        // Validar dados
+        if (!blockedDateData.blocked_date) {
+            showNotification('Data é obrigatória', 'error');
+            return;
+        }
+        
+        // Mostrar loading
+        const submitBtn = document.getElementById('add-blocked-date-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Bloqueando...';
+        }
+        
+        try {
+            await addBlockedDate(blockedDateData);
+            showNotification('Data bloqueada com sucesso!', 'success');
+            
+            // Limpar formulário
+            e.target.reset();
+            
+            // Recarregar lista
+            await loadBlockedDates();
+            
+        } catch (error) {
+            showNotification('Erro ao bloquear data: ' + error.message, 'error');
+        } finally {
+            // Remover loading
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-ban mr-2"></i>Bloquear Data';
+            }
+        }
+    }
+    
+    async function addBlockedDate(data) {
+        try {
+            const response = await fetch('../services/blocked-dates.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'add',
+                    ...data
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.message || 'Erro ao bloquear data');
+            }
+            
+            if (!result.success) {
+                throw new Error(result.message || 'Erro ao bloquear data');
+            }
+            
+            return result;
+            
+        } catch (error) {
+            console.error('Erro ao bloquear data:', error);
+            throw error;
+        }
+    }
+    
+    async function loadBlockedDates() {
+        try {
+            const response = await fetch('../services/blocked-dates.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'list'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                renderBlockedDates(result.data);
+            } else {
+                renderBlockedDates([]);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao carregar datas bloqueadas:', error);
+            renderBlockedDates([]);
+        }
+    }
+    
+    function renderBlockedDates(blockedDates) {
+        const listContainer = document.getElementById('blocked-dates-list');
+        const noDatesMessage = document.getElementById('no-blocked-dates');
+        
+        if (!listContainer || !noDatesMessage) return;
+        
+        if (blockedDates.length === 0) {
+            listContainer.innerHTML = '';
+            noDatesMessage.classList.remove('hidden');
+            return;
+        }
+        
+        noDatesMessage.classList.add('hidden');
+        
+        const datesHTML = blockedDates.map(date => {
+            const formattedDate = formatDateForDisplay(date.blocked_date);
+            const isRecurring = date.is_recurring;
+            const recurringClass = isRecurring ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200';
+            const recurringIcon = isRecurring ? '<i class="fas fa-repeat text-yellow-600 mr-1"></i>' : '';
+            
+            return `
+                <div class="blocked-date-item ${recurringClass} border rounded-lg p-4" data-date-id="${date.id}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-ban text-red-600"></i>
+                            </div>
+                            <div>
+                                <h5 class="font-medium text-gray-800">${formattedDate}</h5>
+                                <p class="text-sm text-gray-600">${date.reason}</p>
+                                ${isRecurring ? '<span class="text-xs text-yellow-600 font-medium">Recorrente</span>' : ''}
+                            </div>
+                        </div>
+                        <button onclick="removeBlockedDate('${date.id}')" 
+                                class="text-red-600 hover:text-red-800 transition-colors duration-200">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        listContainer.innerHTML = datesHTML;
+    }
+    
+    async function removeBlockedDate(dateId) {
+        if (!confirm('Tem certeza que deseja desbloquear esta data?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('../services/blocked-dates.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'remove',
+                    id: dateId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Data desbloqueada com sucesso!', 'success');
+                await loadBlockedDates();
+            } else {
+                throw new Error(result.message || 'Erro ao desbloquear data');
+            }
+            
+        } catch (error) {
+            showNotification('Erro ao desbloquear data: ' + error.message, 'error');
+        }
+    }
+    
+    function formatDateForDisplay(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
+    
+    async function checkIfDateIsBlocked(date) {
+        try {
+            const response = await fetch('../services/blocked-dates.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'check',
+                    date: date
+                })
+            });
+            
+            const result = await response.json();
+            return result.blocked || false;
+            
+        } catch (error) {
+            console.error('Erro ao verificar data bloqueada:', error);
+            return false;
+        }
+    }
+    
+    // Funções globais para os botões de ação
+    window.editTimeSchedule = editTimeSchedule;
+    window.deleteTimeSchedule = deleteTimeSchedule;
+    window.removeServiceInterval = removeServiceInterval;
+    window.addServiceInterval = addServiceInterval;
+    window.removeBlockedDate = removeBlockedDate;
+    
+    // Funções para gerenciar intervalos de serviços
+    function addServiceInterval() {
+        const container = document.getElementById('service-intervals-container');
+        if (!container) {
+            console.error('Container service-intervals-container não encontrado');
+            return;
+        }
+        
+        const intervalId = 'interval_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const intervalHTML = `
+            <div class="service-interval-item bg-white rounded-lg p-4 mb-4 border border-gray-200" data-interval-id="${intervalId}">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Dia da Semana</label>
+                        <select name="interval_day" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                            <option value="">Selecione o dia</option>
+                            <option value="monday">Segunda-feira</option>
+                            <option value="tuesday">Terça-feira</option>
+                            <option value="wednesday">Quarta-feira</option>
+                            <option value="thursday">Quinta-feira</option>
+                            <option value="friday">Sexta-feira</option>
+                            <option value="saturday">Sábado</option>
+                            <option value="sunday">Domingo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo</label>
+                        <input type="number" name="interval_value" value="1" min="0" max="24" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                        <select name="interval_unit" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                            <option value="hours">Horas</option>
+                            <option value="minutes">Minutos</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" onclick="removeServiceInterval('${intervalId}')" class="mt-2 text-red-600 hover:text-red-800 text-sm">
+                    <i class="fas fa-trash mr-1"></i>Remover
+                </button>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', intervalHTML);
+        
+        // Scroll para o novo item
+        const newItem = container.querySelector(`[data-interval-id="${intervalId}"]`);
+        if (newItem) {
+            newItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    
+    function removeServiceInterval(intervalId) {
+        if (confirm('Tem certeza que deseja remover este intervalo?')) {
+            const intervalItem = document.querySelector(`[data-interval-id="${intervalId}"]`);
+            if (intervalItem) {
+                intervalItem.remove();
+            }
+        }
+    }
+    
+    function initializeDefaultIntervals() {
+        const container = document.getElementById('service-intervals-container');
+        if (!container) return;
+        
+        // Verificar se já existem intervalos
+        const existingIntervals = container.querySelectorAll('.service-interval-item');
+        if (existingIntervals.length === 0) {
+            // Adicionar um intervalo padrão
+            addServiceInterval();
+        }
+    }
+    
+    function setupIntervalButtonListener() {
+        // Aguardar um pouco para garantir que o DOM está carregado
+        setTimeout(() => {
+            const addIntervalBtn = document.getElementById('add-interval-btn');
+            
+            if (addIntervalBtn) {
+                // Adicionar event listener
+                addIntervalBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addServiceInterval();
+                });
+            } else {
+                // Tentar novamente após mais tempo se o módulo ainda não foi carregado
+                setTimeout(setupIntervalButtonListener, 1000);
+            }
+        }, 500);
     }
 
     // ========== DADOS DO USUÁRIO ==========
@@ -2172,6 +3030,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const content = `
             <div class="space-y-4">
+                ${budget.image ? `
+                    <div class="mb-6">
+                        <h4 class="font-semibold text-gray-800 mb-3">Imagem Relacionada</h4>
+                        <div class="relative">
+                            <img src="${budget.image}" alt="Imagem do orçamento" 
+                                 class="w-full max-w-md mx-auto rounded-lg shadow-lg object-cover" 
+                                 style="max-height: 300px;">
+                        </div>
+                    </div>
+                ` : ''}
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <h4 class="font-semibold text-gray-800 mb-2">Informações do Cliente</h4>
@@ -2220,6 +3089,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (budgetDetailsContent) {
             budgetDetailsContent.innerHTML = content;
+        }
+        
+        // Configurar evento do botão de impressão
+        const printBtn = document.getElementById('print-budget-btn');
+        if (printBtn) {
+            printBtn.onclick = () => printBudget(budget);
         }
         
         if (budgetDetailsModal) {
@@ -3101,6 +3976,213 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Chamar inicialização do portfólio
     initPortfolio();
+
+    // Função para imprimir orçamento
+    window.printBudget = function(budget) {
+        // Criar uma nova janela para impressão
+        const printWindow = window.open('', '_blank');
+        
+        // Conteúdo HTML para impressão
+        const printContent = `
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Orçamento - ${budget.client}</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }
+                    .header {
+                        text-align: center;
+                        border-bottom: 2px solid #10b981;
+                        padding-bottom: 20px;
+                        margin-bottom: 30px;
+                    }
+                    .logo {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #10b981;
+                        margin-bottom: 10px;
+                    }
+                    .budget-title {
+                        font-size: 20px;
+                        color: #374151;
+                        margin: 0;
+                    }
+                    .section {
+                        margin-bottom: 25px;
+                    }
+                    .section-title {
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: #374151;
+                        margin-bottom: 10px;
+                        border-bottom: 1px solid #e5e7eb;
+                        padding-bottom: 5px;
+                    }
+                    .info-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 20px;
+                        margin-bottom: 20px;
+                    }
+                    .info-item {
+                        margin-bottom: 8px;
+                    }
+                    .info-label {
+                        font-weight: bold;
+                        color: #6b7280;
+                    }
+                    .info-value {
+                        color: #374151;
+                    }
+                    .image-container {
+                        text-align: center;
+                        margin: 20px 0;
+                    }
+                    .budget-image {
+                        max-width: 100%;
+                        max-height: 400px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }
+                    .value {
+                        font-size: 18px;
+                        font-weight: bold;
+                        color: #10b981;
+                    }
+                    .status {
+                        display: inline-block;
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                    }
+                    .status-pendente { background-color: #fef3c7; color: #92400e; }
+                    .status-aprovado { background-color: #d1fae5; color: #065f46; }
+                    .status-rejeitado { background-color: #fee2e2; color: #991b1b; }
+                    .status-cancelado { background-color: #f3f4f6; color: #374151; }
+                    .footer {
+                        margin-top: 40px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e5e7eb;
+                        text-align: center;
+                        color: #6b7280;
+                        font-size: 12px;
+                    }
+                    @media print {
+                        body { margin: 0; padding: 15px; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="logo">Up.Baloes</div>
+                    <h1 class="budget-title">Detalhes do Orçamento</h1>
+                </div>
+
+                ${budget.image ? `
+                    <div class="image-container">
+                        <img src="${budget.image}" alt="Imagem do orçamento" class="budget-image">
+                    </div>
+                ` : ''}
+
+                <div class="info-grid">
+                    <div class="section">
+                        <div class="section-title">Informações do Cliente</div>
+                        <div class="info-item">
+                            <span class="info-label">Nome:</span>
+                            <span class="info-value">${budget.client}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">${budget.email}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Telefone:</span>
+                            <span class="info-value">${budget.phone || 'Não informado'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">Informações do Evento</div>
+                        <div class="info-item">
+                            <span class="info-label">Data:</span>
+                            <span class="info-value">${formatDate(budget.event_date)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Hora:</span>
+                            <span class="info-value">${budget.event_time}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Local:</span>
+                            <span class="info-value">${budget.event_location}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Tipo:</span>
+                            <span class="info-value">${getServiceTypeLabel(budget.service_type)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${budget.description ? `
+                    <div class="section">
+                        <div class="section-title">Descrição</div>
+                        <p>${budget.description}</p>
+                    </div>
+                ` : ''}
+
+                ${budget.estimated_value > 0 ? `
+                    <div class="section">
+                        <div class="section-title">Valor Estimado</div>
+                        <p class="value">R$ ${budget.estimated_value.toFixed(2)}</p>
+                    </div>
+                ` : ''}
+
+                ${budget.notes ? `
+                    <div class="section">
+                        <div class="section-title">Observações</div>
+                        <p>${budget.notes}</p>
+                    </div>
+                ` : ''}
+
+                <div class="section">
+                    <div class="section-title">Status e Data de Criação</div>
+                    <p>
+                        <span class="status status-${budget.status}">${getStatusLabel(budget.status)}</span>
+                        <span style="margin-left: 15px; color: #6b7280;">Criado em: ${formatDate(budget.created_at)}</span>
+                    </p>
+                </div>
+
+                <div class="footer">
+                    <p>Este documento foi gerado automaticamente pelo sistema Up.Baloes</p>
+                    <p>Data de impressão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        // Escrever o conteúdo na nova janela
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        // Aguardar o carregamento das imagens e então imprimir
+        printWindow.onload = function() {
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        };
+    };
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });

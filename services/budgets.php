@@ -48,12 +48,21 @@ class BudgetService {
      */
     public function createBudget($data) {
         try {
+            // Validar disponibilidade antes de criar o orçamento
+            $availabilityCheck = $this->validateAvailability($data);
+            if (!$availabilityCheck['success']) {
+                return [
+                    'success' => false,
+                    'message' => $availabilityCheck['message']
+                ];
+            }
+            
             $stmt = $this->pdo->prepare("
                 INSERT INTO orcamentos (
                     cliente, email, telefone, data_evento, hora_evento, 
                     local_evento, tipo_servico, descricao, valor_estimado, 
-                    observacoes, status, decorador_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    observacoes, status, decorador_id, imagem, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             
             $stmt->execute([
@@ -68,7 +77,8 @@ class BudgetService {
                 $data['estimated_value'] ?? 0,
                 $data['notes'] ?? null,
                 'pendente',
-                $_SESSION['user_id'] ?? 1 // ID do decorador logado
+                $_SESSION['user_id'] ?? 1, // ID do decorador logado
+                $data['image'] ?? null // Caminho da imagem
             ]);
             
             $budgetId = $this->pdo->lastInsertId();
@@ -128,7 +138,7 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, created_at, updated_at
+                    observacoes, status, imagem, created_at, updated_at
                 FROM orcamentos 
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY created_at DESC
@@ -149,6 +159,7 @@ class BudgetService {
                 $budget['phone'] = $budget['telefone'];
                 $budget['description'] = $budget['descricao'];
                 $budget['notes'] = $budget['observacoes'];
+                $budget['image'] = $budget['imagem'];
                 $budget['created_at'] = $budget['created_at'];
             }
             
@@ -175,7 +186,7 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, created_at, updated_at
+                    observacoes, status, imagem, created_at, updated_at
                 FROM orcamentos 
                 WHERE id = ? AND decorador_id = ?
             ");
@@ -558,6 +569,173 @@ class BudgetService {
     /**
      * Log de ações
      */
+    /**
+     * Validar disponibilidade para um orçamento
+     */
+    private function validateAvailability($data) {
+        try {
+            $userId = $_SESSION['user_id'] ?? 1;
+            $eventDate = $data['event_date'];
+            $eventTime = $data['event_time'];
+            $eventDateTime = $eventDate . ' ' . $eventTime;
+            
+            // Obter configurações de disponibilidade
+            $stmt = $this->pdo->prepare("
+                SELECT available_days, time_schedules, service_interval, interval_unit, max_daily_services 
+                FROM decorator_availability 
+                WHERE user_id = ? 
+                ORDER BY updated_at DESC 
+                LIMIT 1
+            ");
+            
+            $stmt->execute([$userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$result) {
+                // Se não há configurações, permitir criação (modo compatibilidade)
+                return ['success' => true];
+            }
+            
+            $availableDays = json_decode($result['available_days'], true);
+            $timeSchedules = json_decode($result['time_schedules'], true);
+            $serviceInterval = intval($result['service_interval']);
+            $intervalUnit = $result['interval_unit'];
+            $maxDailyServices = intval($result['max_daily_services']);
+            
+            // Verificar se a data está bloqueada
+            $isDateBlocked = $this->checkIfDateIsBlocked($userId, $eventDate);
+            if ($isDateBlocked) {
+                return [
+                    'success' => false,
+                    'message' => 'Esta data está bloqueada para atendimento'
+                ];
+            }
+            
+            // Verificar se o dia da semana está disponível
+            $dayOfWeek = strtolower(date('l', strtotime($eventDate)));
+            $dayMapping = [
+                'monday' => 'monday',
+                'tuesday' => 'tuesday', 
+                'wednesday' => 'wednesday',
+                'thursday' => 'thursday',
+                'friday' => 'friday',
+                'saturday' => 'saturday',
+                'sunday' => 'sunday'
+            ];
+            
+            $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
+            
+            if (!in_array($dayKey, $availableDays)) {
+                return [
+                    'success' => false,
+                    'message' => 'Não há atendimento neste dia da semana'
+                ];
+            }
+            
+            // Verificar se o horário está dentro dos horários de atendimento
+            $isWithinSchedule = false;
+            foreach ($timeSchedules as $schedule) {
+                if ($schedule['day'] === $dayKey) {
+                    if ($eventTime >= $schedule['start_time'] && $eventTime <= $schedule['end_time']) {
+                        $isWithinSchedule = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$isWithinSchedule) {
+                return [
+                    'success' => false,
+                    'message' => 'Horário fora do período de atendimento'
+                ];
+            }
+            
+            // Verificar limite de serviços por dia
+            $stmt = $this->pdo->prepare("
+                SELECT COUNT(*) as count 
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+                AND data_evento = ? 
+                AND status IN ('aprovado', 'pendente')
+            ");
+            
+            $stmt->execute([$userId, $eventDate]);
+            $dailyCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+            
+            if ($dailyCount >= $maxDailyServices) {
+                return [
+                    'success' => false,
+                    'message' => "Limite de {$maxDailyServices} serviços por dia atingido"
+                ];
+            }
+            
+            // Verificar intervalo entre serviços
+            if ($serviceInterval > 0) {
+                $intervalMinutes = $intervalUnit === 'hours' ? $serviceInterval * 60 : $serviceInterval;
+                
+                $stmt = $this->pdo->prepare("
+                    SELECT hora_evento 
+                    FROM orcamentos 
+                    WHERE decorador_id = ? 
+                    AND data_evento = ? 
+                    AND status IN ('aprovado', 'pendente')
+                    ORDER BY hora_evento
+                ");
+                
+                $stmt->execute([$userId, $eventDate]);
+                $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                foreach ($existingTimes as $existingTime) {
+                    $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
+                    $newDateTime = new DateTime($eventDateTime);
+                    
+                    $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
+                    
+                    if ($diffMinutes < $intervalMinutes) {
+                        return [
+                            'success' => false,
+                            'message' => "Intervalo mínimo de {$serviceInterval} " . 
+                                ($intervalUnit === 'hours' ? 'hora(s)' : 'minuto(s)') . 
+                                " entre serviços não respeitado"
+                        ];
+                    }
+                }
+            }
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao validar disponibilidade: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro ao validar disponibilidade'
+            ];
+        }
+    }
+
+    /**
+     * Verificar se uma data está bloqueada
+     */
+    private function checkIfDateIsBlocked($userId, $date) {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT id, reason, is_recurring
+                FROM decorator_blocked_dates 
+                WHERE user_id = ? 
+                AND (
+                    blocked_date = ? 
+                    OR (is_recurring = 1 AND DATE_FORMAT(blocked_date, '%m-%d') = DATE_FORMAT(?, '%m-%d'))
+                )
+            ");
+            
+            $stmt->execute([$userId, $date, $date]);
+            return $stmt->fetch() !== false;
+        } catch (Exception $e) {
+            error_log('Erro ao verificar data bloqueada: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     private function logAction($action, $budgetId) {
         try {
             $stmt = $this->pdo->prepare("
