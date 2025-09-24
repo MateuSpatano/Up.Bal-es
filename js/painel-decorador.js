@@ -1125,11 +1125,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadPortfolioData() {
-        // Simular carregamento de dados do portfólio
         console.log('Carregando dados do portfólio...');
         
-        // Aqui você pode implementar carregamento de projetos
-        // Por exemplo, fotos, descrições, etc.
+        // Garantir que o portfólio esteja inicializado
+        if (typeof loadPortfolioServices === 'function') {
+            loadPortfolioServices();
+        }
+        
+        // Renderizar serviços se já existirem
+        if (typeof renderPortfolioServices === 'function' && portfolioServices && portfolioServices.length > 0) {
+            renderPortfolioServices();
+        }
     }
     
     function loadAgendaData() {
@@ -3883,18 +3889,133 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmDeleteService = document.getElementById('confirm-delete-service');
     const deleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay');
     
+    // Elementos do editor de imagem
+    const imageEditorModal = document.getElementById('image-editor-modal');
+    const closeImageEditorModal = document.getElementById('close-image-editor-modal');
+    const imageEditorModalOverlay = document.getElementById('image-editor-modal-overlay');
+    const imageEditorCanvas = document.getElementById('image-editor-canvas');
+    const cancelImageEdit = document.getElementById('cancel-image-edit');
+    const applyImageEdit = document.getElementById('apply-image-edit');
+    const openImageEditorBtn = document.getElementById('open-image-editor');
+    const editImageBtn = document.getElementById('edit-image-btn');
+    
+    // Elementos de notificação toast
+    const toastContainer = document.getElementById('toast-container');
+    
     
     // Variáveis do portfólio
     let portfolioServices = [];
     let editingServiceId = null;
     let deletingServiceId = null;
     
+    // Variáveis do editor de imagem
+    let currentEditingImage = null;
+    let originalImageData = null;
+    let imageEditorState = {
+        zoom: 100,
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        flipHorizontal: false,
+        cropRatio: null,
+        canvasWidth: 400,
+        canvasHeight: 300
+    };
+    
+    // ========== SISTEMA DE NOTIFICAÇÕES TOAST ==========
+    
+    // Função para mostrar notificação toast
+    function showToast(type, title, message, duration = 5000) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        const icons = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            warning: 'fas fa-exclamation-triangle',
+            info: 'fas fa-info-circle'
+        };
+        
+        toast.innerHTML = `
+            <i class="toast-icon ${icons[type]}"></i>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="toast-progress" style="width: 100%; animation: toast-progress ${duration}ms linear;"></div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Mostrar toast
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        // Auto-remover após duração especificada
+        setTimeout(() => {
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+        
+        return toast;
+    }
+    
+    // Funções de conveniência para diferentes tipos de toast
+    function showSuccessToast(title, message, duration) {
+        return showToast('success', title, message, duration);
+    }
+    
+    function showErrorToast(title, message, duration) {
+        return showToast('error', title, message, duration);
+    }
+    
+    function showWarningToast(title, message, duration) {
+        return showToast('warning', title, message, duration);
+    }
+    
+    function showInfoToast(title, message, duration) {
+        return showToast('info', title, message, duration);
+    }
+    
     // Carregar serviços do portfólio
     function loadPortfolioServices() {
-        const saved = localStorage.getItem('portfolio_services');
-        if (saved) {
-            portfolioServices = JSON.parse(saved);
-        }
+        // Limpar dados existentes
+        localStorage.removeItem('portfolio_services');
+        portfolioServices = [];
+        
+        // Adicionar alguns serviços de exemplo para teste
+        portfolioServices = [
+            {
+                id: 'demo-1',
+                type: 'Arco Tradicional',
+                title: 'Arco de Balões para Aniversário',
+                description: 'Arco tradicional com balões coloridos perfeito para aniversários e comemorações.',
+                price: '150.00',
+                arcSize: '3m de altura',
+                image: null
+            },
+            {
+                id: 'demo-2',
+                type: 'Centro de Mesa',
+                title: 'Centro de Mesa Elegante',
+                description: 'Centro de mesa com balões e decoração elegante para eventos especiais.',
+                price: '80.00',
+                arcSize: null,
+                image: null
+            },
+            {
+                id: 'demo-3',
+                type: 'Escultura de Balão',
+                title: 'Escultura de Personagem',
+                description: 'Escultura personalizada de personagens em balões para festas temáticas.',
+                price: '200.00',
+                arcSize: '1.5m de altura',
+                image: null
+            }
+        ];
+        
+        savePortfolioServices();
         renderPortfolioServices();
     }
     
@@ -4161,27 +4282,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Criar card de serviço
     async function createServiceCard(service) {
         const card = document.createElement('div');
-        card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200';
+        card.className = 'service-card group bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200 overflow-hidden';
         
-        // Processar imagem se existir
+        // Processar imagem com ajuste automático
         let imageHtml = '';
         if (service.image) {
             try {
-                imageHtml = await createResponsiveImage(service.image, service.title, 'w-full h-48');
+                // Usar ajuste automático de imagem
+                imageHtml = await createAutoFitImage(service.image, service.title);
             } catch (error) {
                 console.error('Erro ao processar imagem:', error);
-                imageHtml = `
-                    <div class="service-image-placeholder">
-                        <i class="fas fa-image"></i>
-                    </div>
-                `;
+                imageHtml = createImagePlaceholder();
             }
         } else {
-            imageHtml = `
-                <div class="service-image-placeholder">
-                    <i class="fas fa-image"></i>
-                </div>
-            `;
+            imageHtml = createImagePlaceholder();
         }
         
         card.innerHTML = `
@@ -4189,11 +4303,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="service-image-container">
                     ${imageHtml}
                 </div>
-                <div class="absolute top-2 right-2 flex space-x-1">
-                    <button class="edit-service-btn w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors duration-200" data-id="${service.id}">
+                <div class="service-actions absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button class="edit-service-btn w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 shadow-lg cursor-pointer" data-id="${service.id}" title="Editar serviço" type="button">
                         <i class="fas fa-edit text-sm"></i>
                     </button>
-                    <button class="delete-service-btn w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors duration-200" data-id="${service.id}">
+                    <button class="delete-service-btn w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 shadow-lg cursor-pointer" data-id="${service.id}" title="Excluir serviço" type="button">
                         <i class="fas fa-trash text-sm"></i>
                     </button>
                 </div>
@@ -4211,27 +4325,74 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        // Adicionar event listeners aos botões
-        const editBtn = card.querySelector('.edit-service-btn');
-        const deleteBtn = card.querySelector('.delete-service-btn');
-        
-        if (editBtn) {
-            editBtn.addEventListener('click', (e) => {
+        // Adicionar event listeners usando event delegation
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.edit-service-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
                 editService(service.id);
-            });
-        }
-        
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', (e) => {
+            } else if (e.target.closest('.delete-service-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
                 confirmDeleteServiceAction(service.id);
-            });
         }
+        });
         
         return card;
+    }
+    
+    // Criar placeholder para imagem
+    function createImagePlaceholder() {
+        return `
+            <div class="service-image-placeholder">
+                <i class="fas fa-image text-4xl text-purple-400"></i>
+                <p class="text-purple-600 text-sm mt-2">Sem imagem</p>
+            </div>
+        `;
+    }
+    
+    // Criar imagem com ajuste automático
+    async function createAutoFitImage(imageSrc, altText) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = function() {
+                const containerWidth = 280; // Largura do card
+                const containerHeight = 256; // Altura da imagem (16rem)
+                
+                // Calcular dimensões mantendo proporção
+                const imgAspectRatio = img.width / img.height;
+                const containerAspectRatio = containerWidth / containerHeight;
+                
+                let finalWidth, finalHeight;
+                
+                if (imgAspectRatio > containerAspectRatio) {
+                    // Imagem mais larga que o container
+                    finalWidth = containerWidth;
+                    finalHeight = containerWidth / imgAspectRatio;
+                } else {
+                    // Imagem mais alta que o container
+                    finalHeight = containerHeight;
+                    finalWidth = containerHeight * imgAspectRatio;
+                }
+                
+                // Centralizar a imagem
+                const offsetX = (containerWidth - finalWidth) / 2;
+                const offsetY = (containerHeight - finalHeight) / 2;
+                
+                resolve(`
+                    <img src="${imageSrc}" 
+                         alt="${altText || 'Imagem do serviço'}" 
+                         class="service-image" 
+                         style="width: ${finalWidth}px; height: ${finalHeight}px; object-fit: contain; position: absolute; top: ${offsetY}px; left: ${offsetX}px;">
+                `);
+            };
+            
+            img.onerror = function() {
+                resolve(createImagePlaceholder());
+            };
+            
+            img.src = imageSrc;
+        });
     }
     
     // Abrir modal para adicionar serviço
@@ -4247,7 +4408,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Abrir modal para editar serviço
     function editService(serviceId) {
         const service = portfolioServices.find(s => s.id === serviceId);
-        if (!service) return;
+        if (!service) {
+            showErrorToast('Erro', 'Serviço não encontrado.');
+            return;
+        }
         
         editingServiceId = serviceId;
         document.getElementById('service-modal-title').textContent = 'Editar Serviço';
@@ -4266,11 +4430,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const previewImg = document.getElementById('preview-img');
             previewImg.src = service.image;
             preview.classList.remove('hidden');
+            document.getElementById('open-image-editor').classList.remove('hidden');
         } else {
             document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('open-image-editor').classList.add('hidden');
         }
         
         serviceModal.classList.remove('hidden');
+        showInfoToast('Editando Serviço', 'Modifique as informações conforme necessário.');
     }
     
     // Confirmar exclusão de serviço
@@ -4287,7 +4454,238 @@ document.addEventListener('DOMContentLoaded', function() {
             renderPortfolioServices();
             deleteServiceModal.classList.add('hidden');
             deletingServiceId = null;
+            showSuccessToast('Serviço Excluído', 'O serviço foi removido do seu portfólio com sucesso.');
         }
+    }
+
+    // ========== EDITOR DE IMAGEM ==========
+    
+    // Abrir editor de imagem
+    function openImageEditor(imageFile) {
+        if (!imageFile) return;
+        
+        currentEditingImage = imageFile;
+        
+        // Ler arquivo como data URL
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                originalImageData = e.target.result;
+                setupImageEditor(img);
+                imageEditorModal.classList.remove('hidden');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(imageFile);
+    }
+    
+    // Configurar editor de imagem
+    function setupImageEditor(img) {
+        const canvas = imageEditorCanvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Resetar estado
+        imageEditorState = {
+            zoom: 100,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            flipHorizontal: false,
+            cropRatio: null,
+            canvasWidth: 400,
+            canvasHeight: 300
+        };
+        
+        // Configurar canvas
+        canvas.width = imageEditorState.canvasWidth;
+        canvas.height = imageEditorState.canvasHeight;
+        
+        // Desenhar imagem inicial
+        drawImageOnCanvas(img);
+        
+        // Atualizar preview
+        updateImagePreview();
+    }
+    
+    // Desenhar imagem no canvas
+    function drawImageOnCanvas(img) {
+        const canvas = imageEditorCanvas;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Calcular dimensões com zoom
+        const scale = imageEditorState.zoom / 100;
+        const imgWidth = img.width * scale;
+        const imgHeight = img.height * scale;
+        
+        // Aplicar rotação
+        ctx.save();
+        
+        if (imageEditorState.rotation !== 0) {
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((imageEditorState.rotation * Math.PI) / 180);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        }
+        
+        // Aplicar flip horizontal
+        if (imageEditorState.flipHorizontal) {
+            ctx.scale(-1, 1);
+            ctx.translate(-canvas.width, 0);
+        }
+        
+        // Calcular posição
+        let x = (canvas.width - imgWidth) / 2 + imageEditorState.position.x;
+        let y = (canvas.height - imgHeight) / 2 + imageEditorState.position.y;
+        
+        // Desenhar imagem
+        ctx.drawImage(img, x, y, imgWidth, imgHeight);
+        
+        ctx.restore();
+    }
+    
+    // Atualizar preview da imagem
+    function updateImagePreview() {
+        const previewContainer = document.getElementById('image-preview-result');
+        const canvas = imageEditorCanvas;
+        
+        // Criar preview em miniatura
+        const previewCanvas = document.createElement('canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        
+        previewCanvas.width = 200;
+        previewCanvas.height = 150;
+        
+        // Redimensionar canvas para preview
+        previewCtx.drawImage(canvas, 0, 0, 200, 150);
+        
+        previewContainer.innerHTML = '';
+        previewContainer.appendChild(previewCanvas);
+    }
+    
+    // Aplicar zoom
+    function applyZoom(zoomLevel) {
+        imageEditorState.zoom = Math.max(50, Math.min(200, zoomLevel));
+        document.getElementById('zoom-value').textContent = imageEditorState.zoom + '%';
+        
+        if (currentEditingImage) {
+            const img = new Image();
+            img.onload = () => drawImageOnCanvas(img);
+            img.src = originalImageData;
+        }
+    }
+    
+    // Aplicar posição
+    function applyPosition(position) {
+        const positions = {
+            'top-left': { x: -50, y: -50 },
+            'top': { x: 0, y: -50 },
+            'top-right': { x: 50, y: -50 },
+            'left': { x: -50, y: 0 },
+            'center': { x: 0, y: 0 },
+            'right': { x: 50, y: 0 },
+            'bottom-left': { x: -50, y: 50 },
+            'bottom': { x: 0, y: 50 },
+            'bottom-right': { x: 50, y: 50 }
+        };
+        
+        imageEditorState.position = positions[position] || { x: 0, y: 0 };
+        
+        // Atualizar botões ativos
+        document.querySelectorAll('[id^="pos-"]').forEach(btn => {
+            btn.classList.remove('pos-button-active');
+        });
+        document.getElementById(`pos-${position}`).classList.add('pos-button-active');
+        
+        if (currentEditingImage) {
+            const img = new Image();
+            img.onload = () => drawImageOnCanvas(img);
+            img.src = originalImageData;
+        }
+    }
+    
+    // Aplicar rotação
+    function applyRotation(degrees) {
+        imageEditorState.rotation += degrees;
+        
+        if (currentEditingImage) {
+            const img = new Image();
+            img.onload = () => drawImageOnCanvas(img);
+            img.src = originalImageData;
+        }
+    }
+    
+    // Aplicar flip horizontal
+    function applyFlipHorizontal() {
+        imageEditorState.flipHorizontal = !imageEditorState.flipHorizontal;
+        
+        if (currentEditingImage) {
+            const img = new Image();
+            img.onload = () => drawImageOnCanvas(img);
+            img.src = originalImageData;
+        }
+    }
+    
+    // Resetar imagem
+    function resetImageEditor() {
+        imageEditorState = {
+            zoom: 100,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            flipHorizontal: false,
+            cropRatio: null,
+            canvasWidth: 400,
+            canvasHeight: 300
+        };
+        
+        document.getElementById('zoom-value').textContent = '100%';
+        document.getElementById('zoom-slider').value = 100;
+        
+        // Resetar botões ativos
+        document.querySelectorAll('[id^="pos-"]').forEach(btn => {
+            btn.classList.remove('pos-button-active');
+        });
+        document.getElementById('pos-center').classList.add('pos-button-active');
+        
+        if (currentEditingImage) {
+            const img = new Image();
+            img.onload = () => drawImageOnCanvas(img);
+            img.src = originalImageData;
+        }
+    }
+    
+    // Aplicar edições da imagem
+    function applyImageEdits() {
+        if (!currentEditingImage) return;
+        
+        const canvas = imageEditorCanvas;
+        
+        // Converter canvas para blob
+        canvas.toBlob((blob) => {
+            // Criar novo arquivo File
+            const editedFile = new File([blob], currentEditingImage.name, {
+                type: currentEditingImage.type,
+                lastModified: Date.now()
+            });
+            
+            // Atualizar input de arquivo
+            const fileInput = document.getElementById('service-image');
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(editedFile);
+            fileInput.files = dataTransfer.files;
+            
+            // Atualizar preview
+            const preview = document.getElementById('image-preview');
+            const previewImg = document.getElementById('preview-img');
+            previewImg.src = canvas.toDataURL();
+            preview.classList.remove('hidden');
+            document.getElementById('open-image-editor').classList.remove('hidden');
+            
+            // Fechar modal
+            imageEditorModal.classList.add('hidden');
+            
+            showSuccessToast('Imagem Editada', 'As alterações na imagem foram aplicadas com sucesso.');
+        }, currentEditingImage.type, 0.9);
     }
     
     // Processar imagem
@@ -4301,6 +4699,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Salvar serviço
     async function saveServiceData(formData) {
+        try {
         const serviceData = {
             id: editingServiceId || Date.now().toString(),
             type: formData.get('type'),
@@ -4328,15 +4727,30 @@ document.addEventListener('DOMContentLoaded', function() {
             const index = portfolioServices.findIndex(s => s.id === editingServiceId);
             if (index !== -1) {
                 portfolioServices[index] = serviceData;
+                    showSuccessToast('Serviço Atualizado', 'As alterações foram salvas com sucesso.');
+                } else {
+                    showErrorToast('Erro', 'Serviço não encontrado para atualização.');
+                    return;
             }
         } else {
             // Adicionar novo serviço
             portfolioServices.push(serviceData);
+                showSuccessToast('Serviço Adicionado', 'Novo serviço foi adicionado ao seu portfólio.');
         }
         
         savePortfolioServices();
         renderPortfolioServices();
         serviceModal.classList.add('hidden');
+            
+            // Resetar formulário
+            editingServiceId = null;
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('open-image-editor').classList.add('hidden');
+            
+        } catch (error) {
+            console.error('Erro ao salvar serviço:', error);
+            showErrorToast('Erro', 'Ocorreu um erro ao salvar o serviço. Tente novamente.');
+        }
     }
     
     // Atualizar portfólio na página inicial
@@ -4394,7 +4808,7 @@ document.addEventListener('DOMContentLoaded', function() {
             serviceModalOverlay.addEventListener('click', () => serviceModal.classList.add('hidden'));
         }
         
-        // Preview de imagem
+        // Preview de imagem e editor
         const serviceImageInput = document.getElementById('service-image');
         if (serviceImageInput) {
             serviceImageInput.addEventListener('change', (e) => {
@@ -4406,10 +4820,100 @@ document.addEventListener('DOMContentLoaded', function() {
                         const previewImg = document.getElementById('preview-img');
                         previewImg.src = e.target.result;
                         preview.classList.remove('hidden');
+                        document.getElementById('open-image-editor').classList.remove('hidden');
                     };
                     reader.readAsDataURL(file);
                 }
             });
+        }
+        
+        // Editor de imagem
+        if (openImageEditorBtn) {
+            openImageEditorBtn.addEventListener('click', () => {
+                const fileInput = document.getElementById('service-image');
+                if (fileInput.files.length > 0) {
+                    openImageEditor(fileInput.files[0]);
+                } else {
+                    showWarningToast('Nenhuma Imagem', 'Selecione uma imagem primeiro para editá-la.');
+                }
+            });
+        }
+        
+        if (editImageBtn) {
+            editImageBtn.addEventListener('click', () => {
+                const fileInput = document.getElementById('service-image');
+                if (fileInput.files.length > 0) {
+                    openImageEditor(fileInput.files[0]);
+                }
+            });
+        }
+        
+        // Event listeners do editor de imagem
+        if (closeImageEditorModal) {
+            closeImageEditorModal.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        }
+        
+        if (imageEditorModalOverlay) {
+            imageEditorModalOverlay.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        }
+        
+        if (cancelImageEdit) {
+            cancelImageEdit.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        }
+        
+        if (applyImageEdit) {
+            applyImageEdit.addEventListener('click', applyImageEdits);
+        }
+        
+        // Controles de zoom
+        const zoomSlider = document.getElementById('zoom-slider');
+        if (zoomSlider) {
+            zoomSlider.addEventListener('input', (e) => applyZoom(parseInt(e.target.value)));
+        }
+        
+        const zoomInBtn = document.getElementById('zoom-in');
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => applyZoom(imageEditorState.zoom + 10));
+        }
+        
+        const zoomOutBtn = document.getElementById('zoom-out');
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => applyZoom(imageEditorState.zoom - 10));
+        }
+        
+        const zoomResetBtn = document.getElementById('zoom-reset');
+        if (zoomResetBtn) {
+            zoomResetBtn.addEventListener('click', () => applyZoom(100));
+        }
+        
+        // Controles de posição
+        const positionButtons = document.querySelectorAll('[id^="pos-"]');
+        positionButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const position = btn.id.replace('pos-', '');
+                applyPosition(position);
+            });
+        });
+        
+        // Controles de rotação
+        const rotateLeftBtn = document.getElementById('rotate-left');
+        if (rotateLeftBtn) {
+            rotateLeftBtn.addEventListener('click', () => applyRotation(-90));
+        }
+        
+        const rotateRightBtn = document.getElementById('rotate-right');
+        if (rotateRightBtn) {
+            rotateRightBtn.addEventListener('click', () => applyRotation(90));
+        }
+        
+        const flipHorizontalBtn = document.getElementById('flip-horizontal');
+        if (flipHorizontalBtn) {
+            flipHorizontalBtn.addEventListener('click', applyFlipHorizontal);
+        }
+        
+        const resetImageBtn = document.getElementById('reset-image');
+        if (resetImageBtn) {
+            resetImageBtn.addEventListener('click', resetImageEditor);
         }
         
         // Salvar serviço
@@ -4455,8 +4959,22 @@ document.addEventListener('DOMContentLoaded', function() {
         window.addEventListener('resize', handleResize);
     }
     
+    // Função para limpar e recriar portfólio
+    function resetPortfolio() {
+        localStorage.removeItem('portfolio_services');
+        portfolioServices = [];
+        renderPortfolioServices();
+        showSuccessToast('Portfólio Limpo', 'Todos os serviços foram removidos.');
+    }
+    
     // Chamar inicialização do portfólio
     initPortfolio();
+    
+    // Disponibilizar funções globalmente para debug
+    window.editService = editService;
+    window.confirmDeleteServiceAction = confirmDeleteServiceAction;
+    window.portfolioServices = () => portfolioServices;
+    window.resetPortfolio = resetPortfolio;
 
     // Função para imprimir orçamento
     window.printBudget = function(budget) {

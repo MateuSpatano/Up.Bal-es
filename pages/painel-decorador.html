@@ -696,6 +696,9 @@
         <i class="fas fa-plus text-xl"></i>
     </button>
 
+    <!-- Container de Notificações Toast -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
     <!-- Modal de Criação de Orçamento -->
     <div id="create-budget-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -1133,13 +1136,21 @@
                                 <input type="file" id="service-image" name="image" accept="image/*" 
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200">
                             </div>
-                            <div id="image-preview" class="w-20 h-20 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center hidden">
+                            <div id="image-preview" class="w-24 h-24 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center hidden relative">
                                 <img id="preview-img" src="" alt="Preview" class="w-full h-full object-cover rounded-lg">
+                                <button type="button" id="edit-image-btn" class="absolute top-1 right-1 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 transition-colors duration-200 text-xs opacity-0 hover:opacity-100">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="text-xs text-gray-500">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Formatos aceitos: JPG, PNG, GIF (máx. 5MB)
+                        <div class="flex items-center justify-between">
+                            <div class="text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Formatos aceitos: JPG, PNG, GIF (máx. 5MB)
+                            </div>
+                            <button type="button" id="open-image-editor" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium hidden">
+                                <i class="fas fa-crop mr-1"></i>Editar Imagem
+                            </button>
                         </div>
                     </div>
 
@@ -1249,6 +1260,203 @@
                         <button type="button" id="confirm-delete-service"
                                 class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
                             <i class="fas fa-trash mr-2"></i>Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Editor de Imagem -->
+    <div id="image-editor-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="image-editor-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-4xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-crop text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Editor de Imagem</h3>
+                                <p class="text-indigo-100 text-sm">Ajuste zoom, posição e corte da imagem</p>
+                            </div>
+                        </div>
+                        <button id="close-image-editor-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <!-- Controles de Edição -->
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <!-- Painel de Controles -->
+                        <div class="lg:col-span-1">
+                            <div class="space-y-6">
+                                <!-- Controle de Zoom -->
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                                        <i class="fas fa-search-plus mr-2 text-indigo-600"></i>
+                                        Zoom
+                                    </h4>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-xs text-gray-600 mb-1">Nível de Zoom</label>
+                                            <input type="range" id="zoom-slider" min="50" max="200" value="100" 
+                                                   class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                                <span>50%</span>
+                                                <span id="zoom-value">100%</span>
+                                                <span>200%</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button id="zoom-out" class="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-search-minus mr-1"></i>Menos
+                                            </button>
+                                            <button id="zoom-reset" class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-expand-arrows-alt mr-1"></i>Reset
+                                            </button>
+                                            <button id="zoom-in" class="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-search-plus mr-1"></i>Mais
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Controle de Posição -->
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                                        <i class="fas fa-arrows-alt mr-2 text-indigo-600"></i>
+                                        Posição
+                                    </h4>
+                                    <div class="space-y-3">
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <button id="pos-top-left" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-up text-xs"></i>
+                                                <i class="fas fa-arrow-left text-xs ml-1"></i>
+                                            </button>
+                                            <button id="pos-top" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                            <button id="pos-top-right" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-up text-xs"></i>
+                                                <i class="fas fa-arrow-right text-xs ml-1"></i>
+                                            </button>
+                                            <button id="pos-left" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-left"></i>
+                                            </button>
+                                            <button id="pos-center" class="p-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors duration-200">
+                                                <i class="fas fa-crosshairs"></i>
+                                            </button>
+                                            <button id="pos-right" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                            <button id="pos-bottom-left" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-down text-xs"></i>
+                                                <i class="fas fa-arrow-left text-xs ml-1"></i>
+                                            </button>
+                                            <button id="pos-bottom" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                            <button id="pos-bottom-right" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200">
+                                                <i class="fas fa-arrow-down text-xs"></i>
+                                                <i class="fas fa-arrow-right text-xs ml-1"></i>
+                                            </button>
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            <p>Clique nos botões para reposicionar a imagem</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Controle de Corte -->
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                                        <i class="fas fa-crop mr-2 text-indigo-600"></i>
+                                        Corte
+                                    </h4>
+                                    <div class="space-y-3">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button id="crop-square" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-square mr-1"></i>Quadrado
+                                            </button>
+                                            <button id="crop-16-9" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-tv mr-1"></i>16:9
+                                            </button>
+                                            <button id="crop-4-3" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-tablet mr-1"></i>4:3
+                                            </button>
+                                            <button id="crop-original" class="p-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors duration-200 text-sm">
+                                                <i class="fas fa-image mr-1"></i>Original
+                                            </button>
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            <p>Selecione um formato de corte</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Controles Gerais -->
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                                        <i class="fas fa-cog mr-2 text-indigo-600"></i>
+                                        Ações
+                                    </h4>
+                                    <div class="space-y-2">
+                                        <button id="rotate-left" class="w-full p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                            <i class="fas fa-undo mr-2"></i>Rotacionar Esquerda
+                                        </button>
+                                        <button id="rotate-right" class="w-full p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                            <i class="fas fa-redo mr-2"></i>Rotacionar Direita
+                                        </button>
+                                        <button id="flip-horizontal" class="w-full p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors duration-200 text-sm">
+                                            <i class="fas fa-arrows-alt-h mr-2"></i>Virar Horizontal
+                                        </button>
+                                        <button id="reset-image" class="w-full p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200 text-sm">
+                                            <i class="fas fa-undo-alt mr-2"></i>Resetar Imagem
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Área de Visualização -->
+                        <div class="lg:col-span-3">
+                            <div class="bg-gray-100 rounded-lg p-4 min-h-[400px] flex items-center justify-center">
+                                <div id="image-editor-container" class="relative overflow-hidden bg-white rounded-lg shadow-lg max-w-full max-h-full">
+                                    <canvas id="image-editor-canvas" class="max-w-full max-h-full"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview do Resultado -->
+                            <div class="mt-4 bg-gray-50 rounded-lg p-4">
+                                <h5 class="text-sm font-semibold text-gray-800 mb-3">Preview do Resultado</h5>
+                                <div class="bg-white rounded-lg p-3 border-2 border-dashed border-gray-300">
+                                    <div id="image-preview-result" class="w-full h-32 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                                        <span class="text-gray-500 text-sm">Preview da imagem editada</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botões de Ação -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200 mt-6">
+                        <button type="button" id="cancel-image-edit" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="button" id="apply-image-edit"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-check mr-2"></i>Aplicar Alterações
                         </button>
                     </div>
                 </div>

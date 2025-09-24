@@ -1543,11 +1543,11 @@ button:focus {
     transform: translateY(-2px) scale(1.02);
 }
 
-/* Imagem do serviço */
+/* Imagem do serviço - Tamanho aumentado */
 .service-image-container {
     position: relative;
     width: 100%;
-    height: 12rem;
+    height: 16rem; /* Aumentado de 12rem para 16rem */
     background-color: #f3f4f6;
     overflow: hidden;
 }
@@ -1569,13 +1569,23 @@ button:focus {
     height: 100%;
     background: linear-gradient(135deg, #f3e8ff 0%, #fce7f3 100%);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .service-image-placeholder i {
     font-size: 3rem;
     color: #a855f7;
+    margin-bottom: 0.5rem;
+}
+
+.service-image-placeholder p {
+    color: #a855f7;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
 }
 
 /* Botões de ação do card */
@@ -1587,13 +1597,31 @@ button:focus {
     gap: 0.25rem;
     opacity: 0;
     transition: opacity 0.3s ease;
+    z-index: 10;
+    pointer-events: none;
 }
 
-.service-card:hover .service-actions {
-    opacity: 1;
+.service-actions button {
+    pointer-events: auto;
 }
 
-.service-action-btn {
+/* Desktop: mostrar no hover */
+@media (min-width: 768px) {
+    .service-card:hover .service-actions {
+        opacity: 1;
+    }
+}
+
+/* Mobile: sempre visível */
+@media (max-width: 767px) {
+    .service-actions {
+        opacity: 1 !important;
+    }
+}
+
+/* Botões de ação específicos */
+.edit-service-btn,
+.delete-service-btn {
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
@@ -1603,10 +1631,13 @@ button:focus {
     transition: all 0.2s ease;
     border: none;
     cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.service-action-btn:hover {
+.edit-service-btn:hover,
+.delete-service-btn:hover {
     transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .edit-service-btn {
@@ -1625,6 +1656,23 @@ button:focus {
 
 .delete-service-btn:hover {
     background-color: #dc2626;
+}
+
+/* Animação de entrada dos botões */
+.service-card:hover .edit-service-btn,
+.service-card:hover .delete-service-btn {
+    animation: buttonSlideIn 0.3s ease-out;
+}
+
+@keyframes buttonSlideIn {
+    from {
+        transform: translateY(-10px) scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
 }
 
 /* Conteúdo do card */
@@ -1738,11 +1786,266 @@ button:focus {
     }
     
     .service-image-container {
-        height: 10rem;
+        height: 12rem; /* Aumentado de 10rem para 12rem em mobile */
     }
     
     .service-actions {
         opacity: 1; /* Sempre visível em mobile */
+    }
+}
+
+/* ========== EDITOR DE IMAGEM ========== */
+
+/* Modal do editor de imagem */
+#image-editor-modal {
+    z-index: 60;
+}
+
+/* Canvas do editor */
+#image-editor-canvas {
+    max-width: 100%;
+    max-height: 400px;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background-color: #f9fafb;
+}
+
+/* Container do editor */
+#image-editor-container {
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Controles do editor */
+.image-editor-control {
+    transition: all 0.2s ease;
+}
+
+.image-editor-control:hover {
+    transform: translateY(-1px);
+}
+
+/* Slider de zoom customizado */
+#zoom-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    outline: none;
+}
+
+#zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #4f46e5;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#zoom-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #4f46e5;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Botões de posição ativos */
+.pos-button-active {
+    background-color: #4f46e5 !important;
+    color: white !important;
+    transform: scale(1.05);
+}
+
+/* Botões de corte ativos */
+.crop-button-active {
+    background-color: #4f46e5 !important;
+    color: white !important;
+    transform: scale(1.05);
+}
+
+/* Preview do resultado */
+#image-preview-result {
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: linear-gradient(45deg, #f3f4f6 25%, transparent 25%), 
+                linear-gradient(-45deg, #f3f4f6 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #f3f4f6 75%), 
+                linear-gradient(-45deg, transparent 75%, #f3f4f6 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+/* ========== NOTIFICAÇÕES TOAST ========== */
+
+/* Container de toasts */
+#toast-container {
+    max-width: 400px;
+    z-index: 1000;
+}
+
+/* Toast individual */
+.toast {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.hide {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+/* Tipos de toast */
+.toast-success {
+    border-left-color: #10b981;
+}
+
+.toast-success .toast-icon {
+    color: #10b981;
+}
+
+.toast-error {
+    border-left-color: #ef4444;
+}
+
+.toast-error .toast-icon {
+    color: #ef4444;
+}
+
+.toast-warning {
+    border-left-color: #f59e0b;
+}
+
+.toast-warning .toast-icon {
+    color: #f59e0b;
+}
+
+.toast-info {
+    border-left-color: #3b82f6;
+}
+
+.toast-info .toast-icon {
+    color: #3b82f6;
+}
+
+/* Conteúdo do toast */
+.toast-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.25rem;
+}
+
+.toast-message {
+    font-size: 0.875rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+/* Botão de fechar toast */
+.toast-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.toast-close:hover {
+    color: #6b7280;
+    background-color: #f3f4f6;
+}
+
+/* Barra de progresso do toast */
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background-color: currentColor;
+    opacity: 0.3;
+    transition: width linear;
+}
+
+/* Animações */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Responsividade para toasts */
+@media (max-width: 640px) {
+    #toast-container {
+        left: 1rem;
+        right: 1rem;
+        max-width: none;
+    }
+    
+    .toast {
+        padding: 0.75rem;
+    }
+    
+    .toast-title {
+        font-size: 0.875rem;
+    }
+    
+    .toast-message {
+        font-size: 0.75rem;
     }
 }
 
