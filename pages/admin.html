@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Up.Baloes - Área Administrativa</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../Images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="../Images/favicon.ico">
+    <link rel="apple-touch-icon" href="../Images/favicon.ico">
+    
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- TailwindCSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- CSS personalizado -->
+    <link rel="stylesheet" href="../css/estilos.css">
+    
+    <style>
+        .admin-sidebar {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+        }
+        .admin-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+        .metric-card.green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .metric-card.yellow {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        .metric-card.purple {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        .table-row:hover {
+            background-color: #f8fafc;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .status-inactive {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Verificação de Autenticação Admin -->
+    <div id="auth-check" class="hidden">
+        <script>
+            // Verificar se o usuário é admin
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (currentUser.role !== 'admin') {
+                window.location.href = '../index.html';
+            }
+        </script>
+    </div>
+
+    <!-- Layout Principal -->
+    <div class="flex h-screen">
+        
+        <!-- Botão Mobile Menu -->
+        <button id="mobile-menu-toggle" class="fixed top-4 left-4 z-50 md:hidden bg-blue-600 text-white p-2 rounded-lg shadow-lg">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        <!-- Sidebar -->
+        <div id="admin-sidebar" class="admin-sidebar w-64 text-white flex flex-col fixed md:relative h-full transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
+            <!-- Logo -->
+            <div class="p-6 border-b border-blue-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center">
+                        <img src="../Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Up.Baloes</h1>
+                        <p class="text-blue-200 text-sm">Área Administrativa</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu de Navegação -->
+            <nav class="flex-1 p-4">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#dashboard" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 active">
+                            <i class="fas fa-tachometer-alt text-lg"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#create-decorator" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-user-plus text-lg"></i>
+                            <span>Criar Decorador</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#manage-users" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-users text-lg"></i>
+                            <span>Gerenciar Usuários</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#reports" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-chart-bar text-lg"></i>
+                            <span>Relatórios</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#settings" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-cog text-lg"></i>
+                            <span>Configurações</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Usuário Logado -->
+            <div class="p-4 border-t border-blue-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+                        <i class="fas fa-crown text-yellow-800"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold">Admin</p>
+                        <p class="text-blue-200 text-sm">Administrador</p>
+                    </div>
+                    <button id="logout-btn" class="text-red-300 hover:text-red-200 transition-colors duration-200">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay Mobile -->
+        <div id="mobile-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden hidden"></div>
+        
+        <!-- Conteúdo Principal -->
+        <div class="flex-1 flex flex-col overflow-hidden md:ml-0">
+            
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b border-gray-200 px-4 md:px-6 py-3 md:py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="page-title" class="text-lg md:text-2xl font-bold text-gray-800">Dashboard</h2>
+                        <p id="page-subtitle" class="text-sm md:text-base text-gray-600">Visão geral do sistema</p>
+                    </div>
+                    <div class="flex items-center space-x-2 md:space-x-4">
+                        <div class="text-xs md:text-sm text-gray-500 hidden sm:block">
+                            <i class="fas fa-clock mr-1"></i>
+                            <span id="current-time"></span>
+                        </div>
+                        <div class="w-6 h-6 md:w-8 md:h-8 bg-green-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-circle text-white text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Conteúdo das Páginas -->
+            <main class="flex-1 overflow-y-auto p-3 md:p-6">
+                
+                <!-- Dashboard -->
+                <div id="dashboard-content" class="admin-content">
+                    <!-- Métricas -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                        <div class="metric-card text-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-100 text-xs">Total de Clientes</p>
+                                    <p class="text-xl font-bold" id="total-clients">0</p>
+                                </div>
+                                <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-users text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card green text-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-100 text-xs">Decoradores Ativos</p>
+                                    <p class="text-xl font-bold" id="active-decorators">0</p>
+                                </div>
+                                <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-tie text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card yellow text-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-yellow-100 text-xs">Solicitações</p>
+                                    <p class="text-xl font-bold" id="total-requests">0</p>
+                                </div>
+                                <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-file-alt text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card purple text-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-purple-100 text-xs">Serviços Criados</p>
+                                    <p class="text-xl font-bold" id="total-services">0</p>
+                                </div>
+                                <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-gift text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="admin-card p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3">Solicitações por Mês</h3>
+                            <div class="relative h-48">
+                                <canvas id="requests-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="admin-card p-4 rounded-xl">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3">Usuários por Tipo</h3>
+                            <div class="relative h-48">
+                                <canvas id="users-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Atividades Recentes -->
+                    <div class="admin-card p-4 rounded-xl">
+                        <h3 class="text-base font-semibold text-gray-800 mb-3">Atividades Recentes</h3>
+                        <div id="recent-activities" class="space-y-2">
+                            <!-- Atividades serão carregadas dinamicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Criar Decorador -->
+                <div id="create-decorator-content" class="admin-content hidden">
+                    <div class="admin-card p-4 md:p-6 rounded-xl">
+                        <div class="mb-4 md:mb-6">
+                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">Criar Conta de Decorador</h3>
+                            <p class="text-sm md:text-base text-gray-600">Preencha os dados para criar uma nova conta de decorador</p>
+                        </div>
+
+                        <form id="create-decorator-form" class="space-y-4 md:space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                <!-- Nome Completo -->
+                                <div class="space-y-2">
+                                    <label for="decorator-name" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-user mr-2 text-blue-600"></i>Nome Completo *
+                                    </label>
+                                    <input type="text" id="decorator-name" name="name" required
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="Digite o nome completo">
+                                </div>
+
+                                <!-- CPF -->
+                                <div class="space-y-2">
+                                    <label for="decorator-cpf" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-id-card mr-2 text-blue-600"></i>CPF *
+                                    </label>
+                                    <input type="text" id="decorator-cpf" name="cpf" required
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="000.000.000-00" maxlength="14">
+                                </div>
+
+                                <!-- Email -->
+                                <div class="space-y-2">
+                                    <label for="decorator-email" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-envelope mr-2 text-blue-600"></i>E-mail *
+                                    </label>
+                                    <input type="email" id="decorator-email" name="email" required
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="decorador@email.com">
+                                </div>
+
+                                <!-- Telefone -->
+                                <div class="space-y-2">
+                                    <label for="decorator-phone" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-phone mr-2 text-blue-600"></i>Telefone *
+                                    </label>
+                                    <input type="tel" id="decorator-phone" name="phone" required
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="(11) 99999-9999">
+                                </div>
+                            </div>
+
+                            <!-- Endereço -->
+                            <div class="space-y-2">
+                                <label for="decorator-address" class="block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Endereço *
+                                </label>
+                                <textarea id="decorator-address" name="address" rows="3" required
+                                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                          placeholder="Digite o endereço completo"></textarea>
+                            </div>
+
+                            <!-- Senha -->
+                            <div class="space-y-2">
+                                <label for="decorator-password" class="block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-lock mr-2 text-blue-600"></i>Senha *
+                                </label>
+                                <div class="relative">
+                                    <input type="password" id="decorator-password" name="password" required
+                                           class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="Digite uma senha segura">
+                                    <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 toggle-password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Mínimo de 8 caracteres, com letras e números
+                                </div>
+                            </div>
+
+                            <!-- Botões -->
+                            <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                                <button type="button" id="cancel-decorator-creation" 
+                                        class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                                    <i class="fas fa-times mr-2"></i>Cancelar
+                                </button>
+                                <button type="submit" id="create-decorator-btn"
+                                        class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                    <i class="fas fa-user-plus mr-2"></i>Criar Conta de Decorador
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Gerenciar Usuários -->
+                <div id="manage-users-content" class="admin-content hidden">
+                    <div class="admin-card p-4 md:p-6 rounded-xl">
+                        <div class="mb-4 md:mb-6">
+                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">Gerenciar Usuários</h3>
+                            <p class="text-sm md:text-base text-gray-600">Gerencie contas de clientes e decoradores</p>
+                        </div>
+
+                        <!-- Filtros e Busca -->
+                        <div class="mb-4 md:mb-6 space-y-3 md:space-y-4">
+                            <div class="flex flex-col md:flex-row gap-3 md:gap-4">
+                                <!-- Campo de Busca -->
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <input type="text" id="user-search" placeholder="Buscar por nome ou e-mail..."
+                                               class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Filtro por Tipo -->
+                                <select id="user-type-filter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                    <option value="">Todos os tipos</option>
+                                    <option value="client">Clientes</option>
+                                    <option value="decorator">Decoradores</option>
+                                </select>
+
+                                <!-- Filtro por Status -->
+                                <select id="user-status-filter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                    <option value="">Todos os status</option>
+                                    <option value="active">Ativos</option>
+                                    <option value="inactive">Inativos</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tabela de Usuários -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
+                                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Tipo</th>
+                                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Data de Cadastro</th>
+                                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Usuários serão carregados dinamicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginação -->
+                        <div class="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div class="text-xs md:text-sm text-gray-700">
+                                Mostrando <span id="showing-start">1</span> a <span id="showing-end">10</span> de <span id="total-users">0</span> usuários
+                            </div>
+                            <div class="flex space-x-1 md:space-x-2">
+                                <button id="prev-page" class="px-2 md:px-3 py-2 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span id="current-page" class="px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-600 text-white rounded-lg">1</span>
+                                <button id="next-page" class="px-2 md:px-3 py-2 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relatórios -->
+                <div id="reports-content" class="admin-content hidden">
+                    <div class="admin-card p-4 md:p-6 rounded-xl">
+                        <div class="mb-4 md:mb-6">
+                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">Relatórios</h3>
+                            <p class="text-sm md:text-base text-gray-600">Visualize relatórios detalhados do sistema</p>
+                        </div>
+                        <div class="text-center py-8 md:py-12">
+                            <i class="fas fa-chart-line text-4xl md:text-6xl text-gray-300 mb-4"></i>
+                            <h4 class="text-lg md:text-xl font-semibold text-gray-600 mb-2">Relatórios em Desenvolvimento</h4>
+                            <p class="text-sm md:text-base text-gray-500">Esta funcionalidade estará disponível em breve</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configurações -->
+                <div id="settings-content" class="admin-content hidden">
+                    <div class="admin-card p-4 md:p-6 rounded-xl">
+                        <div class="mb-4 md:mb-6">
+                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">Configurações</h3>
+                            <p class="text-sm md:text-base text-gray-600">Configure as opções do sistema</p>
+                        </div>
+                        <div class="text-center py-8 md:py-12">
+                            <i class="fas fa-cog text-4xl md:text-6xl text-gray-300 mb-4"></i>
+                            <h4 class="text-lg md:text-xl font-semibold text-gray-600 mb-2">Configurações em Desenvolvimento</h4>
+                            <p class="text-sm md:text-base text-gray-500">Esta funcionalidade estará disponível em breve</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal de Edição de Usuário -->
+    <div id="edit-user-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="edit-user-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-2xl p-0 my-4 md:my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl mx-4">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user-edit text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Editar Usuário</h3>
+                                <p class="text-blue-100 text-sm">Atualize as informações do usuário</p>
+                            </div>
+                        </div>
+                        <button id="close-edit-user-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="edit-user-form" class="p-4 md:p-6 space-y-4 md:space-y-6">
+                    <input type="hidden" id="edit-user-id" name="id">
+                    
+                    <!-- Nome -->
+                    <div class="space-y-2">
+                        <label for="edit-user-name" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-user mr-2 text-blue-600"></i>Nome Completo
+                        </label>
+                        <input type="text" id="edit-user-name" name="name" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Digite o nome completo">
+                    </div>
+
+                    <!-- Email -->
+                    <div class="space-y-2">
+                        <label for="edit-user-email" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-envelope mr-2 text-blue-600"></i>Email
+                        </label>
+                        <input type="email" id="edit-user-email" name="email" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Digite o email">
+                    </div>
+
+                    <!-- Telefone -->
+                    <div class="space-y-2">
+                        <label for="edit-user-phone" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-phone mr-2 text-blue-600"></i>Telefone
+                        </label>
+                        <input type="tel" id="edit-user-phone" name="phone"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="(11) 99999-9999">
+                    </div>
+
+                    <!-- Status -->
+                    <div class="space-y-2">
+                        <label for="edit-user-status" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-toggle-on mr-2 text-blue-600"></i>Status da Conta
+                        </label>
+                        <select id="edit-user-status" name="status"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            <option value="active">Ativa</option>
+                            <option value="inactive">Inativa</option>
+                        </select>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" id="cancel-edit-user" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="submit" id="save-edit-user"
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="../js/admin.js"></script>
+</body>
+</html>

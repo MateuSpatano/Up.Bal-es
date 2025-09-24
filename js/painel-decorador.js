@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         showDashboardLoading();
         
-        fetch('../services/dashboard.php', {
+        fetch('../services/painel.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function loadBudgets() {
         try {
-            const response = await fetch('../services/budgets.php', {
+            const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1465,7 +1465,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function saveAvailabilitySettings(data) {
         try {
-            const response = await fetch('../services/availability.php', {
+            const response = await fetch('../services/disponibilidade.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1500,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadAvailabilitySettings() {
         try {
             // Tentar carregar do servidor
-            const response = await fetch('../services/availability.php', {
+            const response = await fetch('../services/disponibilidade.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1728,7 +1728,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function addBlockedDate(data) {
         try {
-            const response = await fetch('../services/blocked-dates.php', {
+            const response = await fetch('../services/datas-bloqueadas.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1759,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function loadBlockedDates() {
         try {
-            const response = await fetch('../services/blocked-dates.php', {
+            const response = await fetch('../services/datas-bloqueadas.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1834,7 +1834,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch('../services/blocked-dates.php', {
+            const response = await fetch('../services/datas-bloqueadas.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1871,7 +1871,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function checkIfDateIsBlocked(date) {
         try {
-            const response = await fetch('../services/blocked-dates.php', {
+            const response = await fetch('../services/datas-bloqueadas.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2197,7 +2197,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(accountForm);
         
         try {
-            const response = await fetch('../services/account.php', {
+            const response = await fetch('../services/conta.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
@@ -2352,7 +2352,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Enviar para o servidor
-            const response = await fetch('../services/budgets.php', {
+            const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2875,7 +2875,7 @@ document.addEventListener('DOMContentLoaded', function() {
             delete budgetData.id;
             
             // Enviar para o servidor
-            const response = await fetch('../services/budgets.php', {
+            const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3342,7 +3342,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.changeBudgetStatus = async function(budgetId, newStatus) {
         if (confirm(`Tem certeza que deseja alterar o status para "${getStatusLabel(newStatus)}"?`)) {
             try {
-                const response = await fetch('../services/budgets.php', {
+                const response = await fetch('../services/orcamentos.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3464,7 +3464,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.approveBudget = async function(budgetId) {
         if (confirm('Tem certeza que deseja aprovar este orçamento?')) {
             try {
-                const response = await fetch('../services/budgets.php', {
+                const response = await fetch('../services/orcamentos.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3493,7 +3493,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.rejectBudget = async function(budgetId) {
         if (confirm('Tem certeza que deseja recusar este orçamento?')) {
             try {
-                const response = await fetch('../services/budgets.php', {
+                const response = await fetch('../services/orcamentos.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3648,7 +3648,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Fazer requisição para buscar orçamentos recentes
-        fetch('../services/budgets.php?action=recent')
+        fetch('../services/orcamentos.php?action=recent')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

@@ -787,7 +787,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(accountForm);
         
         try {
-            const response = await fetch('services/account.php', {
+            const response = await fetch('services/conta.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'

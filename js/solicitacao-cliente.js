@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enviar solicitação de serviço
     async function submitServiceRequest(data) {
         try {
-            const response = await fetch('../services/budgets.php', {
+            const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -394,9 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cancelBtn) {
             cancelBtn.addEventListener('click', function() {
                 if (confirm('Tem certeza que deseja cancelar? Todos os dados preenchidos serão perdidos.')) {
-                    form.reset();
-                    clearAllValidations();
-                    showNotification('Solicitação cancelada', 'info');
+                    // Redirecionar para a tela inicial
+                    window.location.href = '../index.html';
                 }
             });
         }
