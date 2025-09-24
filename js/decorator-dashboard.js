@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const createBudgetForm = document.getElementById('create-budget-form');
     const saveCreateBudget = document.getElementById('save-create-budget');
     const createBudgetModalOverlay = document.getElementById('create-budget-modal-overlay');
+    
+    // Elementos do campo de tamanho do arco
+    const budgetServiceType = document.getElementById('budget-service-type');
+    const budgetArcSizeContainer = document.getElementById('budget-arc-size-container');
+    const budgetArcSize = document.getElementById('budget-arc-size');
 
     // Modal de detalhes do orçamento
     const budgetDetailsModal = document.getElementById('budget-details-modal');
@@ -116,6 +121,49 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Redimensionar janela
         window.addEventListener('resize', handleResize);
+        
+        // Event listeners do dashboard
+        setupDashboardEventListeners();
+    }
+    
+    function setupDashboardEventListeners() {
+        // Botão de aplicar filtros do dashboard
+        const applyDashboardFiltersBtn = document.getElementById('apply-dashboard-filters');
+        if (applyDashboardFiltersBtn) {
+            applyDashboardFiltersBtn.addEventListener('click', function() {
+                loadDashboardKPIs();
+            });
+        }
+        
+        // Botão de tentar novamente em caso de erro
+        const retryDashboardBtn = document.getElementById('retry-dashboard');
+        if (retryDashboardBtn) {
+            retryDashboardBtn.addEventListener('click', function() {
+                loadDashboardKPIs();
+            });
+        }
+        
+        // Atualizar dashboard quando as datas mudarem
+        const dateFromInput = document.getElementById('dashboard-date-from');
+        const dateToInput = document.getElementById('dashboard-date-to');
+        
+        if (dateFromInput) {
+            dateFromInput.addEventListener('change', function() {
+                // Validar se ambas as datas estão preenchidas
+                if (dateToInput && dateToInput.value) {
+                    loadDashboardKPIs();
+                }
+            });
+        }
+        
+        if (dateToInput) {
+            dateToInput.addEventListener('change', function() {
+                // Validar se ambas as datas estão preenchidas
+                if (dateFromInput && dateFromInput.value) {
+                    loadDashboardKPIs();
+                }
+            });
+        }
     }
     
     function toggleSidebar() {
@@ -261,11 +309,225 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CARREGAMENTO DE DADOS DOS MÓDULOS ==========
     
     function loadDashboardData() {
-        // Simular carregamento de dados do dashboard
         console.log('Carregando dados do dashboard...');
         
-        // Aqui você pode implementar carregamento real de estatísticas
-        // Por exemplo, eventos do dia, receita mensal, etc.
+        // Definir período padrão (mês atual)
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        // Definir valores padrão dos filtros
+        document.getElementById('dashboard-date-from').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('dashboard-date-to').value = lastDay.toISOString().split('T')[0];
+        
+        // Carregar dados do dashboard
+        loadDashboardKPIs();
+    }
+    
+    // ========== FUNCIONALIDADES DO DASHBOARD ==========
+    
+    let dashboardCharts = {
+        festasMes: null,
+        festasAno: null
+    };
+    
+    function loadDashboardKPIs() {
+        const dateFrom = document.getElementById('dashboard-date-from').value;
+        const dateTo = document.getElementById('dashboard-date-to').value;
+        
+        if (!dateFrom || !dateTo) {
+            showDashboardError('Por favor, selecione as datas inicial e final.');
+            return;
+        }
+        
+        showDashboardLoading();
+        
+        fetch('../services/dashboard.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'getData',
+                date_from: dateFrom,
+                date_to: dateTo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateKPIs(data.kpis);
+                updateCharts(data.series);
+                hideDashboardLoading();
+            } else {
+                showDashboardError(data.message || 'Erro ao carregar dados do dashboard.');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar dashboard:', error);
+            showDashboardError('Erro de conexão. Verifique sua internet e tente novamente.');
+        });
+    }
+    
+    function updateKPIs(kpis) {
+        // Atualizar total de festas
+        document.getElementById('kpi-festas-total').textContent = kpis.festas_total || 0;
+        
+        // Atualizar festas solicitadas por clientes
+        document.getElementById('kpi-festas-clientes').textContent = kpis.festas_solicitadas_clientes || 0;
+        
+        // Atualizar festas criadas pelo decorador
+        document.getElementById('kpi-festas-decorador').textContent = kpis.festas_criadas_decorador || 0;
+        
+        // Atualizar receita recebida
+        const receita = kpis.receita_recebida || 0;
+        document.getElementById('kpi-receita-recebida').textContent = formatCurrency(receita);
+        
+        // Atualizar período nos cards
+        const dateFrom = document.getElementById('dashboard-date-from').value;
+        const dateTo = document.getElementById('dashboard-date-to').value;
+        const periodText = formatPeriodText(dateFrom, dateTo);
+        document.getElementById('kpi-festas-total-period').textContent = periodText;
+    }
+    
+    function updateCharts(series) {
+        // Atualizar gráfico de festas por mês
+        updateFestasPorMesChart(series.festas_por_mes_12m || []);
+        
+        // Atualizar gráfico de festas por ano
+        updateFestasPorAnoChart(series.festas_por_ano_5a || []);
+    }
+    
+    function updateFestasPorMesChart(data) {
+        const ctx = document.getElementById('chart-festas-mes').getContext('2d');
+        
+        // Destruir gráfico anterior se existir
+        if (dashboardCharts.festasMes) {
+            dashboardCharts.festasMes.destroy();
+        }
+        
+        const labels = data.map(item => {
+            const [year, month] = item.mes.split('-');
+            const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                              'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            return `${monthNames[parseInt(month) - 1]}/${year.slice(-2)}`;
+        });
+        
+        const values = data.map(item => item.total);
+        
+        dashboardCharts.festasMes = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Festas',
+                    data: values,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateFestasPorAnoChart(data) {
+        const ctx = document.getElementById('chart-festas-ano').getContext('2d');
+        
+        // Destruir gráfico anterior se existir
+        if (dashboardCharts.festasAno) {
+            dashboardCharts.festasAno.destroy();
+        }
+        
+        const labels = data.map(item => item.ano.toString());
+        const values = data.map(item => item.total);
+        
+        dashboardCharts.festasAno = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Festas',
+                    data: values,
+                    backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                    borderColor: 'rgba(147, 51, 234, 1)',
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function showDashboardLoading() {
+        document.getElementById('dashboard-loading').classList.remove('hidden');
+        document.getElementById('dashboard-error').classList.add('hidden');
+    }
+    
+    function hideDashboardLoading() {
+        document.getElementById('dashboard-loading').classList.add('hidden');
+    }
+    
+    function showDashboardError(message) {
+        document.getElementById('dashboard-loading').classList.add('hidden');
+        document.getElementById('dashboard-error').classList.remove('hidden');
+        document.getElementById('dashboard-error-message').textContent = message;
+    }
+    
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(value);
+    }
+    
+    function formatPeriodText(dateFrom, dateTo) {
+        const from = new Date(dateFrom);
+        const to = new Date(dateTo);
+        
+        const fromStr = from.toLocaleDateString('pt-BR');
+        const toStr = to.toLocaleDateString('pt-BR');
+        
+        if (fromStr === toStr) {
+            return `em ${fromStr}`;
+        } else {
+            return `de ${fromStr} a ${toStr}`;
+        }
     }
     
     function loadPainelGerencialData() {
@@ -2001,6 +2263,9 @@ document.addEventListener('DOMContentLoaded', function() {
             createBudgetForm.addEventListener('submit', handleCreateBudgetSubmit);
         }
         
+        // Configurar campo de tamanho do arco
+        setupArcSizeField();
+        
         // Modal de detalhes do orçamento
         if (closeBudgetDetailsModal) {
             closeBudgetDetailsModal.addEventListener('click', closeBudgetDetailsModalFunc);
@@ -2046,6 +2311,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Limpar formulário
             if (createBudgetForm) {
                 createBudgetForm.reset();
+                // Resetar campo de tamanho do arco
+                toggleArcSizeField();
             }
         }
     }
@@ -2078,6 +2345,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Converter valor estimado para número
             budgetData.estimated_value = parseFloat(budgetData.estimated_value) || 0;
+            
+            // Converter tamanho do arco para número se preenchido
+            if (budgetData.tamanho_arco_m) {
+                budgetData.tamanho_arco_m = parseFloat(budgetData.tamanho_arco_m);
+            }
             
             // Enviar para o servidor
             const response = await fetch('../services/budgets.php', {
@@ -2115,6 +2387,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // ========== FUNCIONALIDADES DO CAMPO TAMANHO DO ARCO ==========
+    
+    // Função para controlar visibilidade do campo de tamanho do arco
+    function toggleArcSizeField() {
+        if (!budgetServiceType || !budgetArcSizeContainer || !budgetArcSize) return;
+        
+        const selectedType = budgetServiceType.value;
+        const isArcType = selectedType === 'arco-tradicional' || selectedType === 'arco-desconstruido';
+        
+        if (isArcType) {
+            budgetArcSizeContainer.classList.remove('hidden');
+            budgetArcSize.required = true;
+        } else {
+            budgetArcSizeContainer.classList.add('hidden');
+            budgetArcSize.required = false;
+            budgetArcSize.value = ''; // Limpar valor quando ocultar
+        }
+    }
+    
+    // Configurar campo de tamanho do arco
+    function setupArcSizeField() {
+        if (budgetServiceType) {
+            budgetServiceType.addEventListener('change', toggleArcSizeField);
+        }
+        
+        // Inicializar estado do campo
+        toggleArcSizeField();
+    }
+    
+    // Validar tamanho do arco
+    function validateArcSize() {
+        if (!budgetArcSize) return true;
+        
+        const value = parseFloat(budgetArcSize.value);
+        const isValid = value >= 0.5 && value <= 30;
+        
+        if (budgetArcSize.value && !isValid) {
+            showFieldError('budget-arc-size', 'Tamanho deve estar entre 0.5 e 30 metros');
+            return false;
+        } else if (budgetArcSize.required && !budgetArcSize.value) {
+            showFieldError('budget-arc-size', 'Tamanho do arco é obrigatório para este tipo de serviço');
+            return false;
+        }
+        
+        return true;
+    }
+    
     function validateCreateBudgetForm() {
         const client = document.getElementById('budget-client');
         const email = document.getElementById('budget-email');
@@ -2122,6 +2441,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const eventTime = document.getElementById('budget-event-time');
         const eventLocation = document.getElementById('budget-event-location');
         const serviceType = document.getElementById('budget-service-type');
+        
+        // Validar tamanho do arco
+        if (!validateArcSize()) {
+            return false;
+        }
         
         if (!client || !client.value.trim()) {
             showNotification('Nome do cliente é obrigatório', 'error');
@@ -2298,6 +2622,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </select>
                             </div>
 
+                            <!-- Tamanho do Arco -->
+                            <div class="space-y-2">
+                                <label for="edit-budget-arc-size" class="block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-ruler mr-2 text-yellow-600"></i>Tamanho do Arco (metros)
+                                </label>
+                                <input type="number" id="edit-budget-arc-size" name="tamanho_arco_m" step="0.1" min="0.5" max="30"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                                       placeholder="Ex: 2.5">
+                                <div class="text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Informe o tamanho do arco em metros (entre 0.5 e 30 metros)
+                                </div>
+                            </div>
+
                             <!-- Descrição do Evento -->
                             <div class="space-y-2">
                                 <label for="edit-budget-description" class="block text-sm font-medium text-gray-700">
@@ -2418,6 +2756,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'edit-budget-event-time': budget.event_time,
             'edit-budget-event-location': budget.event_location,
             'edit-budget-service-type': budget.service_type,
+            'edit-budget-arc-size': budget.tamanho_arco_m || '',
             'edit-budget-description': budget.description || '',
             'edit-budget-estimated-value': budget.estimated_value || 0,
             'edit-budget-notes': budget.notes || ''
@@ -2471,6 +2810,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'edit-budget-event-time': 'event_time',
             'edit-budget-event-location': 'event_location',
             'edit-budget-service-type': 'service_type',
+            'edit-budget-arc-size': 'tamanho_arco_m',
             'edit-budget-description': 'description',
             'edit-budget-estimated-value': 'estimated_value',
             'edit-budget-notes': 'notes'
@@ -2525,6 +2865,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Converter valor estimado para número
             budgetData.estimated_value = parseFloat(budgetData.estimated_value) || 0;
+            
+            // Converter tamanho do arco para número se preenchido
+            if (budgetData.tamanho_arco_m) {
+                budgetData.tamanho_arco_m = parseFloat(budgetData.tamanho_arco_m);
+            }
             
             // Remover ID dos dados de atualização
             delete budgetData.id;
@@ -2885,6 +3230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="text-gray-600 text-sm">Cliente: ${budget.client}</p>
                         <p class="text-gray-600 text-sm">Data: ${formatDate(budget.event_date)} - ${budget.event_time}</p>
                         <p class="text-gray-600 text-sm">Local: ${budget.event_location}</p>
+                        ${budget.tamanho_arco_m ? `<p class="text-gray-600 text-sm">Tamanho do Arco: ${budget.tamanho_arco_m}m</p>` : ''}
                         ${budget.estimated_value > 0 ? `<p class="text-gray-600 text-sm">Valor: R$ ${budget.estimated_value.toFixed(2)}</p>` : ''}
                     </div>
                     <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-4 lg:mt-0">
@@ -3054,6 +3400,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="text-sm text-gray-600"><strong>Hora:</strong> ${budget.event_time}</p>
                         <p class="text-sm text-gray-600"><strong>Local:</strong> ${budget.event_location}</p>
                         <p class="text-sm text-gray-600"><strong>Tipo:</strong> ${getServiceTypeLabel(budget.service_type)}</p>
+                        ${budget.tamanho_arco_m ? `<p class="text-sm text-gray-600"><strong>Tamanho do Arco:</strong> ${budget.tamanho_arco_m}m</p>` : ''}
                     </div>
                 </div>
                 
@@ -3536,6 +3883,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmDeleteService = document.getElementById('confirm-delete-service');
     const deleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay');
     
+    
     // Variáveis do portfólio
     let portfolioServices = [];
     let editingServiceId = null;
@@ -3557,7 +3905,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateHomepagePortfolio();
     }
     
-    // Renderizar serviços do portfólio
+    // Renderizar serviços do portfólio (otimizado)
     async function renderPortfolioServices() {
         if (portfolioServices.length === 0) {
             servicesGrid.innerHTML = '';
@@ -3568,130 +3916,223 @@ document.addEventListener('DOMContentLoaded', function() {
         emptyPortfolio.classList.add('hidden');
         servicesGrid.innerHTML = '';
         
-        // Mostrar loading enquanto processa as imagens
-        servicesGrid.innerHTML = `
-            <div class="col-span-full flex justify-center items-center py-8">
-                <div class="flex items-center space-x-2 text-gray-600">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <span>Processando imagens...</span>
-                </div>
-            </div>
-        `;
+        // Criar fragmento para melhor performance
+        const fragment = document.createDocumentFragment();
         
-        // Processar cada serviço de forma assíncrona
-        for (const service of portfolioServices) {
-            try {
-                const serviceCard = await createServiceCard(service);
-                servicesGrid.appendChild(serviceCard);
-            } catch (error) {
-                console.error('Erro ao criar card do serviço:', error);
-                // Criar card de fallback em caso de erro
-                const fallbackCard = document.createElement('div');
-                fallbackCard.className = 'bg-white rounded-lg shadow-md border border-gray-200 p-4';
-                fallbackCard.innerHTML = `
-                    <div class="text-center text-gray-500">
-                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                        <p>Erro ao carregar serviço</p>
+        // Processar serviços em lotes para melhor performance
+        const batchSize = 4;
+        const batches = [];
+        
+        for (let i = 0; i < portfolioServices.length; i += batchSize) {
+            batches.push(portfolioServices.slice(i, i + batchSize));
+        }
+        
+        // Processar cada lote
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            
+            // Mostrar progresso apenas no primeiro lote
+            if (batchIndex === 0) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'col-span-full flex justify-center items-center py-4';
+                loadingDiv.innerHTML = `
+                    <div class="flex items-center space-x-2 text-gray-600">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Carregando serviços...</span>
                     </div>
                 `;
-                servicesGrid.appendChild(fallbackCard);
+                servicesGrid.appendChild(loadingDiv);
+            }
+            
+            // Processar lote em paralelo
+            const batchPromises = batch.map(async (service) => {
+                try {
+                    return await createServiceCard(service);
+                } catch (error) {
+                    console.error('Erro ao criar card do serviço:', error);
+                    return createFallbackCard(service);
+                }
+            });
+            
+            // Aguardar lote ser processado
+            const batchCards = await Promise.all(batchPromises);
+            
+            // Remover loading se for o primeiro lote
+            if (batchIndex === 0) {
+                const loadingDiv = servicesGrid.querySelector('.fa-spinner');
+                if (loadingDiv) {
+                    loadingDiv.parentElement.parentElement.remove();
+                }
+            }
+            
+            // Adicionar cards ao fragmento
+            batchCards.forEach(card => {
+                if (card) {
+                    fragment.appendChild(card);
+                }
+            });
+            
+            // Adicionar fragmento ao DOM em lotes para melhor performance
+            servicesGrid.appendChild(fragment.cloneNode(true));
+            
+            // Pequena pausa entre lotes para não bloquear a UI
+            if (batchIndex < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
         }
     }
     
-    // Função para redimensionar imagem automaticamente mantendo proporção
+    // Função auxiliar para criar card de fallback
+    function createFallbackCard(service) {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg shadow-md border border-gray-200 p-4';
+        card.innerHTML = `
+            <div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center mb-4">
+                <i class="fas fa-image text-4xl text-purple-400"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">${service.title || 'Serviço'}</h3>
+            <p class="text-gray-600 text-sm mb-3">${service.description || 'Descrição não disponível'}</p>
+            ${service.arcSize ? `<p class="text-blue-600 text-sm mb-2"><i class="fas fa-ruler mr-1"></i>${service.arcSize}</p>` : ''}
+            <div class="flex justify-between items-center">
+                <span class="text-green-600 font-semibold">R$ ${parseFloat(service.price || 0).toFixed(2)}</span>
+                <div class="flex space-x-2">
+                    <button onclick="editService('${service.id}')" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteService('${service.id}')" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        return card;
+    }
+    
+    // Função otimizada para redimensionar imagem automaticamente mantendo proporção
     function createResponsiveImage(imageSrc, altText, containerClass = 'w-full h-48') {
         return new Promise((resolve) => {
+            // Cache de imagens processadas para evitar reprocessamento
+            const cacheKey = `processed_${btoa(imageSrc)}_${window.innerWidth}`;
+            const cached = sessionStorage.getItem(cacheKey);
+            
+            if (cached) {
+                resolve(cached);
+                return;
+            }
+            
             const img = new Image();
-            img.crossOrigin = 'anonymous'; // Permitir CORS se necessário
+            img.crossOrigin = 'anonymous';
             
             img.onload = function() {
                 try {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Dimensões do container baseadas no tamanho da tela
+                    // Dimensões otimizadas baseadas no container
                     const screenWidth = window.innerWidth;
-                    let containerWidth, containerHeight;
+                    let maxWidth, maxHeight;
                     
                     if (screenWidth < 640) {
-                        // Mobile
-                        containerWidth = 280;
-                        containerHeight = 160;
+                        maxWidth = 280;
+                        maxHeight = 160;
                     } else if (screenWidth < 1024) {
-                        // Tablet
-                        containerWidth = 300;
-                        containerHeight = 180;
+                        maxWidth = 300;
+                        maxHeight = 180;
                     } else {
-                        // Desktop
-                        containerWidth = 320;
-                        containerHeight = 200;
+                        maxWidth = 320;
+                        maxHeight = 200;
+                    }
+                    
+                    // Se a imagem já está no tamanho ideal, usar diretamente
+                    if (this.naturalWidth <= maxWidth && this.naturalHeight <= maxHeight) {
+                        const imgHtml = `<img src="${imageSrc}" alt="${altText}" class="service-image w-full h-48 object-cover" loading="lazy">`;
+                        sessionStorage.setItem(cacheKey, imgHtml);
+                        resolve(imgHtml);
+                        return;
                     }
                     
                     // Calcular dimensões mantendo proporção
-                    let { width, height } = calculateAspectRatio(
+                    const { width, height } = calculateAspectRatio(
                         this.naturalWidth, 
                         this.naturalHeight, 
-                        containerWidth, 
-                        containerHeight
+                        maxWidth, 
+                        maxHeight
                     );
                     
-                    // Configurar canvas com qualidade otimizada
+                    // Usar OffscreenCanvas se disponível para melhor performance
+                    const canvas = window.OffscreenCanvas ? 
+                        new OffscreenCanvas(width, height) : 
+                        document.createElement('canvas');
+                    
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Configurar canvas
                     canvas.width = width;
                     canvas.height = height;
                     
-                    // Melhorar qualidade da renderização
+                    // Configurações de qualidade otimizadas
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
                     
                     // Desenhar imagem redimensionada
                     ctx.drawImage(this, 0, 0, width, height);
                     
-                    // Determinar qualidade baseada no tamanho da imagem
-                    const quality = this.naturalWidth > 1000 ? 0.8 : 0.9;
+                    // Converter para blob para melhor performance
+                    canvas.convertToBlob({ 
+                        type: 'image/jpeg', 
+                        quality: this.naturalWidth > 1000 ? 0.8 : 0.9 
+                    }).then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const imgHtml = `<img src="${url}" alt="${altText}" class="service-image w-full h-48 object-cover" loading="lazy">`;
+                        
+                        // Cache o resultado
+                        sessionStorage.setItem(cacheKey, imgHtml);
+                        
+                        // Limpar URL após um tempo para liberar memória
+                        setTimeout(() => URL.revokeObjectURL(url), 30000);
+                        
+                        resolve(imgHtml);
+                    }).catch(() => {
+                        // Fallback para toDataURL se convertToBlob falhar
+                        const resizedImageSrc = canvas.toDataURL('image/jpeg', 0.8);
+                        const imgHtml = `<img src="${resizedImageSrc}" alt="${altText}" class="service-image w-full h-48 object-cover" loading="lazy">`;
+                        sessionStorage.setItem(cacheKey, imgHtml);
+                        resolve(imgHtml);
+                    });
                     
-                    // Converter para data URL com qualidade otimizada
-                    const resizedImageSrc = canvas.toDataURL('image/jpeg', quality);
-                    
-                    // Criar elemento img com classes responsivas
-                    const imgElement = document.createElement('img');
-                    imgElement.src = resizedImageSrc;
-                    imgElement.alt = altText;
-                    imgElement.className = 'service-image';
-                    imgElement.loading = 'lazy'; // Lazy loading para performance
-                    
-                    resolve(imgElement.outerHTML);
                 } catch (error) {
                     console.error('Erro ao processar imagem:', error);
-                    resolve(`
-                        <div class="service-image-placeholder">
-                            <i class="fas fa-image"></i>
+                    const fallback = `
+                        <div class="service-image-placeholder w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                            <i class="fas fa-image text-4xl text-purple-400"></i>
                         </div>
-                    `);
+                    `;
+                    sessionStorage.setItem(cacheKey, fallback);
+                    resolve(fallback);
                 }
             };
             
             img.onerror = function() {
                 console.warn('Erro ao carregar imagem:', imageSrc);
-                // Se houver erro ao carregar a imagem, mostrar placeholder
-                resolve(`
-                    <div class="service-image-placeholder">
-                        <i class="fas fa-image"></i>
+                const fallback = `
+                    <div class="service-image-placeholder w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                        <i class="fas fa-image text-4xl text-purple-400"></i>
                     </div>
-                `);
+                `;
+                sessionStorage.setItem(cacheKey, fallback);
+                resolve(fallback);
             };
             
-            // Timeout para evitar carregamento infinito
+            // Timeout reduzido para melhor responsividade
             setTimeout(() => {
                 if (!img.complete) {
                     console.warn('Timeout ao carregar imagem:', imageSrc);
-                    resolve(`
-                        <div class="service-image-placeholder">
-                            <i class="fas fa-image"></i>
+                    const fallback = `
+                        <div class="service-image-placeholder w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                            <i class="fas fa-image text-4xl text-purple-400"></i>
                         </div>
-                    `);
+                    `;
+                    sessionStorage.setItem(cacheKey, fallback);
+                    resolve(fallback);
                 }
-            }, 10000); // 10 segundos timeout
+            }, 5000); // Timeout reduzido para 5 segundos
             
             img.src = imageSrc;
         });
@@ -3765,6 +4206,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title}</h3>
                 <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description}</p>
+                ${service.arcSize ? `<p class="text-blue-600 text-sm mb-2"><i class="fas fa-ruler mr-1"></i>${service.arcSize}</p>` : ''}
                 ${service.price ? `<p class="text-green-600 font-semibold">R$ ${parseFloat(service.price).toFixed(2)}</p>` : ''}
             </div>
         `;
@@ -3773,8 +4215,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const editBtn = card.querySelector('.edit-service-btn');
         const deleteBtn = card.querySelector('.delete-service-btn');
         
-        editBtn.addEventListener('click', () => editService(service.id));
-        deleteBtn.addEventListener('click', () => confirmDeleteServiceAction(service.id));
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editService(service.id);
+            });
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmDeleteServiceAction(service.id);
+            });
+        }
         
         return card;
     }
@@ -3803,6 +4258,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('service-title').value = service.title;
         document.getElementById('service-description').value = service.description;
         document.getElementById('service-price').value = service.price || '';
+        document.getElementById('service-arc-size').value = service.arcSize || '';
         
         // Mostrar preview da imagem se existir
         if (service.image) {
@@ -3851,6 +4307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             title: formData.get('title'),
             description: formData.get('description'),
             price: formData.get('price') || null,
+            arcSize: formData.get('arcSize') || null,
             image: null
         };
         
@@ -3884,9 +4341,33 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Atualizar portfólio na página inicial
     function updateHomepagePortfolio() {
-        // Esta função será chamada quando a página inicial for carregada
-        // Por enquanto, apenas salva os dados no localStorage
+        // Salvar dados no localStorage
         localStorage.setItem('homepage_portfolio', JSON.stringify(portfolioServices));
+        
+        // Adicionar timestamp para controle de versão
+        localStorage.setItem('homepage_portfolio_updated', Date.now().toString());
+        
+        // Disparar evento customizado para notificar outras abas/páginas
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+            const event = new CustomEvent('portfolioUpdated', {
+                detail: {
+                    services: portfolioServices,
+                    timestamp: Date.now()
+                }
+            });
+            window.dispatchEvent(event);
+        }
+        
+        // Notificar via BroadcastChannel se disponível (para comunicação entre abas)
+        if (typeof BroadcastChannel !== 'undefined') {
+            const channel = new BroadcastChannel('portfolio_updates');
+            channel.postMessage({
+                type: 'portfolio_updated',
+                data: portfolioServices,
+                timestamp: Date.now()
+            });
+            channel.close();
+        }
     }
     
     // Configurar event listeners do portfólio
@@ -4131,6 +4612,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="info-label">Tipo:</span>
                             <span class="info-value">${getServiceTypeLabel(budget.service_type)}</span>
                         </div>
+                        ${budget.tamanho_arco_m ? `
+                        <div class="info-item">
+                            <span class="info-label">Tamanho do Arco:</span>
+                            <span class="info-value">${budget.tamanho_arco_m}m</span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
 

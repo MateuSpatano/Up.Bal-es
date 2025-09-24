@@ -48,6 +48,15 @@ class BudgetService {
      */
     public function createBudget($data) {
         try {
+            // Validar dados específicos do tamanho do arco
+            $arcSizeValidation = $this->validateArcSize($data);
+            if (!$arcSizeValidation['success']) {
+                return [
+                    'success' => false,
+                    'message' => $arcSizeValidation['message']
+                ];
+            }
+            
             // Validar disponibilidade antes de criar o orçamento
             $availabilityCheck = $this->validateAvailability($data);
             if (!$availabilityCheck['success']) {
@@ -61,8 +70,8 @@ class BudgetService {
                 INSERT INTO orcamentos (
                     cliente, email, telefone, data_evento, hora_evento, 
                     local_evento, tipo_servico, descricao, valor_estimado, 
-                    observacoes, status, decorador_id, imagem, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    observacoes, status, decorador_id, created_via, imagem, tamanho_arco_m, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             
             $stmt->execute([
@@ -78,7 +87,9 @@ class BudgetService {
                 $data['notes'] ?? null,
                 'pendente',
                 $_SESSION['user_id'] ?? 1, // ID do decorador logado
-                $data['image'] ?? null // Caminho da imagem
+                $data['created_via'] ?? 'decorator', // Origem da criação
+                $data['image'] ?? null, // Caminho da imagem
+                $data['tamanho_arco_m'] ?? null // Tamanho do arco
             ]);
             
             $budgetId = $this->pdo->lastInsertId();
@@ -138,7 +149,7 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, imagem, created_at, updated_at
+                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
                 FROM orcamentos 
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY created_at DESC
@@ -160,6 +171,7 @@ class BudgetService {
                 $budget['description'] = $budget['descricao'];
                 $budget['notes'] = $budget['observacoes'];
                 $budget['image'] = $budget['imagem'];
+                $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
                 $budget['created_at'] = $budget['created_at'];
             }
             
@@ -186,7 +198,7 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, imagem, created_at, updated_at
+                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
                 FROM orcamentos 
                 WHERE id = ? AND decorador_id = ?
             ");
@@ -211,6 +223,7 @@ class BudgetService {
             $budget['phone'] = $budget['telefone'];
             $budget['description'] = $budget['descricao'];
             $budget['notes'] = $budget['observacoes'];
+            $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
             
             return [
                 'success' => true,
@@ -244,7 +257,8 @@ class BudgetService {
                 'service_type' => 'tipo_servico',
                 'description' => 'descricao',
                 'estimated_value' => 'valor_estimado',
-                'notes' => 'observacoes'
+                'notes' => 'observacoes',
+                'tamanho_arco_m' => 'tamanho_arco_m'
             ];
             
             foreach ($allowedFields as $key => $column) {
@@ -509,7 +523,7 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, created_at, updated_at
+                    observacoes, status, tamanho_arco_m, created_at, updated_at
                 FROM orcamentos 
                 WHERE decorador_id = ?
                 ORDER BY created_at DESC
@@ -530,6 +544,7 @@ class BudgetService {
                 $budget['phone'] = $budget['telefone'];
                 $budget['description'] = $budget['descricao'];
                 $budget['notes'] = $budget['observacoes'];
+                $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
                 $budget['created_at'] = $budget['created_at'];
                 
                 // Formatar data para exibição
@@ -569,6 +584,62 @@ class BudgetService {
     /**
      * Log de ações
      */
+    /**
+     * Validar tamanho do arco
+     */
+    private function validateArcSize($data) {
+        $serviceType = $data['service_type'] ?? '';
+        $arcSize = $data['tamanho_arco_m'] ?? null;
+        
+        // Verificar se é um tipo de serviço que requer tamanho do arco
+        $arcServiceTypes = ['arco-tradicional', 'arco-desconstruido'];
+        
+        if (in_array($serviceType, $arcServiceTypes)) {
+            // Tamanho do arco é obrigatório para estes tipos
+            if (empty($arcSize) || $arcSize === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Tamanho do arco é obrigatório para este tipo de serviço'
+                ];
+            }
+            
+            // Validar se é um número válido
+            $arcSizeFloat = floatval($arcSize);
+            if ($arcSizeFloat <= 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Tamanho do arco deve ser um número positivo'
+                ];
+            }
+            
+            // Validar faixa permitida (0.5 a 30 metros)
+            if ($arcSizeFloat < 0.5 || $arcSizeFloat > 30) {
+                return [
+                    'success' => false,
+                    'message' => 'Tamanho do arco deve estar entre 0.5 e 30 metros'
+                ];
+            }
+            
+            // Validar precisão (máximo 1 casa decimal)
+            if (round($arcSizeFloat, 1) != $arcSizeFloat) {
+                return [
+                    'success' => false,
+                    'message' => 'Tamanho do arco deve ter no máximo 1 casa decimal'
+                ];
+            }
+        } else {
+            // Para outros tipos de serviço, tamanho do arco deve estar vazio
+            if (!empty($arcSize) && $arcSize !== '') {
+                return [
+                    'success' => false,
+                    'message' => 'Tamanho do arco não é necessário para este tipo de serviço'
+                ];
+            }
+        }
+        
+        return ['success' => true];
+    }
+
     /**
      * Validar disponibilidade para um orçamento
      */
@@ -891,6 +962,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
  *     observacoes TEXT,
  *     status ENUM('pendente', 'aprovado', 'recusado', 'cancelado', 'enviado') DEFAULT 'pendente',
  *     decorador_id INT NOT NULL,
+ *     created_via ENUM('client', 'decorator') DEFAULT 'decorator',
+ *     imagem VARCHAR(255),
+ *     tamanho_arco_m DECIMAL(4,1),
  *     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
  *     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  *     FOREIGN KEY (decorador_id) REFERENCES usuarios(id) ON DELETE CASCADE

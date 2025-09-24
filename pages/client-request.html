@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitar Serviço - Up.Baloes</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../Images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="../Images/favicon.ico">
+    <link rel="apple-touch-icon" href="../Images/favicon.ico">
+    
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- TailwindCSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- CSS personalizado -->
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    
+    <!-- Navbar -->
+    <nav class="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                        <img src="../Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <span class="text-xl font-bold text-gray-800">Up.Baloes</span>
+                </div>
+                
+                <!-- Menu -->
+                <div class="flex items-center space-x-4">
+                    <a href="../index.html" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-home mr-2"></i>Início
+                    </a>
+                    <a href="login.html" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="py-12">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                    Solicitar Serviço
+                </h1>
+                <p class="text-xl text-gray-600">
+                    Preencha o formulário abaixo para solicitar seu serviço de decoração com balões
+                </p>
+            </div>
+
+            <!-- Formulário -->
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <form id="service-request-form" class="space-y-6">
+                    <!-- Dados do Cliente -->
+                    <div class="border-b border-gray-200 pb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-user mr-2 text-blue-600"></i>
+                            Dados do Cliente
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Nome -->
+                            <div class="space-y-2">
+                                <label for="client-name" class="block text-sm font-medium text-gray-700">
+                                    Nome Completo *
+                                </label>
+                                <input type="text" id="client-name" name="client_name" required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                       placeholder="Seu nome completo">
+                            </div>
+
+                            <!-- Email -->
+                            <div class="space-y-2">
+                                <label for="client-email" class="block text-sm font-medium text-gray-700">
+                                    Email *
+                                </label>
+                                <input type="email" id="client-email" name="client_email" required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                       placeholder="seu@email.com">
+                            </div>
+
+                            <!-- Telefone -->
+                            <div class="space-y-2">
+                                <label for="client-phone" class="block text-sm font-medium text-gray-700">
+                                    Telefone
+                                </label>
+                                <input type="tel" id="client-phone" name="client_phone"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                       placeholder="(11) 99999-9999">
+                            </div>
+
+                            <!-- Data do Evento -->
+                            <div class="space-y-2">
+                                <label for="event-date" class="block text-sm font-medium text-gray-700">
+                                    Data do Evento *
+                                </label>
+                                <input type="date" id="event-date" name="event_date" required
+                                       min="<?php echo date('Y-m-d'); ?>"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dados do Serviço -->
+                    <div class="border-b border-gray-200 pb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-gift mr-2 text-purple-600"></i>
+                            Dados do Serviço
+                        </h3>
+                        
+                        <!-- Tipo de Serviço -->
+                        <div class="space-y-2 mb-6">
+                            <label for="service-type" class="block text-sm font-medium text-gray-700">
+                                Tipo de Serviço *
+                            </label>
+                            <select id="service-type" name="service_type" required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200">
+                                <option value="">Selecione o tipo de serviço</option>
+                                <option value="arco-tradicional">Arco-Tradicional</option>
+                                <option value="arco-desconstruido">Arco-Desconstruído</option>
+                                <option value="escultura-balao">Escultura de Balão</option>
+                                <option value="centro-mesa">Centro de Mesa</option>
+                                <option value="baloes-piscina">Balões na Piscina</option>
+                            </select>
+                        </div>
+
+                        <!-- Tamanho do Arco -->
+                        <div class="space-y-2 mb-6">
+                            <label for="arc-size" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-ruler mr-2 text-purple-600"></i>Tamanho do Arco (metros) *
+                            </label>
+                            <input type="number" id="arc-size" name="tamanho_arco_m" step="0.1" min="0.5" max="30" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Ex: 2.5">
+                            <div class="text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Informe o tamanho do arco em metros (entre 0.5 e 30 metros)
+                            </div>
+                        </div>
+
+                        <!-- Local do Evento -->
+                        <div class="space-y-2 mb-6">
+                            <label for="event-location" class="block text-sm font-medium text-gray-700">
+                                Local do Evento *
+                            </label>
+                            <input type="text" id="event-location" name="event_location" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Endereço completo do evento">
+                        </div>
+
+                        <!-- Descrição -->
+                        <div class="space-y-2 mb-6">
+                            <label for="description" class="block text-sm font-medium text-gray-700">
+                                Descrição do Evento
+                            </label>
+                            <textarea id="description" name="description" rows="4"
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none"
+                                      placeholder="Descreva os detalhes do seu evento e decoração desejada..."></textarea>
+                        </div>
+
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="space-y-2">
+                        <label for="notes" class="block text-sm font-medium text-gray-700">
+                            Observações Adicionais
+                        </label>
+                        <textarea id="notes" name="notes" rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Alguma informação adicional que gostaria de compartilhar..."></textarea>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-4 pt-6">
+                        <button type="button" id="cancel-request" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="submit" id="submit-request"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-paper-plane mr-2"></i>Enviar Solicitação
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2024 Up.Baloes. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="../js/main.js"></script>
+    <script src="../js/client-request.js"></script>
+</body>
+</html>

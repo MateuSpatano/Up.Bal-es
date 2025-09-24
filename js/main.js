@@ -873,19 +873,28 @@ function loginUser(email, password) {
 
 // ========== FUNCIONALIDADES DO PORTFÓLIO ==========
 
-// Carregar portfólio na página inicial
+// Carregar portfólio na página inicial (otimizado)
 function loadHomepagePortfolio() {
     const portfolioGrid = document.getElementById('homepage-portfolio-grid');
     const emptyPortfolio = document.getElementById('homepage-empty-portfolio');
     
     if (!portfolioGrid || !emptyPortfolio) return;
     
+    // Verificar se há atualizações recentes
+    const lastUpdate = localStorage.getItem('homepage_portfolio_updated');
+    const currentTime = Date.now();
+    
     // Carregar dados do portfólio do localStorage
     const savedPortfolio = localStorage.getItem('homepage_portfolio');
     let portfolioServices = [];
     
     if (savedPortfolio) {
-        portfolioServices = JSON.parse(savedPortfolio);
+        try {
+            portfolioServices = JSON.parse(savedPortfolio);
+        } catch (error) {
+            console.error('Erro ao carregar portfólio:', error);
+            portfolioServices = [];
+        }
     }
     
     // Renderizar portfólio
@@ -896,30 +905,62 @@ function loadHomepagePortfolio() {
     }
     
     emptyPortfolio.classList.add('hidden');
+    
+    // Limpar grid anterior
     portfolioGrid.innerHTML = '';
     
     // Mostrar apenas os primeiros 8 serviços
     const servicesToShow = portfolioServices.slice(0, 8);
     
+    // Usar fragmento para melhor performance
+    const fragment = document.createDocumentFragment();
+    
     servicesToShow.forEach(service => {
         const serviceCard = createHomepageServiceCard(service);
-        portfolioGrid.appendChild(serviceCard);
+        fragment.appendChild(serviceCard);
     });
+    
+    // Adicionar todos os cards de uma vez
+    portfolioGrid.appendChild(fragment);
+    
+    // Log de atualização
+    if (lastUpdate) {
+        const timeSinceUpdate = currentTime - parseInt(lastUpdate);
+        console.log(`Portfólio carregado - última atualização há ${Math.round(timeSinceUpdate / 1000)}s`);
+    }
 }
 
-// Criar card de serviço para a página inicial
+// Criar card de serviço para a página inicial (otimizado)
 function createHomepageServiceCard(service) {
     const card = document.createElement('div');
     card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200 group';
+    
+    // Processar imagem de forma otimizada
+    let imageHtml = '';
+    if (service.image) {
+        // Usar imagem otimizada com lazy loading
+        imageHtml = `
+            <img src="${service.image}" 
+                 alt="${service.title || 'Serviço'}" 
+                 class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300" 
+                 loading="lazy"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center" style="display:none;">
+                <i class="fas fa-image text-4xl text-purple-400"></i>
+            </div>
+        `;
+    } else {
+        imageHtml = `
+            <div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                <i class="fas fa-image text-4xl text-purple-400"></i>
+            </div>
+        `;
+    }
+    
     card.innerHTML = `
         <div class="relative overflow-hidden">
             <div class="aspect-w-16 aspect-h-12 bg-gray-200 rounded-t-lg overflow-hidden">
-                ${service.image ? 
-                    `<img src="${service.image}" alt="${service.title}" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">` :
-                    `<div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                        <i class="fas fa-image text-4xl text-purple-400"></i>
-                    </div>`
-                }
+                ${imageHtml}
             </div>
             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
                 <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -930,11 +971,12 @@ function createHomepageServiceCard(service) {
         <div class="p-4">
             <div class="mb-2">
                 <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
-                    ${service.type}
+                    ${service.type || 'Serviço'}
                 </span>
             </div>
-            <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title}</h3>
-            <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description}</p>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title || 'Título do Serviço'}</h3>
+            <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description || 'Descrição do serviço'}</p>
+            ${service.arcSize ? `<p class="text-blue-600 text-sm mb-2"><i class="fas fa-ruler mr-1"></i>${service.arcSize}</p>` : ''}
             ${service.price ? `<p class="text-green-600 font-semibold">R$ ${parseFloat(service.price).toFixed(2)}</p>` : ''}
         </div>
     `;
@@ -942,15 +984,40 @@ function createHomepageServiceCard(service) {
     return card;
 }
 
-// Inicializar portfólio na página inicial
+// Inicializar portfólio na página inicial (com sincronização em tempo real)
 function initHomepagePortfolio() {
     loadHomepagePortfolio();
     
-    // Recarregar portfólio quando a página ganhar foco (caso tenha sido atualizado no dashboard)
+    // Recarregar portfólio quando a página ganhar foco
     window.addEventListener('focus', loadHomepagePortfolio);
     
-    // Recarregar portfólio a cada 5 segundos (para capturar atualizações)
-    setInterval(loadHomepagePortfolio, 5000);
+    // Escutar eventos customizados de atualização do portfólio
+    window.addEventListener('portfolioUpdated', function(event) {
+        console.log('Portfólio atualizado via evento customizado');
+        loadHomepagePortfolio();
+    });
+    
+    // Escutar mensagens via BroadcastChannel para comunicação entre abas
+    if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('portfolio_updates');
+        channel.addEventListener('message', function(event) {
+            if (event.data.type === 'portfolio_updated') {
+                console.log('Portfólio atualizado via BroadcastChannel');
+                loadHomepagePortfolio();
+            }
+        });
+    }
+    
+    // Recarregar portfólio a cada 10 segundos (reduzido para melhor performance)
+    setInterval(loadHomepagePortfolio, 10000);
+    
+    // Escutar mudanças no localStorage (fallback para navegadores mais antigos)
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'homepage_portfolio' || event.key === 'homepage_portfolio_updated') {
+            console.log('Portfólio atualizado via localStorage');
+            loadHomepagePortfolio();
+        }
+    });
 }
 
 // Inicializar portfólio quando a página carregar
