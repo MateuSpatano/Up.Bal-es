@@ -157,7 +157,7 @@
 .nav-item {
     display: flex;
     align-items: center;
-    space-x: 0.75rem;
+    /* space-x: 0.75rem; - Removido: propriedade CSS inválida */
     padding: 0.75rem 1rem;
     margin-bottom: 0.25rem;
     border-radius: 0.5rem;
@@ -1699,6 +1699,7 @@ button:focus {
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -1710,6 +1711,7 @@ button:focus {
     line-height: 1.5;
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
