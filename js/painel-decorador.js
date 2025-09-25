@@ -3980,42 +3980,51 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Carregar serviços do portfólio
     function loadPortfolioServices() {
-        // Limpar dados existentes
-        localStorage.removeItem('portfolio_services');
-        portfolioServices = [];
+        // Tentar carregar serviços existentes do localStorage
+        const savedServices = localStorage.getItem('portfolio_services');
         
-        // Adicionar alguns serviços de exemplo para teste
-        portfolioServices = [
-            {
-                id: 'demo-1',
-                type: 'Arco Tradicional',
-                title: 'Arco de Balões para Aniversário',
-                description: 'Arco tradicional com balões coloridos perfeito para aniversários e comemorações.',
-                price: '150.00',
-                arcSize: '3m de altura',
-                image: null
-            },
-            {
-                id: 'demo-2',
-                type: 'Centro de Mesa',
-                title: 'Centro de Mesa Elegante',
-                description: 'Centro de mesa com balões e decoração elegante para eventos especiais.',
-                price: '80.00',
-                arcSize: null,
-                image: null
-            },
-            {
-                id: 'demo-3',
-                type: 'Escultura de Balão',
-                title: 'Escultura de Personagem',
-                description: 'Escultura personalizada de personagens em balões para festas temáticas.',
-                price: '200.00',
-                arcSize: '1.5m de altura',
-                image: null
+        if (savedServices) {
+            try {
+                portfolioServices = JSON.parse(savedServices);
+            } catch (error) {
+                console.error('Erro ao carregar serviços salvos:', error);
+                portfolioServices = [];
             }
-        ];
+        } else {
+            // Se não há serviços salvos, criar alguns de exemplo
+            portfolioServices = [
+                {
+                    id: 'demo-1',
+                    type: 'Arco Tradicional',
+                    title: 'Arco de Balões para Aniversário',
+                    description: 'Arco tradicional com balões coloridos perfeito para aniversários e comemorações.',
+                    price: '150.00',
+                    arcSize: '3m de altura',
+                    image: null
+                },
+                {
+                    id: 'demo-2',
+                    type: 'Centro de Mesa',
+                    title: 'Centro de Mesa Elegante',
+                    description: 'Centro de mesa com balões e decoração elegante para eventos especiais.',
+                    price: '80.00',
+                    arcSize: null,
+                    image: null
+                },
+                {
+                    id: 'demo-3',
+                    type: 'Escultura de Balão',
+                    title: 'Escultura de Personagem',
+                    description: 'Escultura personalizada de personagens em balões para festas temáticas.',
+                    price: '200.00',
+                    arcSize: '1.5m de altura',
+                    image: null
+                }
+            ];
+            
+            savePortfolioServices();
+        }
         
-        savePortfolioServices();
         renderPortfolioServices();
     }
     
@@ -4303,12 +4312,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="service-image-container">
                     ${imageHtml}
                 </div>
-                <div class="service-actions absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button class="edit-service-btn w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 shadow-lg cursor-pointer" data-id="${service.id}" title="Editar serviço" type="button">
-                        <i class="fas fa-edit text-sm"></i>
+                <div class="service-actions">
+                    <button class="edit-service-btn" data-id="${service.id}" title="Editar serviço" type="button">
+                        <i class="fas fa-edit"></i>
                     </button>
-                    <button class="delete-service-btn w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 shadow-lg cursor-pointer" data-id="${service.id}" title="Excluir serviço" type="button">
-                        <i class="fas fa-trash text-sm"></i>
+                    <button class="delete-service-btn" data-id="${service.id}" title="Excluir serviço" type="button">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -4335,7 +4344,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 e.stopPropagation();
                 confirmDeleteServiceAction(service.id);
-        }
+            }
         });
         
         return card;

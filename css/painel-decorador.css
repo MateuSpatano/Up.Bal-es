@@ -1595,18 +1595,22 @@ button:focus {
     right: 0.5rem;
     display: flex;
     gap: 0.25rem;
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.3s ease;
     z-index: 10;
-    pointer-events: none;
+    pointer-events: auto;
 }
 
 .service-actions button {
     pointer-events: auto;
 }
 
-/* Desktop: mostrar no hover */
+/* Desktop: sempre visível com hover effect */
 @media (min-width: 768px) {
+    .service-actions {
+        opacity: 0.8;
+    }
+    
     .service-card:hover .service-actions {
         opacity: 1;
     }
