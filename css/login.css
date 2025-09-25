@@ -1,4 +1,240 @@
-/* Estilos específicos para a tela de login */
+/* Estilos específicos para a tela de login e cadastro */
+
+/* Melhorar scroll global */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Scroll transparente - Abordagem universal */
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    border: none;
+}
+
+::-webkit-scrollbar-thumb {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: transparent;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Firefox */
+* {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+}
+
+/* IE/Edge Legacy */
+* {
+    -ms-overflow-style: none;
+}
+
+/* Garantir que todos os elementos tenham scroll transparente */
+html, body, div, section, main, article, aside, nav, header, footer {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+section::-webkit-scrollbar,
+main::-webkit-scrollbar {
+    display: none;
+}
+
+/* Classe específica para scroll transparente */
+.scroll-transparent {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.scroll-transparent::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+.scroll-transparent::-webkit-scrollbar-track {
+    display: none;
+    background: transparent;
+}
+
+.scroll-transparent::-webkit-scrollbar-thumb {
+    display: none;
+    background: transparent;
+}
+
+.scroll-transparent::-webkit-scrollbar-corner {
+    display: none;
+    background: transparent;
+}
+
+/* Estilos para validação de campos */
+.input-success {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+.input-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Estilos para mensagens */
+.message-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.message-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.message-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.message-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+/* Estilos específicos para responsividade da página de cadastro */
+@media (max-width: 640px) {
+    /* Garantir scroll suave em dispositivos móveis */
+    body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Scroll transparente em mobile */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+    
+    html {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    /* Ajustar padding do formulário em telas muito pequenas */
+    #cadastro-form {
+        padding: 1rem !important;
+        margin: 0.5rem !important;
+    }
+    
+    /* Ajustar tamanho dos inputs em telas pequenas */
+    #cadastro-form input,
+    #cadastro-form textarea,
+    #cadastro-form select {
+        font-size: 16px !important; /* Previne zoom no iOS */
+        padding: 0.75rem !important;
+        padding-left: 2.5rem !important;
+    }
+    
+    /* Ajustar posição dos ícones */
+    #cadastro-form .absolute.inset-y-0.left-0 {
+        padding-left: 0.75rem !important;
+    }
+    
+    /* Ajustar botões */
+    #cadastro-form button,
+    #cadastro-form a {
+        padding: 0.75rem 1rem !important;
+        font-size: 16px !important;
+    }
+    
+    /* Ajustar logo */
+    .logo-container {
+        width: 4rem !important;
+        height: 4rem !important;
+    }
+    
+    /* Ajustar título */
+    h2 {
+        font-size: 1.5rem !important;
+    }
+    
+    /* Ajustar grid de cidade/estado */
+    .grid.grid-cols-1.md\\:grid-cols-2 {
+        gap: 0.75rem !important;
+    }
+}
+
+/* Melhorar responsividade em tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+    #cadastro-form {
+        max-width: 28rem !important;
+    }
+}
+
+/* Ajustes para telas pequenas onde o scroll é crítico */
+@media (max-width: 480px) {
+    .relative.z-10 {
+        align-items: flex-start !important;
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+    }
+    
+    /* Garantir que o formulário não seja cortado */
+    #cadastro-form {
+        margin-bottom: 2rem !important;
+    }
+}
+
+/* Ajustes para telas muito pequenas (menos de 375px) */
+@media (max-width: 374px) {
+    .container {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    
+    #cadastro-form {
+        padding: 0.75rem !important;
+        margin: 0.25rem !important;
+    }
+    
+    .space-y-3 > * + * {
+        margin-top: 0.5rem !important;
+    }
+    
+    /* Garantir que o conteúdo seja scrollável */
+    .relative.z-10 {
+        min-height: 100vh;
+        align-items: flex-start !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+}
 
 /* Animação do fundo com balões */
 #animated-background {
