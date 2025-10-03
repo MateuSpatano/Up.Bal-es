@@ -139,9 +139,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.removeItem('rememberedEmail');
                 }
                 
-                // Redirecionamento após 2 segundos
+                // Redirecionamento baseado no role do usuário
                 setTimeout(() => {
-                    window.location.href = '../index.html';
+                    if (response.user && response.user.role === 'admin') {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = '../index.html';
+                    }
                 }, 2000);
                 
             } else {

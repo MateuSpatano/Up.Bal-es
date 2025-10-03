@@ -67,9 +67,9 @@
     <div id="auth-check" class="hidden">
         <script>
             // Verificar se o usuário é admin
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            if (currentUser.role !== 'admin') {
-                window.location.href = '../index.html';
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.role !== 'admin') {
+                window.location.href = 'admin-login.html';
             }
         </script>
     </div>

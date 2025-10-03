@@ -3981,11 +3981,27 @@ Qualquer dúvida, estou à disposição! 😊`;
     const userBtn = document.getElementById('user-btn');
     const userDropdown = document.getElementById('user-dropdown');
     const manageAccountBtn = document.getElementById('manage-account-btn');
+    const adminPanelBtn = document.getElementById('admin-panel-btn');
     const logoutHeaderBtn = document.getElementById('logout-header-btn');
     
     // Estado dos dropdowns
     let notificationsOpen = false;
     let userDropdownOpen = false;
+    
+    // Verificar se o usuário é admin e mostrar botão de admin
+    function checkAdminAccess() {
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.role === 'admin' && adminPanelBtn) {
+                adminPanelBtn.classList.remove('hidden');
+            }
+        } catch (e) {
+            console.warn('Erro ao verificar acesso admin:', e);
+        }
+    }
+    
+    // Chamar verificação de admin
+    checkAdminAccess();
     
     // ========== DROPDOWN DE NOTIFICAÇÕES ==========
     
@@ -4177,6 +4193,16 @@ Qualquer dúvida, estou à disposição! 😊`;
             closeUserDropdown();
             // Redirecionar para a página de gerenciamento de conta do decorador
             window.location.href = 'login.html';
+        });
+    }
+    
+    // Painel Admin
+    if (adminPanelBtn) {
+        adminPanelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeUserDropdown();
+            // Redirecionar para a página de admin
+            window.location.href = 'admin.html';
         });
     }
     

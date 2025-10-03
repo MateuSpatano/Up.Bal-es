@@ -25,12 +25,12 @@ class AdminSystem {
 
     // Verificação de Autenticação
     checkAuthentication() {
-        this.currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        this.currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
         
         if (!this.currentUser || this.currentUser.role !== 'admin') {
             this.showNotification('Acesso negado. Apenas administradores podem acessar esta área.', 'error');
             setTimeout(() => {
-                window.location.href = '../index.html';
+                window.location.href = 'admin-login.html';
             }, 2000);
             return;
         }
@@ -953,8 +953,9 @@ class AdminSystem {
     // Logout
     logout() {
         if (confirm('Tem certeza que deseja sair?')) {
-            localStorage.removeItem('currentUser');
-            window.location.href = '../index.html';
+            localStorage.removeItem('userData');
+            localStorage.removeItem('userToken');
+            window.location.href = 'admin-login.html';
         }
     }
 }
