@@ -1,4 +1,4 @@
-// JavaScript principal para Up.Baloes
+// Sistema principal Up.Baloes
 document.addEventListener('DOMContentLoaded', function() {
     
     // Elementos DOM
@@ -10,12 +10,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const navLinks = document.querySelectorAll('.nav-link');
     const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
 
-    // Variáveis de estado
+    // Estado dos menus
     let isUserMenuOpen = false;
     let isMobileMenuOpen = false;
 
-    // ========== FUNCIONALIDADES DA NAVBAR ==========
-    
     // Efeito de scroll na navbar
     function handleNavbarScroll() {
         if (window.scrollY > 50) {
@@ -25,18 +23,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Adicionar listener de scroll
     window.addEventListener('scroll', handleNavbarScroll);
 
-    // ========== DROPDOWN DO USUÁRIO ==========
-    
     // Toggle do dropdown do usuário
     function toggleUserDropdown() {
         isUserMenuOpen = !isUserMenuOpen;
         
         if (isUserMenuOpen) {
             userDropdown.classList.add('show');
-            // Fechar menu mobile se estiver aberto
             if (isMobileMenuOpen) {
                 toggleMobileMenu();
             }

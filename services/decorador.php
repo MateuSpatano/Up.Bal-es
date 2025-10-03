@@ -1,30 +1,19 @@
 <?php
-/**
- * Serviço de Gerenciamento de Decoradores - Up.Baloes
- * 
- * Este arquivo gerencia operações relacionadas aos decoradores,
- * incluindo busca por slug e criação de contas.
- */
-
-// Configurações de CORS para desenvolvimento
+// Serviço de gerenciamento de decoradores Up.Baloes
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Permitir requisições OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// Incluir configurações
 require_once 'config.php';
 require_once '../utils/gerador-slug.php';
 
-/**
- * Classe para gerenciamento de decoradores
- */
+// Classe de gerenciamento de decoradores
 class DecoratorService {
     private $pdo;
     

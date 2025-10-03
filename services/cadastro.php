@@ -1,28 +1,19 @@
 <?php
-/**
- * Serviço de Cadastro para Up.Baloes
- * 
- * Este arquivo processa o cadastro de novos usuários no sistema.
- */
-
-// Incluir configurações
+// Serviço de cadastro Up.Baloes
 require_once 'config.php';
 
-// Configurações de CORS para desenvolvimento
+// Headers CORS
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// Permitir requisições OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-/**
- * Classe para gerenciamento de cadastro
- */
+// Classe de gerenciamento de cadastro
 class CadastroService {
     private $pdo;
     

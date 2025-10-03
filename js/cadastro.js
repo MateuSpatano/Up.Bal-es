@@ -1,7 +1,7 @@
-// JavaScript específico para a tela de cadastro
+// Sistema de cadastro Up.Baloes
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Elementos DOM
+    // Elementos do formulário
     const cadastroForm = document.getElementById('cadastro-form');
     const nomeInput = document.getElementById('nome');
     const emailInput = document.getElementById('email');
@@ -21,13 +21,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageContainer = document.getElementById('message-container');
     const message = document.getElementById('message');
     
-    // Variáveis de estado
+    // Estado dos campos
     let isSenhaVisible = false;
     let isConfirmarSenhaVisible = false;
     let isLoading = false;
 
-    // ========== FUNCIONALIDADES DO FORMULÁRIO ==========
-    
     // Toggle de visibilidade da senha
     toggleSenhaBtn.addEventListener('click', function() {
         isSenhaVisible = !isSenhaVisible;

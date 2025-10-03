@@ -1,7 +1,7 @@
-// JavaScript específico para a tela de login
+// Sistema de login Up.Baloes
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Elementos DOM
+    // Elementos do formulário
     const loginForm = document.getElementById('login-form');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
@@ -21,12 +21,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const sendResetEmail = document.getElementById('send-reset-email');
     const forgotEmailInput = document.getElementById('forgot-email');
 
-    // Variáveis de estado
+    // Estado dos campos
     let isPasswordVisible = false;
     let isLoading = false;
 
-    // ========== FUNCIONALIDADES DO FORMULÁRIO ==========
-    
     // Toggle de visibilidade da senha
     togglePasswordBtn.addEventListener('click', function() {
         isPasswordVisible = !isPasswordVisible;

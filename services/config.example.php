@@ -1,5 +1,7 @@
 <?php
-// Configurações do sistema Up.Baloes
+// Arquivo de configuração de exemplo - Up.Baloes
+// Copie este arquivo para config.php e configure suas credenciais
+
 define('ENVIRONMENT', 'development');
 
 // Configurações do banco de dados MySQL
@@ -7,7 +9,7 @@ $database_config = [
     'host' => 'localhost',
     'dbname' => 'up_baloes',
     'username' => 'root',
-    'password' => '',
+    'password' => 'sua_senha_aqui',
     'charset' => 'utf8mb4',
     'port' => 3306,
     'options' => [
@@ -33,8 +35,8 @@ $security_config = [
 $email_config = [
     'smtp_host' => 'smtp.gmail.com',
     'smtp_port' => 587,
-    'smtp_username' => 'your-email@gmail.com',
-    'smtp_password' => 'your-app-password',
+    'smtp_username' => 'seu-email@gmail.com',
+    'smtp_password' => 'sua-senha-de-app',
     'from_email' => 'noreply@upbaloes.com',
     'from_name' => 'Up.Baloes System'
 ];
@@ -70,23 +72,20 @@ $urls = [
 
 // Configurações de desenvolvimento
 if (ENVIRONMENT === 'development') {
-    // Mostrar erros em desenvolvimento
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
     
-    // Configurações de CORS mais permissivas
     $cors_config = [
         'allowed_origins' => ['*'],
         'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With']
     ];
 } else {
-    // Configurações de produção
     error_reporting(0);
     ini_set('display_errors', 0);
     
     $cors_config = [
-        'allowed_origins' => ['https://yourdomain.com'],
+        'allowed_origins' => ['https://seudominio.com'],
         'allowed_methods' => ['GET', 'POST'],
         'allowed_headers' => ['Content-Type', 'Authorization']
     ];
