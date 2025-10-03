@@ -8,11 +8,60 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('service-request-form');
     const submitBtn = document.getElementById('submit-request');
     const cancelBtn = document.getElementById('cancel-request');
+    const imageInput = document.getElementById('inspiration-image');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const removeImageBtn = document.getElementById('remove-image');
 
     // ========== FUNCIONALIDADES DO CAMPO TAMANHO DO ARCO ==========
     
     // Campo de tamanho do arco agora é sempre obrigatório
     // Não há mais lógica condicional para mostrar/ocultar
+
+    // ========== FUNCIONALIDADES DE UPLOAD DE IMAGEM ==========
+    
+    // Configurar upload de imagem
+    function setupImageUpload() {
+        if (imageInput) {
+            imageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Validar tipo de arquivo
+                    if (!file.type.startsWith('image/')) {
+                        showFieldError('inspiration-image', 'Por favor, selecione apenas arquivos de imagem');
+                        return;
+                    }
+                    
+                    // Validar tamanho do arquivo (máximo 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showFieldError('inspiration-image', 'A imagem deve ter no máximo 5MB');
+                        return;
+                    }
+                    
+                    // Limpar erros anteriores
+                    clearFieldValidation('inspiration-image');
+                    
+                    // Mostrar preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImg.src = e.target.result;
+                        imagePreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Configurar botão de remover imagem
+        if (removeImageBtn) {
+            removeImageBtn.addEventListener('click', function() {
+                imageInput.value = '';
+                imagePreview.classList.add('hidden');
+                previewImg.src = '';
+                clearFieldValidation('inspiration-image');
+            });
+        }
+    }
 
     // ========== VALIDAÇÕES ==========
     
@@ -267,10 +316,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     // Preparar dados
                     const formData = new FormData(form);
-                    const data = Object.fromEntries(formData.entries());
                     
                     // Enviar solicitação
-                    await submitServiceRequest(data);
+                    await submitServiceRequest(formData);
                     
                     showNotification('Solicitação enviada com sucesso! Entraremos em contato em breve.', 'success');
                     form.reset();
@@ -290,28 +338,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Enviar solicitação de serviço
-    async function submitServiceRequest(data) {
+    async function submitServiceRequest(formData) {
         try {
+            // Adicionar campos adicionais ao FormData
+            formData.append('action', 'create');
+            formData.append('event_time', '10:00'); // Hora padrão
+            formData.append('estimated_value', '0'); // Apenas o decorador define o valor
+            formData.append('created_via', 'client'); // Indica que foi criado via fluxo do cliente
+            
             const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'create',
-                    client: data.client_name,
-                    email: data.client_email,
-                    phone: data.client_phone,
-                    event_date: data.event_date,
-                    event_time: '10:00', // Hora padrão
-                    event_location: data.event_location,
-                    service_type: data.service_type,
-                    description: data.description,
-                    estimated_value: 0, // Apenas o decorador define o valor
-                    notes: data.notes,
-                    tamanho_arco_m: data.tamanho_arco_m,
-                    created_via: 'client' // Indica que foi criado via fluxo do cliente
-                })
+                body: formData // Usar FormData diretamente para suportar upload de arquivo
             });
             
             const result = await response.json();
@@ -408,6 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setupRealTimeValidation();
         setupFormSubmission();
         setupCancelButton();
+        setupImageUpload();
         
         console.log('Client Request - Sistema carregado com sucesso!');
     }

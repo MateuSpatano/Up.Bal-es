@@ -847,6 +847,28 @@
                                   placeholder="Observações adicionais"></textarea>
                     </div>
 
+                    <!-- Imagem de Inspiração -->
+                    <div class="space-y-2">
+                        <label for="budget-inspiration-image" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-image mr-2 text-blue-600"></i>Imagem de Inspiração
+                        </label>
+                        <div class="relative">
+                            <input type="file" id="budget-inspiration-image" name="inspiration_image" accept="image/*"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            <div class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Envie uma imagem que inspire a decoração desejada (opcional)
+                            </div>
+                        </div>
+                        <!-- Preview da imagem -->
+                        <div id="budget-image-preview" class="hidden mt-3">
+                            <img id="budget-preview-img" src="" alt="Preview" class="max-w-xs max-h-48 rounded-lg shadow-md">
+                            <button type="button" id="budget-remove-image" class="mt-2 text-red-600 hover:text-red-800 text-sm">
+                                <i class="fas fa-trash mr-1"></i>Remover imagem
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Botões -->
                     <div class="flex flex-col sm:flex-row gap-3 pt-4">
                         <button type="button" id="cancel-create-budget" 
@@ -1222,6 +1244,142 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Envio de Orçamento -->
+    <div id="send-budget-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="send-budget-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-2xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-green-600 to-emerald-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-paper-plane text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Enviar Orçamento</h3>
+                                <p class="text-green-100 text-sm">Escolha como deseja enviar o orçamento para o cliente</p>
+                            </div>
+                        </div>
+                        <button id="close-send-budget-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <!-- Informações do Orçamento -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Orçamento Selecionado</h4>
+                        <div id="send-budget-info" class="space-y-2">
+                            <!-- Informações serão carregadas dinamicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Opções de Envio -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">Escolha o método de envio:</h4>
+                        
+                        <!-- E-mail -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-green-300 hover:bg-green-50 transition-all duration-200 cursor-pointer" onclick="selectSendMethod('email')">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-envelope text-blue-600 text-xl"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="text-lg font-semibold text-gray-800">Enviar por E-mail</h5>
+                                    <p class="text-gray-600 text-sm">Envie o orçamento por e-mail com todos os detalhes</p>
+                                </div>
+                                <div class="w-6 h-6 border-2 border-gray-300 rounded-full flex items-center justify-center" id="email-radio">
+                                    <div class="w-3 h-3 bg-green-600 rounded-full hidden" id="email-radio-selected"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WhatsApp -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-green-300 hover:bg-green-50 transition-all duration-200 cursor-pointer" onclick="selectSendMethod('whatsapp')">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fab fa-whatsapp text-green-600 text-xl"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="text-lg font-semibold text-gray-800">Enviar por WhatsApp</h5>
+                                    <p class="text-gray-600 text-sm">Envie o orçamento via WhatsApp com link para visualização</p>
+                                </div>
+                                <div class="w-6 h-6 border-2 border-gray-300 rounded-full flex items-center justify-center" id="whatsapp-radio">
+                                    <div class="w-3 h-3 bg-green-600 rounded-full hidden" id="whatsapp-radio-selected"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mensagem Personalizada (para e-mail) -->
+                    <div id="custom-message-section" class="mt-6 hidden">
+                        <label for="custom-message" class="block text-sm font-medium text-gray-700 mb-2">
+                            Mensagem personalizada (opcional)
+                        </label>
+                        <textarea id="custom-message" rows="4" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Digite uma mensagem personalizada para acompanhar o orçamento..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button id="cancel-send-budget" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button id="confirm-send-budget" 
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
+                            <i class="fas fa-paper-plane mr-2"></i>Enviar Orçamento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Visualização de Imagem -->
+    <div id="image-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-black bg-opacity-75" id="image-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-4xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gray-800 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-image text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Imagem de Inspiração</h3>
+                                <p class="text-gray-300 text-sm">Visualização ampliada</p>
+                            </div>
+                        </div>
+                        <button id="close-image-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 text-center">
+                    <img id="modal-image" src="" alt="Imagem de inspiração" class="max-w-full max-h-96 mx-auto rounded-lg shadow-lg">
+                </div>
             </div>
         </div>
     </div>

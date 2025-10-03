@@ -9,17 +9,20 @@
 // Configurações de ambiente
 define('ENVIRONMENT', 'development'); // development, production
 
-// Configurações de banco de dados
+// Configurações de banco de dados MySQL
 $database_config = [
     'host' => 'localhost',
     'dbname' => 'up_baloes',
     'username' => 'root',
     'password' => '',
     'charset' => 'utf8mb4',
+    'port' => 3306, // Porta padrão do MySQL
     'options' => [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+        PDO::ATTR_PERSISTENT => false, // Desabilitar conexões persistentes para melhor performance
     ]
 ];
 
@@ -116,12 +119,13 @@ function setupCORS($cors_config) {
  */
 function getDatabaseConnection($config) {
     try {
-        $dsn = "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}";
+        $port = $config['port'] ?? 3306;
+        $dsn = "mysql:host={$config['host']};port={$port};dbname={$config['dbname']};charset={$config['charset']}";
         $pdo = new PDO($dsn, $config['username'], $config['password'], $config['options']);
         return $pdo;
     } catch (PDOException $e) {
         if (ENVIRONMENT === 'development') {
-            throw new Exception('Erro de conexão com o banco de dados: ' . $e->getMessage());
+            throw new Exception('Erro de conexão com o banco de dados MySQL: ' . $e->getMessage());
         } else {
             throw new Exception('Erro interno do servidor.');
         }

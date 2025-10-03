@@ -36,6 +36,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const budgetServiceType = document.getElementById('budget-service-type');
     const budgetArcSizeContainer = document.getElementById('budget-arc-size-container');
     const budgetArcSize = document.getElementById('budget-arc-size');
+    
+    // Elementos do upload de imagem
+    const budgetImageInput = document.getElementById('budget-inspiration-image');
+    const budgetImagePreview = document.getElementById('budget-image-preview');
+    const budgetPreviewImg = document.getElementById('budget-preview-img');
+    const budgetRemoveImageBtn = document.getElementById('budget-remove-image');
+
+    // Elementos do modal de envio de orçamento
+    const sendBudgetModal = document.getElementById('send-budget-modal');
+    const closeSendBudgetModal = document.getElementById('close-send-budget-modal');
+    const cancelSendBudget = document.getElementById('cancel-send-budget');
+    const confirmSendBudget = document.getElementById('confirm-send-budget');
+    const sendBudgetModalOverlay = document.getElementById('send-budget-modal-overlay');
+    const sendBudgetInfo = document.getElementById('send-budget-info');
+    const customMessageSection = document.getElementById('custom-message-section');
+    const customMessage = document.getElementById('custom-message');
 
     // Modal de detalhes do orçamento
     const budgetDetailsModal = document.getElementById('budget-details-modal');
@@ -65,6 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentFilters = {};
     let calendarInstance = null;
     let currentView = 'list';
+    let currentSendBudget = null;
+    let selectedSendMethod = null;
 
     // ========== INICIALIZAÇÃO ==========
     
@@ -82,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configurar modais de orçamento
     setupBudgetModals();
+    
+    // Configurar modal de envio
+    setupSendBudgetModal();
     
     // Configurar visualizações
     setupViewControls();
@@ -2272,6 +2293,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar campo de tamanho do arco
         setupArcSizeField();
         
+        // Configurar upload de imagem
+        setupBudgetImageUpload();
+        
         // Modal de detalhes do orçamento
         if (closeBudgetDetailsModal) {
             closeBudgetDetailsModal.addEventListener('click', closeBudgetDetailsModalFunc);
@@ -2319,6 +2343,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 createBudgetForm.reset();
                 // Resetar campo de tamanho do arco
                 toggleArcSizeField();
+                // Limpar preview da imagem
+                if (budgetImagePreview) {
+                    budgetImagePreview.classList.add('hidden');
+                }
+                if (budgetPreviewImg) {
+                    budgetPreviewImg.src = '';
+                }
             }
         }
     }
@@ -2347,26 +2378,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             const formData = new FormData(createBudgetForm);
-            const budgetData = Object.fromEntries(formData.entries());
+            
+            // Adicionar campos adicionais ao FormData
+            formData.append('action', 'create');
+            formData.append('created_via', 'decorator'); // Indica que foi criado pelo decorador
             
             // Converter valor estimado para número
-            budgetData.estimated_value = parseFloat(budgetData.estimated_value) || 0;
+            const estimatedValue = formData.get('estimated_value');
+            if (estimatedValue) {
+                formData.set('estimated_value', parseFloat(estimatedValue) || 0);
+            }
             
             // Converter tamanho do arco para número se preenchido
-            if (budgetData.tamanho_arco_m) {
-                budgetData.tamanho_arco_m = parseFloat(budgetData.tamanho_arco_m);
+            const arcSize = formData.get('tamanho_arco_m');
+            if (arcSize) {
+                formData.set('tamanho_arco_m', parseFloat(arcSize));
             }
             
             // Enviar para o servidor
             const response = await fetch('../services/orcamentos.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'create',
-                    ...budgetData
-                })
+                body: formData // Usar FormData diretamente para suportar upload de arquivo
             });
             
             const result = await response.json();
@@ -2420,6 +2452,257 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Inicializar estado do campo
         toggleArcSizeField();
+    }
+
+    // ========== FUNCIONALIDADES DE UPLOAD DE IMAGEM ==========
+    
+    function setupBudgetImageUpload() {
+        if (budgetImageInput) {
+            budgetImageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Validar tipo de arquivo
+                    if (!file.type.startsWith('image/')) {
+                        showNotification('Por favor, selecione apenas arquivos de imagem', 'error');
+                        return;
+                    }
+                    
+                    // Validar tamanho do arquivo (máximo 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showNotification('A imagem deve ter no máximo 5MB', 'error');
+                        return;
+                    }
+                    
+                    // Mostrar preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        budgetPreviewImg.src = e.target.result;
+                        budgetImagePreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Configurar botão de remover imagem
+        if (budgetRemoveImageBtn) {
+            budgetRemoveImageBtn.addEventListener('click', function() {
+                budgetImageInput.value = '';
+                budgetImagePreview.classList.add('hidden');
+                budgetPreviewImg.src = '';
+            });
+        }
+    }
+
+    // ========== FUNCIONALIDADES DO MODAL DE ENVIO ==========
+    
+    function setupSendBudgetModal() {
+        // Fechar modal
+        if (closeSendBudgetModal) {
+            closeSendBudgetModal.addEventListener('click', closeSendBudgetModalFunc);
+        }
+        
+        if (cancelSendBudget) {
+            cancelSendBudget.addEventListener('click', closeSendBudgetModalFunc);
+        }
+        
+        if (sendBudgetModalOverlay) {
+            sendBudgetModalOverlay.addEventListener('click', closeSendBudgetModalFunc);
+        }
+        
+        // Confirmar envio
+        if (confirmSendBudget) {
+            confirmSendBudget.addEventListener('click', handleSendBudget);
+        }
+        
+        // Fechar com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sendBudgetModal && !sendBudgetModal.classList.contains('hidden')) {
+                closeSendBudgetModalFunc();
+            }
+        });
+    }
+    
+    function openSendBudgetModal(budgetId) {
+        // Encontrar o orçamento
+        const budget = budgets.find(b => b.id == budgetId);
+        if (!budget) {
+            showNotification('Orçamento não encontrado', 'error');
+            return;
+        }
+        
+        currentSendBudget = budget;
+        selectedSendMethod = null;
+        
+        // Atualizar informações do orçamento
+        updateSendBudgetInfo(budget);
+        
+        // Resetar seleção
+        resetSendMethodSelection();
+        
+        // Mostrar modal
+        if (sendBudgetModal) {
+            sendBudgetModal.classList.remove('hidden');
+            sendBudgetModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    function closeSendBudgetModalFunc() {
+        if (sendBudgetModal) {
+            sendBudgetModal.classList.add('hidden');
+            sendBudgetModal.classList.remove('show');
+            document.body.style.overflow = 'auto';
+            
+            // Resetar estado
+            currentSendBudget = null;
+            selectedSendMethod = null;
+            resetSendMethodSelection();
+        }
+    }
+    
+    function updateSendBudgetInfo(budget) {
+        if (!sendBudgetInfo) return;
+        
+        sendBudgetInfo.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-600"><strong>Cliente:</strong> ${budget.client}</p>
+                    <p class="text-sm text-gray-600"><strong>E-mail:</strong> ${budget.email}</p>
+                    <p class="text-sm text-gray-600"><strong>Telefone:</strong> ${budget.phone || 'Não informado'}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600"><strong>Serviço:</strong> ${getServiceTypeLabel(budget.service_type)}</p>
+                    <p class="text-sm text-gray-600"><strong>Data:</strong> ${formatDate(budget.event_date)} - ${budget.event_time}</p>
+                    <p class="text-sm text-gray-600"><strong>Valor:</strong> R$ ${budget.estimated_value.toFixed(2)}</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    function selectSendMethod(method) {
+        selectedSendMethod = method;
+        
+        // Atualizar visual dos radio buttons
+        resetSendMethodSelection();
+        
+        if (method === 'email') {
+            document.getElementById('email-radio').classList.add('border-green-500');
+            document.getElementById('email-radio-selected').classList.remove('hidden');
+            customMessageSection.classList.remove('hidden');
+        } else if (method === 'whatsapp') {
+            document.getElementById('whatsapp-radio').classList.add('border-green-500');
+            document.getElementById('whatsapp-radio-selected').classList.remove('hidden');
+            customMessageSection.classList.add('hidden');
+        }
+        
+        // Habilitar botão de confirmação
+        if (confirmSendBudget) {
+            confirmSendBudget.disabled = false;
+        }
+    }
+    
+    function resetSendMethodSelection() {
+        // Resetar radio buttons
+        document.getElementById('email-radio').classList.remove('border-green-500');
+        document.getElementById('whatsapp-radio').classList.remove('border-green-500');
+        document.getElementById('email-radio-selected').classList.add('hidden');
+        document.getElementById('whatsapp-radio-selected').classList.add('hidden');
+        
+        // Desabilitar botão de confirmação
+        if (confirmSendBudget) {
+            confirmSendBudget.disabled = true;
+        }
+        
+        // Ocultar seção de mensagem personalizada
+        customMessageSection.classList.add('hidden');
+    }
+    
+    async function handleSendBudget() {
+        if (!currentSendBudget || !selectedSendMethod) {
+            showNotification('Selecione um método de envio', 'error');
+            return;
+        }
+        
+        // Mostrar loading
+        if (confirmSendBudget) {
+            confirmSendBudget.classList.add('btn-loading');
+            confirmSendBudget.disabled = true;
+        }
+        
+        try {
+            if (selectedSendMethod === 'email') {
+                await sendBudgetByEmail();
+            } else if (selectedSendMethod === 'whatsapp') {
+                await sendBudgetByWhatsApp();
+            }
+        } catch (error) {
+            showNotification('Erro ao enviar orçamento: ' + error.message, 'error');
+        } finally {
+            // Remover loading
+            if (confirmSendBudget) {
+                confirmSendBudget.classList.remove('btn-loading');
+                confirmSendBudget.disabled = false;
+            }
+        }
+    }
+    
+    async function sendBudgetByEmail() {
+        const customMessageText = customMessage ? customMessage.value.trim() : '';
+        
+        const response = await fetch('../services/orcamentos.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'send_email',
+                budget_id: currentSendBudget.id,
+                custom_message: customMessageText
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Orçamento enviado por e-mail com sucesso!', 'success');
+            closeSendBudgetModalFunc();
+            
+            // Atualizar status do orçamento para "enviado"
+            await changeBudgetStatus(currentSendBudget.id, 'enviado');
+        } else {
+            throw new Error(result.message || 'Erro ao enviar e-mail');
+        }
+    }
+    
+    async function sendBudgetByWhatsApp() {
+        // Gerar link para visualização do orçamento
+        const budgetUrl = `${window.location.origin}/pages/orcamento-visualizacao.html?id=${currentSendBudget.id}`;
+        
+        // Mensagem para WhatsApp
+        const message = `Olá ${currentSendBudget.client}! 
+
+Seu orçamento de decoração com balões está pronto! 🎈
+
+📋 *Detalhes do Serviço:*
+• Serviço: ${getServiceTypeLabel(currentSendBudget.service_type)}
+• Data: ${formatDate(currentSendBudget.event_date)} às ${currentSendBudget.event_time}
+• Local: ${currentSendBudget.event_location}
+• Valor: R$ ${currentSendBudget.estimated_value.toFixed(2)}
+
+🔗 *Visualizar orçamento completo:* ${budgetUrl}
+
+Qualquer dúvida, estou à disposição! 😊`;
+
+        // Abrir WhatsApp Web/App
+        const whatsappUrl = `https://wa.me/${currentSendBudget.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        
+        showNotification('WhatsApp aberto com a mensagem do orçamento!', 'success');
+        closeSendBudgetModalFunc();
+        
+        // Atualizar status do orçamento para "enviado"
+        await changeBudgetStatus(currentSendBudget.id, 'enviado');
     }
     
     // Validar tamanho do arco
@@ -3246,6 +3529,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button onclick="editBudget(${budget.id})" class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded hover:bg-yellow-200 transition-colors">
                             <i class="fas fa-edit mr-1"></i>Editar
                         </button>
+                        <button onclick="openSendBudgetModal(${budget.id})" class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded hover:bg-green-200 transition-colors">
+                            <i class="fas fa-paper-plane mr-1"></i>Enviar
+                        </button>
                         <div class="relative inline-block">
                             <button onclick="toggleStatusDropdown(${budget.id})" class="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded hover:bg-gray-200 transition-colors flex items-center">
                                 <i class="fas fa-cog mr-1"></i>Status
@@ -3384,11 +3670,19 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="space-y-4">
                 ${budget.image ? `
                     <div class="mb-6">
-                        <h4 class="font-semibold text-gray-800 mb-3">Imagem Relacionada</h4>
-                        <div class="relative">
-                            <img src="${budget.image}" alt="Imagem do orçamento" 
-                                 class="w-full max-w-md mx-auto rounded-lg shadow-lg object-cover" 
-                                 style="max-height: 300px;">
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <i class="fas fa-image mr-2 text-blue-600"></i>Imagem de Inspiração
+                        </h4>
+                        <div class="relative bg-gray-50 rounded-lg p-4">
+                            <img src="../${budget.image}" alt="Imagem de inspiração do orçamento" 
+                                 class="w-full max-w-lg mx-auto rounded-lg shadow-md object-cover cursor-pointer hover:shadow-lg transition-shadow duration-200" 
+                                 style="max-height: 400px;"
+                                 onclick="openImageModal('${budget.image}')"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div class="text-center text-gray-500 text-sm hidden">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                Erro ao carregar imagem
+                            </div>
                         </div>
                     </div>
                 ` : ''}
@@ -5054,12 +5348,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     .image-container {
                         text-align: center;
                         margin: 20px 0;
+                        page-break-inside: avoid;
                     }
                     .budget-image {
                         max-width: 100%;
-                        max-height: 400px;
+                        max-height: 500px;
+                        width: auto;
+                        height: auto;
                         border-radius: 8px;
                         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        border: 2px solid #e5e7eb;
+                        object-fit: contain;
+                    }
+                    @media print {
+                        .budget-image {
+                            max-height: 400px;
+                            box-shadow: none;
+                            border: 1px solid #d1d5db;
+                        }
                     }
                     .value {
                         font-size: 18px;
@@ -5100,7 +5406,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 ${budget.image ? `
                     <div class="image-container">
-                        <img src="${budget.image}" alt="Imagem do orçamento" class="budget-image">
+                        <h3 style="text-align: center; color: #374151; margin-bottom: 15px; font-size: 16px;">
+                            <i class="fas fa-image" style="margin-right: 8px; color: #3b82f6;"></i>Imagem de Inspiração
+                        </h3>
+                        <img src="../${budget.image}" alt="Imagem de inspiração do orçamento" class="budget-image">
                     </div>
                 ` : ''}
 
@@ -5197,6 +5506,59 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         };
     };
+
+    // ========== FUNCIONALIDADES DO MODAL DE IMAGEM ==========
+    
+    function openImageModal(imagePath) {
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeImageModal = document.getElementById('close-image-modal');
+        const imageModalOverlay = document.getElementById('image-modal-overlay');
+        
+        if (imageModal && modalImage) {
+            // Definir a imagem
+            modalImage.src = '../' + imagePath;
+            
+            // Mostrar modal
+            imageModal.classList.remove('hidden');
+            imageModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Configurar eventos de fechamento
+            if (closeImageModal) {
+                closeImageModal.onclick = closeImageModalFunc;
+            }
+            
+            if (imageModalOverlay) {
+                imageModalOverlay.onclick = closeImageModalFunc;
+            }
+            
+            // Fechar com ESC
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    closeImageModalFunc();
+                    document.removeEventListener('keydown', handleKeyDown);
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+        }
+    }
+    
+    function closeImageModalFunc() {
+        const imageModal = document.getElementById('image-modal');
+        if (imageModal) {
+            imageModal.classList.add('hidden');
+            imageModal.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    // ========== FUNÇÕES GLOBAIS PARA O MODAL DE ENVIO ==========
+    
+    // Expor funções globalmente para uso no HTML
+    window.openSendBudgetModal = openSendBudgetModal;
+    window.selectSendMethod = selectSendMethod;
+    window.openImageModal = openImageModal;
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });

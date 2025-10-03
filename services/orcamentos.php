@@ -66,6 +66,19 @@ class BudgetService {
                 ];
             }
             
+            // Processar upload de imagem se houver
+            $imagePath = null;
+            if (isset($_FILES['inspiration_image']) && $_FILES['inspiration_image']['error'] === UPLOAD_ERR_OK) {
+                $imageUpload = $this->handleImageUpload($_FILES['inspiration_image']);
+                if (!$imageUpload['success']) {
+                    return [
+                        'success' => false,
+                        'message' => $imageUpload['message']
+                    ];
+                }
+                $imagePath = $imageUpload['path'];
+            }
+            
             $stmt = $this->pdo->prepare("
                 INSERT INTO orcamentos (
                     cliente, email, telefone, data_evento, hora_evento, 
@@ -88,7 +101,7 @@ class BudgetService {
                 'pendente',
                 $_SESSION['user_id'] ?? 1, // ID do decorador logado
                 $data['created_via'] ?? 'decorator', // Origem da criação
-                $data['image'] ?? null, // Caminho da imagem
+                $imagePath, // Caminho da imagem
                 $data['tamanho_arco_m'] ?? null // Tamanho do arco
             ]);
             
@@ -807,6 +820,256 @@ class BudgetService {
         }
     }
 
+    /**
+     * Processar upload de imagem
+     */
+    private function handleImageUpload($file) {
+        try {
+            // Verificar se o arquivo foi enviado corretamente
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                return [
+                    'success' => false,
+                    'message' => 'Erro no upload do arquivo'
+                ];
+            }
+            
+            // Validar tipo de arquivo
+            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!in_array($file['type'], $allowedTypes)) {
+                return [
+                    'success' => false,
+                    'message' => 'Tipo de arquivo não permitido. Use apenas JPG, PNG, GIF ou WebP'
+                ];
+            }
+            
+            // Validar tamanho do arquivo (máximo 5MB)
+            $maxSize = 5 * 1024 * 1024; // 5MB
+            if ($file['size'] > $maxSize) {
+                return [
+                    'success' => false,
+                    'message' => 'Arquivo muito grande. Tamanho máximo: 5MB'
+                ];
+            }
+            
+            // Criar diretório de uploads se não existir
+            $uploadDir = '../uploads/inspiration_images/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            // Gerar nome único para o arquivo
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $fileName = uniqid('inspiration_', true) . '.' . $extension;
+            $filePath = $uploadDir . $fileName;
+            
+            // Mover arquivo para o diretório de destino
+            if (move_uploaded_file($file['tmp_name'], $filePath)) {
+                return [
+                    'success' => true,
+                    'path' => 'uploads/inspiration_images/' . $fileName
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Erro ao salvar arquivo'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            error_log('Erro no upload de imagem: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno no upload'
+            ];
+        }
+    }
+
+    /**
+     * Enviar orçamento por e-mail
+     */
+    public function sendBudgetByEmail($budgetId, $customMessage = '') {
+        try {
+            // Obter dados do orçamento
+            $budget = $this->getBudget($budgetId);
+            if (!$budget['success']) {
+                return $budget;
+            }
+            
+            $budgetData = $budget['budget'];
+            
+            // Gerar link para visualização do orçamento
+            $budgetUrl = $this->generateBudgetUrl($budgetId);
+            
+            // Preparar dados do e-mail
+            $to = $budgetData['email'];
+            $subject = "Seu Orçamento de Decoração com Balões - Up.Baloes";
+            
+            // Template do e-mail
+            $message = $this->generateEmailTemplate($budgetData, $budgetUrl, $customMessage);
+            
+            // Headers do e-mail
+            $headers = [
+                'MIME-Version: 1.0',
+                'Content-type: text/html; charset=UTF-8',
+                'From: Up.Baloes <noreply@upbaloes.com>',
+                'Reply-To: Up.Baloes <contato@upbaloes.com>',
+                'X-Mailer: PHP/' . phpversion()
+            ];
+            
+            // Enviar e-mail
+            $mailSent = mail($to, $subject, $message, implode("\r\n", $headers));
+            
+            if ($mailSent) {
+                // Log da ação
+                $this->logAction('send_email', $budgetId);
+                
+                return [
+                    'success' => true,
+                    'message' => 'E-mail enviado com sucesso!'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Erro ao enviar e-mail. Tente novamente.'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            error_log('Erro ao enviar e-mail: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor.'
+            ];
+        }
+    }
+    
+    /**
+     * Gerar URL para visualização do orçamento
+     */
+    private function generateBudgetUrl($budgetId) {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $basePath = dirname($_SERVER['REQUEST_URI']);
+        $basePath = str_replace('/services', '', $basePath);
+        
+        return "{$protocol}://{$host}{$basePath}/pages/orcamento-visualizacao.html?id={$budgetId}";
+    }
+    
+    /**
+     * Gerar template do e-mail
+     */
+    private function generateEmailTemplate($budget, $budgetUrl, $customMessage = '') {
+        $serviceTypeLabels = [
+            'arco-tradicional' => 'Arco Tradicional',
+            'arco-desconstruido' => 'Arco Desconstruído',
+            'escultura-balao' => 'Escultura de Balão',
+            'centro-mesa' => 'Centro de Mesa',
+            'baloes-piscina' => 'Balões na Piscina'
+        ];
+        
+        $serviceType = $serviceTypeLabels[$budget['service_type']] ?? $budget['service_type'];
+        
+        $html = '
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Seu Orçamento - Up.Baloes</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+                .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                .header h1 { margin: 0; font-size: 28px; }
+                .header p { margin: 10px 0 0 0; opacity: 0.9; }
+                .content { padding: 30px; }
+                .budget-info { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                .budget-info h3 { color: #495057; margin-top: 0; }
+                .info-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+                .info-label { font-weight: bold; color: #6c757d; }
+                .info-value { color: #495057; }
+                .cta-button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0; }
+                .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+                .custom-message { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0; border-radius: 4px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🎈 Up.Baloes</h1>
+                    <p>Seu orçamento de decoração com balões está pronto!</p>
+                </div>
+                
+                <div class="content">
+                    <h2>Olá, ' . htmlspecialchars($budget['client']) . '!</h2>
+                    
+                    <p>Obrigado por escolher a Up.Baloes para sua decoração especial! Seu orçamento foi preparado com muito carinho e está pronto para sua análise.</p>';
+        
+        if (!empty($customMessage)) {
+            $html .= '
+                    <div class="custom-message">
+                        <strong>Mensagem personalizada:</strong><br>
+                        ' . nl2br(htmlspecialchars($customMessage)) . '
+                    </div>';
+        }
+        
+        $html .= '
+                    <div class="budget-info">
+                        <h3>📋 Detalhes do Seu Orçamento</h3>
+                        <div class="info-row">
+                            <span class="info-label">Serviço:</span>
+                            <span class="info-value">' . htmlspecialchars($serviceType) . '</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data do Evento:</span>
+                            <span class="info-value">' . date('d/m/Y', strtotime($budget['event_date'])) . ' às ' . $budget['event_time'] . '</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Local:</span>
+                            <span class="info-value">' . htmlspecialchars($budget['event_location']) . '</span>
+                        </div>';
+        
+        if ($budget['tamanho_arco_m']) {
+            $html .= '
+                        <div class="info-row">
+                            <span class="info-label">Tamanho do Arco:</span>
+                            <span class="info-value">' . $budget['tamanho_arco_m'] . ' metros</span>
+                        </div>';
+        }
+        
+        if ($budget['estimated_value'] > 0) {
+            $html .= '
+                        <div class="info-row">
+                            <span class="info-label">Valor Estimado:</span>
+                            <span class="info-value">R$ ' . number_format($budget['estimated_value'], 2, ',', '.') . '</span>
+                        </div>';
+        }
+        
+        $html .= '
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="' . $budgetUrl . '" class="cta-button">Ver Orçamento Completo</a>
+                    </div>
+                    
+                    <p>Clique no botão acima para visualizar todos os detalhes do seu orçamento, incluindo imagens de inspiração e informações adicionais.</p>
+                    
+                    <p>Se você tiver alguma dúvida ou desejar fazer alterações, não hesite em entrar em contato conosco!</p>
+                    
+                    <p>Estamos ansiosos para tornar seu evento ainda mais especial! 🎉</p>
+                </div>
+                
+                <div class="footer">
+                    <p><strong>Up.Baloes</strong> - Decoração com Balões</p>
+                    <p>📧 contato@upbaloes.com | 📱 (11) 99999-9999</p>
+                </div>
+            </div>
+        </body>
+        </html>';
+        
+        return $html;
+    }
+
     private function logAction($action, $budgetId) {
         try {
             $stmt = $this->pdo->prepare("
@@ -832,10 +1095,20 @@ try {
     $budgetService = new BudgetService($config);
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
+        // Verificar se é FormData (upload de arquivo) ou JSON
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         
-        if (!$input) {
-            throw new Exception('Dados inválidos.');
+        if (strpos($contentType, 'multipart/form-data') !== false) {
+            // Processar FormData
+            $input = $_POST;
+            $input['action'] = $_POST['action'] ?? '';
+        } else {
+            // Processar JSON
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input) {
+                throw new Exception('Dados inválidos.');
+            }
         }
         
         $action = $input['action'] ?? '';
@@ -906,6 +1179,15 @@ try {
                 
             case 'stats':
                 $result = $budgetService->getStats();
+                break;
+                
+            case 'send_email':
+                $budgetId = $input['budget_id'] ?? '';
+                $customMessage = $input['custom_message'] ?? '';
+                if (empty($budgetId)) {
+                    throw new Exception('ID do orçamento é obrigatório.');
+                }
+                $result = $budgetService->sendBudgetByEmail($budgetId, $customMessage);
                 break;
                 
             default:
