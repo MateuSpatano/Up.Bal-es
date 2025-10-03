@@ -415,6 +415,8 @@ class AdminSystem {
             cpf: formData.get('cpf'),
             email: formData.get('email'),
             telefone: formData.get('phone'),
+            whatsapp: formData.get('whatsapp'),
+            communication_email: formData.get('communication_email'),
             endereco: formData.get('address'),
             senha: formData.get('password')
         };
@@ -505,6 +507,26 @@ class AdminSystem {
 
         if (this.users.find(u => u.email === data.email)) {
             this.showNotification('Email já cadastrado', 'error');
+            return false;
+        }
+
+        if (!data.telefone || data.telefone.trim().length < 10) {
+            this.showNotification('Telefone inválido', 'error');
+            return false;
+        }
+
+        if (!data.whatsapp || data.whatsapp.trim().length < 10) {
+            this.showNotification('WhatsApp inválido', 'error');
+            return false;
+        }
+
+        if (!this.validateEmail(data.communication_email)) {
+            this.showNotification('E-mail para comunicação inválido', 'error');
+            return false;
+        }
+
+        if (this.users.find(u => u.communication_email === data.communication_email)) {
+            this.showNotification('E-mail para comunicação já cadastrado', 'error');
             return false;
         }
 

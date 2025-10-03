@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let filteredBudgets = [];
     let currentFilters = {};
     let calendarInstance = null;
+    let budgetSortOrder = 'desc'; // 'desc' para mais recentes primeiro, 'asc' para mais antigos primeiro
     let currentView = 'list';
     let currentSendBudget = null;
     let selectedSendMethod = null;
@@ -557,6 +558,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar funcionalidades do painel gerencial
         setupPainelGerencialFeatures();
         
+        // Inicializar display do botão de ordenação
+        updateSortButtonDisplay();
+        
         // Carregar orçamentos
         loadBudgets();
     }
@@ -635,6 +639,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clearFiltersQuickBtn) {
             clearFiltersQuickBtn.addEventListener('click', function() {
                 clearFilters();
+            });
+        }
+        
+        // Botão de ordenação de orçamentos
+        const sortBudgetsBtn = document.getElementById('sort-budgets-btn');
+        if (sortBudgetsBtn) {
+            sortBudgetsBtn.addEventListener('click', function() {
+                toggleBudgetSortOrder();
             });
         }
     }
@@ -1173,11 +1185,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadAccountData() {
-        // Simular carregamento de dados da conta
-        console.log('Carregando dados da conta...');
-        
-        // Aqui você pode implementar carregamento de dados do usuário
-        // Por exemplo, informações pessoais, configurações, etc.
+        // Redirecionar para a página de gerenciamento de conta do decorador
+        console.log('Redirecionando para página de conta...');
+        window.location.href = 'conta-decorador.html';
     }
     
     // ========== FUNCIONALIDADES DA AGENDA ==========
@@ -2038,6 +2048,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: 'João Silva',
                 email: 'joao@decorador.com',
                 phone: '(11) 99999-9999',
+                whatsapp: '(11) 99999-9999',
+                communication_email: 'comunicacao@decorador.com',
                 address: 'Rua das Flores, 123',
                 city: 'São Paulo',
                 state: 'SP',
@@ -2676,6 +2688,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function sendBudgetByWhatsApp() {
+        // Obter dados do decorador
+        let userData = null;
+        try {
+            const storedData = localStorage.getItem('userData');
+            if (storedData) {
+                userData = JSON.parse(storedData);
+            }
+        } catch (e) {
+            console.warn('Erro ao carregar dados do usuário:', e);
+        }
+        
+        if (!userData || !userData.whatsapp) {
+            showNotification('Dados do WhatsApp do decorador não encontrados. Verifique o perfil.', 'error');
+            return;
+        }
+        
         // Gerar link para visualização do orçamento
         const budgetUrl = `${window.location.origin}/pages/orcamento-visualizacao.html?id=${currentSendBudget.id}`;
         
@@ -2694,8 +2722,8 @@ Seu orçamento de decoração com balões está pronto! 🎈
 
 Qualquer dúvida, estou à disposição! 😊`;
 
-        // Abrir WhatsApp Web/App
-        const whatsappUrl = `https://wa.me/${currentSendBudget.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+        // Abrir WhatsApp Web/App usando o número do decorador
+        const whatsappUrl = `https://wa.me/${userData.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
         
         showNotification('WhatsApp aberto com a mensagem do orçamento!', 'success');
@@ -3485,6 +3513,36 @@ Qualquer dúvida, estou à disposição! 😊`;
         updateCalendarDisplay();
     }
     
+    function toggleBudgetSortOrder() {
+        // Alternar entre 'desc' (mais recentes primeiro) e 'asc' (mais antigos primeiro)
+        budgetSortOrder = budgetSortOrder === 'desc' ? 'asc' : 'desc';
+        
+        // Atualizar ícone e texto do botão
+        updateSortButtonDisplay();
+        
+        // Recarregar a exibição dos orçamentos com a nova ordenação
+        updateBudgetsDisplay();
+        
+        // Mostrar notificação
+        const sortText = budgetSortOrder === 'desc' ? 'mais recentes primeiro' : 'mais antigos primeiro';
+        showNotification(`Orçamentos ordenados pelos ${sortText}`, 'info');
+    }
+    
+    function updateSortButtonDisplay() {
+        const sortIcon = document.getElementById('sort-icon');
+        const sortText = document.getElementById('sort-text');
+        
+        if (sortIcon && sortText) {
+            if (budgetSortOrder === 'desc') {
+                sortIcon.className = 'fas fa-sort-amount-down mr-2';
+                sortText.textContent = 'Mais Recentes';
+            } else {
+                sortIcon.className = 'fas fa-sort-amount-up mr-2';
+                sortText.textContent = 'Mais Antigos';
+            }
+        }
+    }
+
     function renderAllBudgets(budgetsList, container) {
         if (!container) return;
         
@@ -3498,8 +3556,12 @@ Qualquer dúvida, estou à disposição! 😊`;
             return;
         }
         
-        // Ordenar orçamentos por data de criação (mais recentes primeiro)
-        const sortedBudgets = [...budgetsList].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Ordenar orçamentos por data de criação conforme a configuração
+        const sortedBudgets = [...budgetsList].sort((a, b) => {
+            const dateA = new Date(a.created_at);
+            const dateB = new Date(b.created_at);
+            return budgetSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+        });
         
         container.innerHTML = sortedBudgets.map(budget => `
             <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 relative">
@@ -4113,10 +4175,8 @@ Qualquer dúvida, estou à disposição! 😊`;
         manageAccountBtn.addEventListener('click', (e) => {
             e.preventDefault();
             closeUserDropdown();
-            // Usar a funcionalidade existente de gerenciar conta
-            if (openAccountModal) {
-                openAccountModal.click();
-            }
+            // Redirecionar para a página de gerenciamento de conta do decorador
+            window.location.href = 'conta-decorador.html';
         });
     }
     

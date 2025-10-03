@@ -138,7 +138,7 @@ class DecoratorService {
     public function createDecorator($data) {
         try {
             // Validar dados obrigatórios
-            $requiredFields = ['nome', 'email', 'telefone', 'endereco', 'senha'];
+            $requiredFields = ['nome', 'email', 'telefone', 'whatsapp', 'communication_email', 'endereco', 'senha'];
             foreach ($requiredFields as $field) {
                 if (empty($data[$field])) {
                     return [
@@ -156,6 +156,14 @@ class DecoratorService {
                 ];
             }
             
+            // Validar email de comunicação
+            if (!filter_var($data['communication_email'], FILTER_VALIDATE_EMAIL)) {
+                return [
+                    'success' => false,
+                    'message' => 'E-mail para comunicação inválido'
+                ];
+            }
+            
             // Verificar se email já existe
             $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
             $stmt->execute([$data['email']]);
@@ -163,6 +171,16 @@ class DecoratorService {
                 return [
                     'success' => false,
                     'message' => 'Email já cadastrado'
+                ];
+            }
+            
+            // Verificar se email de comunicação já existe
+            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE communication_email = ?");
+            $stmt->execute([$data['communication_email']]);
+            if ($stmt->fetch()) {
+                return [
+                    'success' => false,
+                    'message' => 'E-mail para comunicação já cadastrado'
                 ];
             }
             
@@ -175,15 +193,17 @@ class DecoratorService {
             // Inserir decorador
             $stmt = $this->pdo->prepare("
                 INSERT INTO usuarios (
-                    nome, email, telefone, endereco, cidade, estado, cep,
+                    nome, email, telefone, whatsapp, communication_email, endereco, cidade, estado, cep,
                     senha, tipo, status, slug, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'decorator', 'active', ?, NOW(), NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'decorator', 'active', ?, NOW(), NOW())
             ");
             
             $stmt->execute([
                 $data['nome'],
                 $data['email'],
                 $data['telefone'],
+                $data['whatsapp'],
+                $data['communication_email'],
                 $data['endereco'],
                 $data['cidade'] ?? null,
                 $data['estado'] ?? null,

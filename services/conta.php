@@ -13,8 +13,8 @@ header('X-XSS-Protection: 1; mode=block');
 // Incluir configurações
 require_once 'config.php';
 
-// Verificar se é uma requisição POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+// Verificar se é uma requisição POST ou PUT
+if (!in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT'])) {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Método não permitido']);
     exit;
@@ -40,6 +40,27 @@ try {
             PDO::ATTR_EMULATE_PREPARES => false
         ]
     );
+
+    // Verificar se é upload de foto
+    if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
+        $result = handleProfilePhotoUpload($_FILES['profile_photo'], $_SESSION['user_id'], $pdo);
+        echo json_encode($result);
+        exit;
+    }
+
+    // Verificar se é alteração de senha
+    if (isset($_POST['action']) && $_POST['action'] === 'change_password') {
+        $result = handlePasswordChange($_POST, $_SESSION['user_id'], $pdo);
+        echo json_encode($result);
+        exit;
+    }
+
+    // Verificar se é requisição GET para obter dados do usuário
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $result = getUserData($_SESSION['user_id'], $pdo);
+        echo json_encode($result);
+        exit;
+    }
 
     // Obter dados do formulário
     $user_id = $_SESSION['user_id'];
@@ -238,5 +259,169 @@ try {
         'success' => false,
         'message' => 'Erro interno do servidor. Tente novamente mais tarde.'
     ]);
+}
+
+/**
+ * Obter dados do usuário
+ */
+function getUserData($user_id, $pdo) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id, nome, email, telefone, slug, bio, especialidades, redes_sociais, 
+                   foto_perfil, created_at, is_active
+            FROM usuarios 
+            WHERE id = ?
+        ");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            return ['success' => false, 'message' => 'Usuário não encontrado'];
+        }
+        
+        // Decodificar JSON fields
+        $user['especialidades'] = json_decode($user['especialidades'] ?? '[]', true);
+        $user['redes_sociais'] = json_decode($user['redes_sociais'] ?? '{}', true);
+        
+        // Obter estatísticas
+        $stats = getUserStats($user_id, $pdo);
+        
+        return [
+            'success' => true,
+            'user' => $user,
+            'stats' => $stats
+        ];
+    } catch (Exception $e) {
+        error_log('Erro ao obter dados do usuário: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro ao carregar dados do usuário'];
+    }
+}
+
+/**
+ * Obter estatísticas do usuário
+ */
+function getUserStats($user_id, $pdo) {
+    try {
+        // Para decoradores - contar orçamentos
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as total_orcamentos
+            FROM orcamentos 
+            WHERE decorador_id = ?
+        ");
+        $stmt->execute([$user_id]);
+        $budget_stats = $stmt->fetch();
+        
+        return [
+            'total_orcamentos' => $budget_stats['total_orcamentos'] ?? 0,
+            'member_since' => date('M Y', strtotime($user['created_at'] ?? 'now'))
+        ];
+    } catch (Exception $e) {
+        error_log('Erro ao obter estatísticas: ' . $e->getMessage());
+        return [
+            'total_orcamentos' => 0,
+            'member_since' => '-'
+        ];
+    }
+}
+
+/**
+ * Upload de foto de perfil
+ */
+function handleProfilePhotoUpload($file, $user_id, $pdo) {
+    try {
+        // Validar arquivo
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($file['type'], $allowedTypes)) {
+            return ['success' => false, 'message' => 'Tipo de arquivo não permitido. Use apenas JPG, PNG, GIF ou WebP'];
+        }
+        
+        $maxSize = 5 * 1024 * 1024; // 5MB
+        if ($file['size'] > $maxSize) {
+            return ['success' => false, 'message' => 'Arquivo muito grande. Tamanho máximo: 5MB'];
+        }
+        
+        // Criar diretório se não existir
+        $uploadDir = '../uploads/profile_photos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        // Gerar nome único
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $fileName = 'profile_' . $user_id . '_' . uniqid() . '.' . $extension;
+        $filePath = $uploadDir . $fileName;
+        
+        // Mover arquivo
+        if (move_uploaded_file($file['tmp_name'], $filePath)) {
+            // Atualizar banco de dados
+            $stmt = $pdo->prepare("
+                UPDATE usuarios 
+                SET foto_perfil = ? 
+                WHERE id = ?
+            ");
+            $stmt->execute(['uploads/profile_photos/' . $fileName, $user_id]);
+            
+            return [
+                'success' => true,
+                'message' => 'Foto de perfil atualizada com sucesso!',
+                'photo_path' => 'uploads/profile_photos/' . $fileName
+            ];
+        } else {
+            return ['success' => false, 'message' => 'Erro ao salvar arquivo'];
+        }
+    } catch (Exception $e) {
+        error_log('Erro no upload de foto: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro interno no upload'];
+    }
+}
+
+/**
+ * Alteração de senha
+ */
+function handlePasswordChange($data, $user_id, $pdo) {
+    try {
+        $current_password = $data['current_password'] ?? '';
+        $new_password = $data['new_password'] ?? '';
+        $confirm_password = $data['confirm_password'] ?? '';
+        
+        // Validar dados
+        if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+            return ['success' => false, 'message' => 'Todos os campos são obrigatórios'];
+        }
+        
+        if ($new_password !== $confirm_password) {
+            return ['success' => false, 'message' => 'As senhas não coincidem'];
+        }
+        
+        if (strlen($new_password) < 6) {
+            return ['success' => false, 'message' => 'A nova senha deve ter pelo menos 6 caracteres'];
+        }
+        
+        // Verificar senha atual
+        $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
+        
+        if (!$user || !password_verify($current_password, $user['senha'])) {
+            return ['success' => false, 'message' => 'Senha atual incorreta'];
+        }
+        
+        // Atualizar senha
+        $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("
+            UPDATE usuarios 
+            SET senha = ?, updated_at = NOW() 
+            WHERE id = ?
+        ");
+        $stmt->execute([$hashedPassword, $user_id]);
+        
+        return [
+            'success' => true,
+            'message' => 'Senha alterada com sucesso!'
+        ];
+    } catch (Exception $e) {
+        error_log('Erro ao alterar senha: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro interno ao alterar senha'];
+    }
 }
 ?>

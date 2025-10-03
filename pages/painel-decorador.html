@@ -384,10 +384,16 @@
                         
                         <!-- Lista Unificada de Orçamentos -->
                         <div class="mb-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                                <i class="fas fa-list text-blue-500 mr-2"></i>
-                                Todos os Orçamentos
-                                <span id="total-count" class="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">0</span>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <i class="fas fa-list text-blue-500 mr-2"></i>
+                                    Todos os Orçamentos
+                                    <span id="total-count" class="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">0</span>
+                                </div>
+                                <button id="sort-budgets-btn" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200" title="Alterar ordenação dos orçamentos">
+                                    <i class="fas fa-sort-amount-down mr-2" id="sort-icon"></i>
+                                    <span id="sort-text">Mais Recentes</span>
+                                </button>
                             </h3>
                             <div id="all-budgets" class="space-y-4">
                                 <!-- Orçamentos serão carregados dinamicamente aqui -->
@@ -681,9 +687,9 @@
                         </div>
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">Gerenciar Conta</h2>
                         <p class="text-gray-600 mb-6">Atualize suas informações pessoais e configurações da conta.</p>
-                        <button id="open-account-modal" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105">
-                            <i class="fas fa-edit mr-2"></i>Editar Perfil
-                        </button>
+                        <a href="conta-decorador.html" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 inline-block">
+                            <i class="fas fa-edit mr-2"></i>Gerenciar Conta
+                        </a>
                     </div>
                 </div>
             </div>

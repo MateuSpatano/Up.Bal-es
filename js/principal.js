@@ -224,7 +224,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (accountLink) {
         accountLink.addEventListener('click', function(e) {
             e.preventDefault();
-            openAccountModal();
+            // Redirecionar para a página de gerenciamento de conta
+            window.location.href = 'pages/conta-cliente.html';
             toggleUserDropdown();
         });
     }
