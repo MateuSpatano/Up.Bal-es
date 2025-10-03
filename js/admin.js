@@ -434,7 +434,7 @@ class AdminSystem {
             submitBtn.disabled = true;
 
             // Enviar para o servidor
-            const response = await fetch('services/decorador.php', {
+            const response = await fetch('../services/decorador.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

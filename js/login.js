@@ -436,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function logout() {
     try {
         // Chamar logout no backend
-        const response = await fetch('services/login.php', {
+        const response = await fetch('../services/login.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -481,7 +481,7 @@ async function requireAuth() {
     
     // Verificar se a sessão ainda é válida no backend
     try {
-        const response = await fetch('services/login.php', {
+        const response = await fetch('../services/login.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

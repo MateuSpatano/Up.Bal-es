@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
         accountLink.addEventListener('click', function(e) {
             e.preventDefault();
             // Redirecionar para a página de gerenciamento de conta
-            window.location.href = 'pages/conta-cliente.html';
+            window.location.href = 'pages/login.html';
             toggleUserDropdown();
         });
     }

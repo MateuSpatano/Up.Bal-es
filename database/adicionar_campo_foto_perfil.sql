@@ -15,3 +15,5 @@ ADD INDEX idx_foto_perfil (foto_perfil);
 
 -- Verificar se a coluna foi adicionada
 DESCRIBE usuarios;
+
+

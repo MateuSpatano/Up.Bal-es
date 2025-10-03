@@ -952,7 +952,7 @@ class BudgetService {
         $basePath = dirname($_SERVER['REQUEST_URI']);
         $basePath = str_replace('/services', '', $basePath);
         
-        return "{$protocol}://{$host}{$basePath}/pages/orcamento-visualizacao.html?id={$budgetId}";
+        return "{$protocol}://{$host}{$basePath}/pages/painel-decorador.html?view=budget&id={$budgetId}";
     }
     
     /**

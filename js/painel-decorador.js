@@ -1187,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadAccountData() {
         // Redirecionar para a página de gerenciamento de conta do decorador
         console.log('Redirecionando para página de conta...');
-        window.location.href = 'conta-decorador.html';
+        window.location.href = 'login.html';
     }
     
     // ========== FUNCIONALIDADES DA AGENDA ==========
@@ -2705,7 +2705,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Gerar link para visualização do orçamento
-        const budgetUrl = `${window.location.origin}/pages/orcamento-visualizacao.html?id=${currentSendBudget.id}`;
+        const budgetUrl = `${window.location.origin}/pages/painel-decorador.html?view=budget&id=${currentSendBudget.id}`;
         
         // Mensagem para WhatsApp
         const message = `Olá ${currentSendBudget.client}! 
@@ -3891,7 +3891,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             localStorage.removeItem('userToken');
             
             // Redirecionar para login
-            window.location.href = '../pages/login.html';
+            window.location.href = 'login.html';
         }
     }
 
@@ -4176,7 +4176,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             e.preventDefault();
             closeUserDropdown();
             // Redirecionar para a página de gerenciamento de conta do decorador
-            window.location.href = 'conta-decorador.html';
+            window.location.href = 'login.html';
         });
     }
     
