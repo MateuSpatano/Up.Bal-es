@@ -405,3 +405,5 @@ const response = await fetch('../services/admin.php', {
 
 Para usar: **`window.notifyDecorator(decoratorId, 'approved')`** ou **`'rejected'`**
 
+
+

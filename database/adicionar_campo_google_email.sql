@@ -52,3 +52,5 @@ WHERE TABLE_SCHEMA = 'up_baloes'
 -- WHERE id = 123 AND perfil = 'decorator';
 
 
+
+
