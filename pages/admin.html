@@ -66,6 +66,24 @@
     <!-- Verificação de Autenticação Admin -->
     <div id="auth-check" class="hidden">
         <script>
+            // ===== VARIÁVEL DE DESENVOLVIMENTO - REMOVER EM PRODUÇÃO =====
+            const DEV_MODE = true; // Mude para false em produção
+            
+            if (DEV_MODE) {
+                // Simular usuário admin logado automaticamente
+                const mockAdminUser = {
+                    id: 1,
+                    nome: 'Admin Desenvolvimento',
+                    email: 'admin@dev.com',
+                    role: 'admin',
+                    telefone: '(11) 99999-9999'
+                };
+                localStorage.setItem('userData', JSON.stringify(mockAdminUser));
+                localStorage.setItem('userToken', 'dev_token_admin_123');
+                console.log('🔧 MODO DESENVOLVIMENTO: Admin logado automaticamente');
+            }
+            // ==============================================================
+            
             // Verificar se o usuário é admin
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
             if (userData.role !== 'admin') {
@@ -119,9 +137,9 @@
                         </a>
                     </li>
                     <li>
-                        <a href="#reports" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                            <i class="fas fa-chart-bar text-lg"></i>
-                            <span>Relatórios</span>
+                        <a href="#support" class="admin-nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-headset text-lg"></i>
+                            <span>Suporte</span>
                         </a>
                     </li>
                     <li>
@@ -287,16 +305,6 @@
                                            placeholder="000.000.000-00" maxlength="14">
                                 </div>
 
-                                <!-- Email -->
-                                <div class="space-y-2">
-                                    <label for="decorator-email" class="block text-sm font-medium text-gray-700">
-                                        <i class="fas fa-envelope mr-2 text-blue-600"></i>E-mail *
-                                    </label>
-                                    <input type="email" id="decorator-email" name="email" required
-                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                                           placeholder="decorador@email.com">
-                                </div>
-
                                 <!-- Telefone -->
                                 <div class="space-y-2">
                                     <label for="decorator-phone" class="block text-sm font-medium text-gray-700">
@@ -332,6 +340,20 @@
                                     <div class="text-xs text-gray-500">
                                         <i class="fas fa-info-circle mr-1"></i>
                                         E-mail para envio de orçamentos e comunicações
+                                    </div>
+                                </div>
+
+                                <!-- E-mail da Conta Google (para Login com Google) -->
+                                <div class="space-y-2">
+                                    <label for="decorator-google-email" class="block text-sm font-medium text-gray-700">
+                                        <i class="fab fa-google mr-2 text-red-600"></i>E-mail Google (para Login) *
+                                    </label>
+                                    <input type="email" id="decorator-google-email" name="google_email" required
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                                           placeholder="decorador@gmail.com">
+                                    <div class="text-xs text-gray-500">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        E-mail da conta Google para fazer login no sistema
                                     </div>
                                 </div>
                             </div>
@@ -412,6 +434,7 @@
                                     <option value="">Todos os status</option>
                                     <option value="active">Ativos</option>
                                     <option value="inactive">Inativos</option>
+                                    <option value="pending_approval">Aguardando Aprovação</option>
                                 </select>
                             </div>
                         </div>
@@ -452,17 +475,67 @@
                     </div>
                 </div>
 
-                <!-- Relatórios -->
-                <div id="reports-content" class="admin-content hidden">
+                <!-- Suporte -->
+                <div id="support-content" class="admin-content hidden">
                     <div class="admin-card p-4 md:p-6 rounded-xl">
                         <div class="mb-4 md:mb-6">
-                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">Relatórios</h3>
-                            <p class="text-sm md:text-base text-gray-600">Visualize relatórios detalhados do sistema</p>
+                            <h3 class="text-lg md:text-2xl font-bold text-gray-800 mb-2">
+                                <i class="fas fa-headset mr-2 text-indigo-600"></i>Central de Suporte
+                            </h3>
+                            <p class="text-sm md:text-base text-gray-600">Visualize e gerencie chamados de decoradores</p>
                         </div>
-                        <div class="text-center py-8 md:py-12">
-                            <i class="fas fa-chart-line text-4xl md:text-6xl text-gray-300 mb-4"></i>
-                            <h4 class="text-lg md:text-xl font-semibold text-gray-600 mb-2">Relatórios em Desenvolvimento</h4>
-                            <p class="text-sm md:text-base text-gray-500">Esta funcionalidade estará disponível em breve</p>
+
+                        <!-- Filtros de Chamados -->
+                        <div class="mb-4 md:mb-6 flex flex-col md:flex-row gap-3">
+                            <!-- Busca -->
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <input type="text" id="support-search" placeholder="Buscar por título ou decorador..."
+                                           class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200">
+                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                </div>
+                            </div>
+
+                            <!-- Filtro de Status -->
+                            <select id="support-status-filter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200">
+                                <option value="">Todos os Status</option>
+                                <option value="novo">Novos</option>
+                                <option value="em_analise">Em Análise</option>
+                                <option value="resolvido">Resolvidos</option>
+                                <option value="fechado">Fechados</option>
+                            </select>
+                        </div>
+
+                        <!-- Estatísticas Rápidas -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="text-blue-600 text-2xl font-bold" id="support-total">0</div>
+                                <div class="text-blue-800 text-xs font-medium">Total</div>
+                            </div>
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <div class="text-yellow-600 text-2xl font-bold" id="support-new">0</div>
+                                <div class="text-yellow-800 text-xs font-medium">Novos</div>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <div class="text-purple-600 text-2xl font-bold" id="support-analysis">0</div>
+                                <div class="text-purple-800 text-xs font-medium">Em Análise</div>
+                            </div>
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div class="text-green-600 text-2xl font-bold" id="support-resolved">0</div>
+                                <div class="text-green-800 text-xs font-medium">Resolvidos</div>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Chamados -->
+                        <div id="support-tickets-container">
+                            <!-- Chamados serão carregados aqui -->
+                        </div>
+
+                        <!-- Estado Vazio -->
+                        <div id="support-empty" class="hidden text-center py-12">
+                            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                            <h4 class="text-xl font-semibold text-gray-600 mb-2">Nenhum Chamado</h4>
+                            <p class="text-gray-500">Não há chamados de suporte no momento</p>
                         </div>
                     </div>
                 </div>
@@ -557,18 +630,255 @@
                         </select>
                     </div>
 
+                    <!-- Aprovação de Decorador -->
+                    <div id="decorator-approval-section" class="space-y-2 hidden">
+                        <label for="edit-user-approved" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-check-circle mr-2 text-green-600"></i>Aprovação de Decorador
+                        </label>
+                        <select id="edit-user-approved" name="aprovado_por_admin"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200">
+                            <option value="1">Aprovado</option>
+                            <option value="0">Aguardando Aprovação</option>
+                        </select>
+                    </div>
+
                     <!-- Botões -->
                     <div class="flex flex-col sm:flex-row gap-3 pt-4">
                         <button type="button" id="cancel-edit-user" 
                                 class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
                             <i class="fas fa-times mr-2"></i>Cancelar
                         </button>
-                        <button type="submit" id="save-edit-user"
+                        <button type="button" id="save-edit-user" onclick="adminSystem.saveUserEdit()"
                                 class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
                             <i class="fas fa-save mr-2"></i>Salvar Alterações
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes do Chamado -->
+    <div id="ticket-details-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="ticket-details-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-3xl p-0 my-4 md:my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl mx-4">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-ticket-alt text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Detalhes do Chamado</h3>
+                                <p class="text-indigo-100 text-sm" id="ticket-details-id"></p>
+                            </div>
+                        </div>
+                        <button id="close-ticket-details" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-4 md:p-6 space-y-4">
+                    <!-- Info Header -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-blue-800 mb-2">
+                                <i class="fas fa-user mr-2"></i>Decorador
+                            </h4>
+                            <p id="ticket-decorator-name" class="text-blue-600 font-medium"></p>
+                            <p id="ticket-decorator-contact" class="text-blue-500 text-sm mt-1"></p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-purple-800 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Data e Hora
+                            </h4>
+                            <p id="ticket-datetime" class="text-purple-600 font-medium"></p>
+                            <p id="ticket-status-badge" class="mt-2"></p>
+                        </div>
+                    </div>
+
+                    <!-- Título -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-800">
+                            <i class="fas fa-heading mr-2 text-indigo-600"></i>Título
+                        </label>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p id="ticket-title" class="text-gray-800 font-medium text-lg"></p>
+                        </div>
+                    </div>
+
+                    <!-- Descrição -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-800">
+                            <i class="fas fa-align-left mr-2 text-indigo-600"></i>Descrição Detalhada
+                        </label>
+                        <div class="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                            <p id="ticket-description" class="text-gray-700 whitespace-pre-wrap"></p>
+                        </div>
+                    </div>
+
+                    <!-- Anexo -->
+                    <div id="ticket-attachment-section" class="space-y-2 hidden">
+                        <label class="block text-sm font-semibold text-gray-800">
+                            <i class="fas fa-paperclip mr-2 text-indigo-600"></i>Anexo
+                        </label>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <img id="ticket-attachment" src="" alt="Anexo do chamado" class="max-w-full h-auto rounded-lg border border-gray-300 cursor-pointer hover:opacity-75 transition-opacity">
+                        </div>
+                    </div>
+
+                    <!-- Alterar Status -->
+                    <div class="space-y-2">
+                        <label for="ticket-new-status" class="block text-sm font-semibold text-gray-800">
+                            <i class="fas fa-exchange-alt mr-2 text-indigo-600"></i>Alterar Status
+                        </label>
+                        <select id="ticket-new-status" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200">
+                            <option value="novo">Novo</option>
+                            <option value="em_analise">Em Análise</option>
+                            <option value="resolvido">Resolvido</option>
+                            <option value="fechado">Fechado</option>
+                        </select>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                        <button type="button" id="delete-ticket-btn" 
+                                class="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-trash mr-2"></i>Excluir Chamado
+                        </button>
+                        <button type="button" id="close-ticket-btn" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Fechar
+                        </button>
+                        <button type="button" id="save-ticket-status" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Salvar Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Notificação de Decorador -->
+    <div id="notification-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="notification-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-3xl p-0 my-4 md:my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl mx-4">
+                <!-- Header -->
+                <div id="notification-header" class="bg-gradient-to-r from-green-600 to-emerald-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i id="notification-icon" class="fas fa-check-circle text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 id="notification-title" class="text-xl font-semibold text-white">Notificar Decorador</h3>
+                                <p id="notification-subtitle" class="text-green-100 text-sm">Revise e edite a mensagem antes de enviar</p>
+                            </div>
+                        </div>
+                        <button id="close-notification-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="p-4 md:p-6 space-y-4 md:space-y-6">
+                    <!-- Informações do Decorador -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h4 class="text-sm font-semibold text-blue-800 mb-2">
+                            <i class="fas fa-user mr-2"></i>Decorador
+                        </h4>
+                        <p id="notification-decorator-name" class="text-blue-600 font-medium"></p>
+                    </div>
+
+                    <!-- Canais de Envio -->
+                    <div class="space-y-3">
+                        <h4 class="text-sm font-semibold text-gray-800">
+                            <i class="fas fa-paper-plane mr-2 text-indigo-600"></i>Canais de Envio
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label class="flex items-center space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+                                <input type="checkbox" id="send-whatsapp" checked class="w-5 h-5 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fab fa-whatsapp text-green-600 text-xl"></i>
+                                        <span class="font-medium text-gray-800">WhatsApp</span>
+                                    </div>
+                                    <p id="notification-whatsapp" class="text-xs text-gray-500 mt-1"></p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition-colors">
+                                <input type="checkbox" id="send-email" checked class="w-5 h-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-envelope text-purple-600 text-xl"></i>
+                                        <span class="font-medium text-gray-800">E-mail</span>
+                                    </div>
+                                    <p id="notification-email" class="text-xs text-gray-500 mt-1"></p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Mensagem WhatsApp -->
+                    <div id="whatsapp-message-section" class="space-y-2">
+                        <label for="whatsapp-message" class="block text-sm font-semibold text-gray-800">
+                            <i class="fab fa-whatsapp mr-2 text-green-600"></i>Mensagem WhatsApp
+                        </label>
+                        <textarea id="whatsapp-message" rows="6"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 resize-none font-mono text-sm"
+                                  placeholder="Digite a mensagem para WhatsApp"></textarea>
+                        <div class="flex justify-between items-center text-xs text-gray-500">
+                            <span><i class="fas fa-info-circle mr-1"></i>Use *negrito* _itálico_ ~riscado~</span>
+                            <span id="whatsapp-char-count">0 caracteres</span>
+                        </div>
+                    </div>
+
+                    <!-- Mensagem E-mail -->
+                    <div id="email-message-section" class="space-y-2">
+                        <label for="email-subject" class="block text-sm font-semibold text-gray-800">
+                            <i class="fas fa-envelope mr-2 text-purple-600"></i>Assunto do E-mail
+                        </label>
+                        <input type="text" id="email-subject"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Assunto do e-mail">
+
+                        <label for="email-message" class="block text-sm font-semibold text-gray-800 mt-4">
+                            <i class="fas fa-comment-alt mr-2 text-purple-600"></i>Mensagem E-mail
+                        </label>
+                        <textarea id="email-message" rows="8"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Digite a mensagem para e-mail"></textarea>
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>A mensagem será enviada em formato HTML
+                        </div>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                        <button type="button" id="cancel-notification" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="button" id="send-notification" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-paper-plane mr-2"></i>Enviar Notificação
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

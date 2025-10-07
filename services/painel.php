@@ -60,10 +60,14 @@ class DashboardService {
             // Obter dados para gráficos
             $series = $this->getChartData($decoradorId, $dateFrom, $dateTo);
             
+            // Obter projetos concluídos para lançamento de custos
+            $projetosConcluidos = $this->getProjetosConcluidosParaCustos($decoradorId);
+            
             return [
                 'success' => true,
                 'kpis' => $kpis,
-                'series' => $series
+                'series' => $series,
+                'projetos_concluidos' => $projetosConcluidos
             ];
             
         } catch (Exception $e) {
@@ -123,11 +127,35 @@ class DashboardService {
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
             $receitaRecebida = $stmt->fetch()['total'];
             
+            // Lucro total do mês (projetos com custos lançados)
+            $stmt = $this->pdo->prepare("
+                SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
+                FROM projeto_custos pc
+                INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                WHERE o.decorador_id = ? 
+                AND o.data_evento BETWEEN ? AND ?
+            ");
+            $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
+            $lucroTotalMes = $stmt->fetch()['total'];
+            
+            // Margem média de lucro
+            $stmt = $this->pdo->prepare("
+                SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
+                FROM projeto_custos pc
+                INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                WHERE o.decorador_id = ? 
+                AND o.data_evento BETWEEN ? AND ?
+            ");
+            $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
+            $margemMediaLucro = $stmt->fetch()['media'];
+            
             return [
                 'festas_total' => (int) $festasTotal,
                 'festas_solicitadas_clientes' => (int) $festasSolicitadasClientes,
                 'festas_criadas_decorador' => (int) $festasCriadasDecorador,
-                'receita_recebida' => (float) $receitaRecebida
+                'receita_recebida' => (float) $receitaRecebida,
+                'lucro_total_mes' => (float) $lucroTotalMes,
+                'margem_media_lucro' => (float) $margemMediaLucro
             ];
             
         } catch (Exception $e) {
@@ -136,7 +164,9 @@ class DashboardService {
                 'festas_total' => 0,
                 'festas_solicitadas_clientes' => 0,
                 'festas_criadas_decorador' => 0,
-                'receita_recebida' => 0.0
+                'receita_recebida' => 0.0,
+                'lucro_total_mes' => 0.0,
+                'margem_media_lucro' => 0.0
             ];
         }
     }
@@ -257,6 +287,194 @@ class DashboardService {
             return [];
         }
     }
+    
+    /**
+     * Obter projetos concluídos para lançamento de custos
+     */
+    private function getProjetosConcluidosParaCustos($decoradorId) {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    o.id,
+                    o.cliente,
+                    o.email,
+                    o.data_evento,
+                    o.tipo_servico,
+                    o.valor_estimado,
+                    o.local_evento,
+                    o.descricao,
+                    CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados
+                FROM orcamentos o
+                LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
+                WHERE o.decorador_id = ? 
+                AND o.status = 'aprovado'
+                AND (pc.id IS NULL OR pc.id IS NOT NULL)
+                ORDER BY o.data_evento DESC
+                LIMIT 20
+            ");
+            $stmt->execute([$decoradorId]);
+            $results = $stmt->fetchAll();
+            
+            return $results;
+            
+        } catch (Exception $e) {
+            error_log('Erro ao obter projetos concluídos: ' . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Lançar custos de um projeto
+     */
+    public function lancarCustosProjeto($orcamentoId, $dadosCustos) {
+        try {
+            $decoradorId = $_SESSION['user_id'] ?? 1;
+            
+            // Verificar se o orçamento existe e pertence ao decorador
+            $stmt = $this->pdo->prepare("
+                SELECT id, valor_estimado, status
+                FROM orcamentos 
+                WHERE id = ? AND decorador_id = ? AND status = 'aprovado'
+            ");
+            $stmt->execute([$orcamentoId, $decoradorId]);
+            $orcamento = $stmt->fetch();
+            
+            if (!$orcamento) {
+                return [
+                    'success' => false,
+                    'message' => 'Orçamento não encontrado ou não está aprovado.'
+                ];
+            }
+            
+            // Verificar se já existem custos para este projeto
+            $stmt = $this->pdo->prepare("
+                SELECT id FROM projeto_custos WHERE orcamento_id = ?
+            ");
+            $stmt->execute([$orcamentoId]);
+            $custosExistentes = $stmt->fetch();
+            
+            if ($custosExistentes) {
+                // Atualizar custos existentes
+                $stmt = $this->pdo->prepare("
+                    UPDATE projeto_custos 
+                    SET 
+                        custo_total_materiais = ?,
+                        custo_total_mao_de_obra = ?,
+                        custos_diversos = ?,
+                        observacoes = ?,
+                        updated_at = NOW()
+                    WHERE orcamento_id = ?
+                ");
+                $stmt->execute([
+                    $dadosCustos['custo_total_materiais'],
+                    $dadosCustos['custo_total_mao_de_obra'],
+                    $dadosCustos['custos_diversos'],
+                    $dadosCustos['observacoes'] ?? '',
+                    $orcamentoId
+                ]);
+                
+                $message = 'Custos atualizados com sucesso!';
+            } else {
+                // Inserir novos custos
+                $stmt = $this->pdo->prepare("
+                    INSERT INTO projeto_custos (
+                        orcamento_id, preco_venda, custo_total_materiais, 
+                        custo_total_mao_de_obra, custos_diversos, observacoes
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $orcamentoId,
+                    $orcamento['valor_estimado'],
+                    $dadosCustos['custo_total_materiais'],
+                    $dadosCustos['custo_total_mao_de_obra'],
+                    $dadosCustos['custos_diversos'],
+                    $dadosCustos['observacoes'] ?? ''
+                ]);
+                
+                $message = 'Custos lançados com sucesso!';
+            }
+            
+            // Obter os dados atualizados do projeto
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    pc.*,
+                    o.cliente,
+                    o.data_evento,
+                    o.tipo_servico
+                FROM projeto_custos pc
+                INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                WHERE pc.orcamento_id = ?
+            ");
+            $stmt->execute([$orcamentoId]);
+            $projetoAtualizado = $stmt->fetch();
+            
+            return [
+                'success' => true,
+                'message' => $message,
+                'projeto' => $projetoAtualizado
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao lançar custos: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor.'
+            ];
+        }
+    }
+    
+    /**
+     * Obter detalhes de custos de um projeto
+     */
+    public function getDetalhesCustosProjeto($orcamentoId) {
+        try {
+            $decoradorId = $_SESSION['user_id'] ?? 1;
+            
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    o.id,
+                    o.cliente,
+                    o.valor_estimado,
+                    o.data_evento,
+                    o.tipo_servico,
+                    o.local_evento,
+                    o.descricao,
+                    pc.custo_total_materiais,
+                    pc.custo_total_mao_de_obra,
+                    pc.custos_diversos,
+                    pc.custo_total_projeto,
+                    pc.lucro_real_liquido,
+                    pc.margem_lucro_percentual,
+                    pc.observacoes,
+                    pc.created_at,
+                    pc.updated_at
+                FROM orcamentos o
+                LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
+                WHERE o.id = ? AND o.decorador_id = ?
+            ");
+            $stmt->execute([$orcamentoId, $decoradorId]);
+            $projeto = $stmt->fetch();
+            
+            if (!$projeto) {
+                return [
+                    'success' => false,
+                    'message' => 'Projeto não encontrado.'
+                ];
+            }
+            
+            return [
+                'success' => true,
+                'projeto' => $projeto
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao obter detalhes do projeto: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor.'
+            ];
+        }
+    }
 }
 
 // Processar requisições
@@ -279,6 +497,27 @@ try {
                     'date_to' => $input['date_to'] ?? ''
                 ];
                 $result = $dashboardService->getDashboardData($filters);
+                break;
+                
+            case 'lancarCustos':
+                $orcamentoId = $input['orcamento_id'] ?? null;
+                $dadosCustos = $input['dados_custos'] ?? [];
+                
+                if (!$orcamentoId || empty($dadosCustos)) {
+                    throw new Exception('Dados insuficientes para lançamento de custos.');
+                }
+                
+                $result = $dashboardService->lancarCustosProjeto($orcamentoId, $dadosCustos);
+                break;
+                
+            case 'getDetalhesCustos':
+                $orcamentoId = $input['orcamento_id'] ?? null;
+                
+                if (!$orcamentoId) {
+                    throw new Exception('ID do orçamento é obrigatório.');
+                }
+                
+                $result = $dashboardService->getDetalhesCustosProjeto($orcamentoId);
                 break;
                 
             default:

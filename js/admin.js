@@ -7,6 +7,9 @@ class AdminSystem {
         this.itemsPerPage = 10;
         this.filteredUsers = [];
         this.charts = {};
+        this.supportTickets = [];
+        this.filteredTickets = [];
+        this.currentTicket = null;
         
         this.init();
     }
@@ -15,9 +18,12 @@ class AdminSystem {
         this.checkAuthentication();
         this.loadUsers();
         this.setupEventListeners();
+        this.setupNotificationModalListeners();
+        this.setupTicketModalListeners();
         this.updateCurrentTime();
         this.loadDashboardData();
         this.initializeCharts();
+        this.loadSupportTickets();
         
         // Atualizar hora a cada minuto
         setInterval(() => this.updateCurrentTime(), 60000);
@@ -37,53 +43,238 @@ class AdminSystem {
     }
 
     // Carregar dados dos usuários
-    loadUsers() {
-        // Simular dados de usuários (em produção, viria de uma API)
-        this.users = [
-            {
-                id: 1,
-                name: 'João Silva',
-                email: 'joao@email.com',
-                phone: '(11) 99999-9999',
-                type: 'client',
-                status: 'active',
-                createdAt: '2024-01-15',
-                address: 'Rua das Flores, 123'
-            },
-            {
-                id: 2,
-                name: 'Maria Santos',
-                email: 'maria@email.com',
-                phone: '(11) 88888-8888',
-                type: 'decorator',
-                status: 'active',
-                createdAt: '2024-01-20',
-                address: 'Av. Principal, 456'
-            },
-            {
-                id: 3,
-                name: 'Pedro Costa',
-                email: 'pedro@email.com',
-                phone: '(11) 77777-7777',
-                type: 'client',
-                status: 'inactive',
-                createdAt: '2024-02-01',
-                address: 'Rua da Paz, 789'
-            },
-            {
-                id: 4,
-                name: 'Ana Oliveira',
-                email: 'ana@email.com',
-                phone: '(11) 66666-6666',
-                type: 'decorator',
-                status: 'active',
-                createdAt: '2024-02-10',
-                address: 'Rua do Sol, 321'
+    async loadUsers() {
+        try {
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_users',
+                    page: this.currentPage,
+                    limit: this.itemsPerPage,
+                    search: document.getElementById('user-search')?.value || '',
+                    type: document.getElementById('user-type-filter')?.value || '',
+                    status: document.getElementById('user-status-filter')?.value || ''
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.users = result.data.users;
+                this.updateUsersTable();
+                this.updatePagination(result.data.pagination);
+            } else {
+                this.showNotification('Erro ao carregar usuários: ' + result.message, 'error');
             }
-        ];
+        } catch (error) {
+            console.error('Erro ao carregar usuários:', error);
+            this.showNotification('Erro de conexão ao carregar usuários', 'error');
+        }
+    }
+
+    // Atualizar tabela de usuários
+    updateUsersTable() {
+        const tbody = document.getElementById('users-table-body');
+        if (!tbody) return;
         
-        this.filteredUsers = [...this.users];
-        this.renderUsersTable();
+        tbody.innerHTML = '';
+        
+        this.users.forEach(user => {
+            const row = document.createElement('tr');
+            row.className = 'table-row hover:bg-gray-50';
+            
+            const statusBadge = this.getStatusBadge(user.status);
+            const typeIcon = user.type === 'decorator' ? 'fas fa-user-tie' : 'fas fa-user';
+            const typeText = user.type === 'decorator' ? 'Decorador' : 'Cliente';
+            
+            row.innerHTML = `
+                <td class="px-3 md:px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                            <i class="${typeIcon} text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${user.name}</div>
+                            <div class="text-sm text-gray-500">${user.email}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
+                    <span class="text-sm text-gray-900">${typeText}</span>
+                </td>
+                <td class="px-3 md:px-6 py-4 whitespace-nowrap">
+                    ${statusBadge}
+                </td>
+                <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                    ${new Date(user.created_at).toLocaleDateString('pt-BR')}
+                </td>
+                <td class="px-3 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div class="flex space-x-2">
+                        <button onclick="adminSystem.editUser(${user.id})" 
+                                class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                                title="Editar usuário">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ${user.type === 'decorator' && user.status === 'pending_approval' ? 
+                            `<button onclick="adminSystem.approveDecorator(${user.id}, true)" 
+                                     class="text-green-600 hover:text-green-900 transition-colors duration-200"
+                                     title="Aprovar decorador">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button onclick="notifyDecorator(${user.id}, 'rejected')" 
+                                     class="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                     title="Recusar e notificar">
+                                <i class="fas fa-times"></i>
+                            </button>` : ''}
+                        ${user.type === 'decorator' && user.status === 'active' ? 
+                            `<button onclick="notifyDecorator(${user.id}, 'approved')" 
+                                     class="text-purple-600 hover:text-purple-900 transition-colors duration-200"
+                                     title="Enviar notificação">
+                                <i class="fas fa-bell"></i>
+                            </button>` : ''}
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    // Obter badge de status
+    getStatusBadge(status) {
+        const badges = {
+            'active': '<span class="status-badge status-active">Ativo</span>',
+            'inactive': '<span class="status-badge status-inactive">Inativo</span>',
+            'pending_approval': '<span class="status-badge bg-yellow-100 text-yellow-800">Aguardando Aprovação</span>'
+        };
+        return badges[status] || '<span class="status-badge status-inactive">Desconhecido</span>';
+    }
+
+    // Atualizar paginação
+    updatePagination(pagination) {
+        const currentPageEl = document.getElementById('current-page');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const showingStart = document.getElementById('showing-start');
+        const showingEnd = document.getElementById('showing-end');
+        const totalUsers = document.getElementById('total-users');
+        
+        if (currentPageEl) currentPageEl.textContent = pagination.current_page;
+        if (prevBtn) prevBtn.disabled = pagination.current_page <= 1;
+        if (nextBtn) nextBtn.disabled = pagination.current_page >= pagination.total_pages;
+        if (showingStart) showingStart.textContent = ((pagination.current_page - 1) * pagination.items_per_page) + 1;
+        if (showingEnd) showingEnd.textContent = Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items);
+        if (totalUsers) totalUsers.textContent = pagination.total_items;
+    }
+
+    // Aprovar decorador
+    async approveDecorator(userId, approved) {
+        try {
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'approve_decorator',
+                    user_id: userId,
+                    approved: approved
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadUsers(); // Recarregar lista
+            } else {
+                this.showNotification('Erro: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao aprovar decorador:', error);
+            this.showNotification('Erro de conexão', 'error');
+        }
+    }
+
+    // Editar usuário
+    async editUser(userId) {
+        try {
+            // Buscar dados do usuário
+            const user = this.users.find(u => u.id === userId);
+            if (!user) {
+                this.showNotification('Usuário não encontrado', 'error');
+                return;
+            }
+            
+            // Preencher modal de edição
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-user-name').value = user.name;
+            document.getElementById('edit-user-email').value = user.email;
+            document.getElementById('edit-user-phone').value = user.phone || '';
+            document.getElementById('edit-user-status').value = user.status;
+            
+            // Mostrar seção de aprovação se for decorador
+            const approvalSection = document.getElementById('decorator-approval-section');
+            if (user.type === 'decorator' && approvalSection) {
+                approvalSection.classList.remove('hidden');
+                document.getElementById('edit-user-approved').value = user.status === 'active' ? '1' : '0';
+            } else if (approvalSection) {
+                approvalSection.classList.add('hidden');
+            }
+            
+            // Mostrar modal
+            document.getElementById('edit-user-modal').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Erro ao editar usuário:', error);
+            this.showNotification('Erro ao carregar dados do usuário', 'error');
+        }
+    }
+
+    // Salvar edição de usuário
+    async saveUserEdit() {
+        try {
+            const formData = {
+                id: document.getElementById('edit-user-id').value,
+                name: document.getElementById('edit-user-name').value,
+                email: document.getElementById('edit-user-email').value,
+                phone: document.getElementById('edit-user-phone').value,
+                status: document.getElementById('edit-user-status').value
+            };
+            
+            // Adicionar aprovação se for decorador
+            const approvalSection = document.getElementById('decorator-approval-section');
+            if (approvalSection && !approvalSection.classList.contains('hidden')) {
+                formData.aprovado_por_admin = document.getElementById('edit-user-approved').value === '1';
+            }
+            
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'update_user',
+                    ...formData
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                document.getElementById('edit-user-modal').classList.add('hidden');
+                this.loadUsers(); // Recarregar lista
+            } else {
+                this.showNotification('Erro: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar usuário:', error);
+            this.showNotification('Erro de conexão', 'error');
+        }
     }
 
     // Configurar Event Listeners
@@ -174,6 +365,18 @@ class AdminSystem {
         // Máscaras de input
         this.setupInputMasks();
 
+        // Suporte - Filtros e Busca
+        const supportSearch = document.getElementById('support-search');
+        const supportFilter = document.getElementById('support-status-filter');
+        
+        if (supportSearch) {
+            supportSearch.addEventListener('input', () => this.filterSupportTickets());
+        }
+        
+        if (supportFilter) {
+            supportFilter.addEventListener('change', () => this.filterSupportTickets());
+        }
+
         // Toggle de senha
         document.querySelectorAll('.toggle-password').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -245,7 +448,7 @@ class AdminSystem {
             'dashboard': { title: 'Dashboard', subtitle: 'Visão geral do sistema' },
             'create-decorator': { title: 'Criar Decorador', subtitle: 'Adicionar nova conta de decorador' },
             'manage-users': { title: 'Gerenciar Usuários', subtitle: 'Administrar contas de usuários' },
-            'reports': { title: 'Relatórios', subtitle: 'Visualizar relatórios do sistema' },
+            'support': { title: 'Central de Suporte', subtitle: 'Gerenciar chamados de decoradores' },
             'settings': { title: 'Configurações', subtitle: 'Configurar opções do sistema' }
         };
 
@@ -260,6 +463,8 @@ class AdminSystem {
             this.loadDashboardData();
         } else if (pageId === 'manage-users') {
             this.renderUsersTable();
+        } else if (pageId === 'support') {
+            this.loadSupportTickets();
         }
     }
 
@@ -413,7 +618,7 @@ class AdminSystem {
             action: 'create',
             nome: formData.get('name'),
             cpf: formData.get('cpf'),
-            email: formData.get('email'),
+            google_email: formData.get('google_email'),
             telefone: formData.get('phone'),
             whatsapp: formData.get('whatsapp'),
             communication_email: formData.get('communication_email'),
@@ -500,13 +705,13 @@ class AdminSystem {
             return false;
         }
 
-        if (!this.validateEmail(data.email)) {
-            this.showNotification('Email inválido', 'error');
+        if (!this.validateEmail(data.google_email)) {
+            this.showNotification('E-mail Google inválido', 'error');
             return false;
         }
 
-        if (this.users.find(u => u.email === data.email)) {
-            this.showNotification('Email já cadastrado', 'error');
+        if (this.users.find(u => u.google_email === data.google_email)) {
+            this.showNotification('E-mail Google já cadastrado', 'error');
             return false;
         }
 
@@ -642,6 +847,11 @@ class AdminSystem {
                         ${user.type === 'decorator' && user.slug ? `
                             <button onclick="admin.copyDecoratorLink('${user.url}')" class="text-green-600 hover:text-green-900 p-1" title="Copiar Link">
                                 <i class="fas fa-link text-xs md:text-sm"></i>
+                            </button>
+                        ` : ''}
+                        ${user.type === 'decorator' ? `
+                            <button onclick="notifyDecorator(${user.id}, '${user.status === 'active' ? 'approved' : 'rejected'}')" class="text-purple-600 hover:text-purple-900 p-1" title="Enviar Notificação">
+                                <i class="fas fa-bell text-xs md:text-sm"></i>
                             </button>
                         ` : ''}
                         <button onclick="admin.editUser(${user.id})" class="text-blue-600 hover:text-blue-900 p-1" title="Editar">
@@ -901,10 +1111,13 @@ class AdminSystem {
                             <button class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 close-modal">
                                 <i class="fas fa-times mr-2"></i>Fechar
                             </button>
+                            <button onclick="notifyDecorator(${data.id}, 'approved')" class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 close-modal-and-notify">
+                                <i class="fas fa-bell mr-2"></i>Enviar Notificação
+                            </button>
                             <a href="${data.url}" 
                                target="_blank"
                                class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 text-center">
-                                <i class="fas fa-external-link-alt mr-2"></i>Ver Página do Decorador
+                                <i class="fas fa-external-link-alt mr-2"></i>Ver Página
                             </a>
                         </div>
                     </div>
@@ -918,6 +1131,14 @@ class AdminSystem {
         modal.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.body.removeChild(modal);
+            });
+        });
+        
+        // Event listener para fechar e abrir notificação
+        modal.querySelectorAll('.close-modal-and-notify').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+                // A função notifyDecorator já foi chamada no onclick
             });
         });
         
@@ -957,6 +1178,583 @@ class AdminSystem {
             localStorage.removeItem('userToken');
             window.location.href = 'admin-login.html';
         }
+    }
+
+    // ========== SISTEMA DE NOTIFICAÇÕES PARA DECORADORES ==========
+    
+    // Templates de mensagens
+    getMessageTemplates(decoratorName, status) {
+        const templates = {
+            approved: {
+                whatsapp: `🎉 *Parabéns, ${decoratorName}!*\n\nSua conta de decorador foi *APROVADA* pela Up.Baloes! ✅\n\nAgora você pode:\n✨ Acessar seu painel de decorador\n📅 Gerenciar sua agenda\n💼 Criar e enviar orçamentos\n📸 Montar seu portfólio\n\n*Acesse agora:*\n👉 https://upbaloes.com/login\n\nBem-vindo(a) à nossa equipe! 🎈\n\n_Equipe Up.Baloes_`,
+                
+                emailSubject: `🎉 Conta Aprovada - Bem-vindo à Up.Baloes!`,
+                
+                emailBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa;">
+    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Conta Aprovada!</h1>
+    </div>
+    
+    <div style="background-color: white; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Olá, <strong>${decoratorName}</strong>!</p>
+        
+        <p style="font-size: 16px; color: #555; line-height: 1.6;">
+            Temos uma ótima notícia! 🎈 Sua conta de decorador foi <strong style="color: #10b981;">APROVADA</strong> pela equipe Up.Baloes!
+        </p>
+        
+        <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 20px; margin: 25px 0; border-radius: 5px;">
+            <h3 style="color: #059669; margin-top: 0;">Agora você pode:</h3>
+            <ul style="color: #555; line-height: 1.8;">
+                <li>✨ Acessar seu painel de decorador</li>
+                <li>📅 Gerenciar sua agenda e disponibilidade</li>
+                <li>💼 Criar e enviar orçamentos personalizados</li>
+                <li>📸 Montar e exibir seu portfólio</li>
+                <li>📊 Acompanhar suas solicitações</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="https://upbaloes.com/login" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block;">
+                Acessar Meu Painel
+            </a>
+        </div>
+        
+        <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <strong>Bem-vindo(a) à nossa equipe!</strong><br>
+            Estamos ansiosos para ver seus trabalhos incríveis! 🎈
+        </p>
+        
+        <p style="font-size: 14px; color: #999; margin-top: 20px;">
+            Atenciosamente,<br>
+            <strong style="color: #10b981;">Equipe Up.Baloes</strong>
+        </p>
+    </div>
+</div>`
+            },
+            
+            rejected: {
+                whatsapp: `Olá, ${decoratorName}.\n\nAgradecemos seu interesse em fazer parte da equipe Up.Baloes. 🎈\n\nInfelizmente, após análise, não foi possível aprovar sua conta de decorador neste momento. ❌\n\n*Possíveis motivos:*\n• Dados incompletos ou incorretos\n• Documentação pendente\n• Não atendimento aos requisitos\n\n*Você pode:*\n📝 Revisar seus dados\n📧 Entrar em contato conosco\n🔄 Fazer uma nova solicitação\n\n_Equipe Up.Baloes_\n📞 Contato: (XX) XXXXX-XXXX`,
+                
+                emailSubject: `Sobre sua solicitação - Up.Baloes`,
+                
+                emailBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa;">
+    <div style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">Sobre sua solicitação</h1>
+    </div>
+    
+    <div style="background-color: white; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Olá, <strong>${decoratorName}</strong>,</p>
+        
+        <p style="font-size: 16px; color: #555; line-height: 1.6;">
+            Primeiramente, agradecemos seu interesse em fazer parte da equipe de decoradores Up.Baloes. 🎈
+        </p>
+        
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 5px;">
+            <p style="color: #92400e; margin: 0; font-size: 16px;">
+                Após análise cuidadosa, informamos que <strong>não foi possível aprovar sua conta</strong> de decorador neste momento.
+            </p>
+        </div>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; margin: 25px 0; border-radius: 5px;">
+            <h3 style="color: #374151; margin-top: 0;">Possíveis motivos:</h3>
+            <ul style="color: #555; line-height: 1.8;">
+                <li>Dados incompletos ou incorretos</li>
+                <li>Documentação pendente</li>
+                <li>Não atendimento aos requisitos mínimos</li>
+                <li>Informações de contato inválidas</li>
+            </ul>
+        </div>
+        
+        <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 5px;">
+            <h3 style="color: #1e40af; margin-top: 0;">O que você pode fazer:</h3>
+            <ul style="color: #555; line-height: 1.8;">
+                <li>📝 Revisar e corrigir seus dados cadastrais</li>
+                <li>📧 Entrar em contato conosco para mais informações</li>
+                <li>🔄 Fazer uma nova solicitação após as correções</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="mailto:contato@upbaloes.com" style="background-color: #3b82f6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block;">
+                Entrar em Contato
+            </a>
+        </div>
+        
+        <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            Estamos à disposição para esclarecer qualquer dúvida.
+        </p>
+        
+        <p style="font-size: 14px; color: #999; margin-top: 20px;">
+            Atenciosamente,<br>
+            <strong style="color: #6b7280;">Equipe Up.Baloes</strong>
+        </p>
+    </div>
+</div>`
+            }
+        };
+        
+        return templates[status] || templates.approved;
+    }
+    
+    // Abrir modal de notificação
+    openNotificationModal(decorator, status = 'approved') {
+        const modal = document.getElementById('notification-modal');
+        const header = document.getElementById('notification-header');
+        const icon = document.getElementById('notification-icon');
+        const title = document.getElementById('notification-title');
+        const subtitle = document.getElementById('notification-subtitle');
+        
+        // Configurar cores e textos baseados no status
+        if (status === 'approved') {
+            header.className = 'bg-gradient-to-r from-green-600 to-emerald-700 px-6 py-4';
+            icon.className = 'fas fa-check-circle text-white text-lg';
+            title.textContent = 'Notificar Aprovação';
+            subtitle.textContent = 'O decorador será notificado sobre a aprovação';
+        } else {
+            header.className = 'bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4';
+            icon.className = 'fas fa-times-circle text-white text-lg';
+            title.textContent = 'Notificar Recusa';
+            subtitle.textContent = 'O decorador será notificado sobre a não aprovação';
+        }
+        
+        // Preencher informações do decorador
+        document.getElementById('notification-decorator-name').textContent = decorator.nome;
+        document.getElementById('notification-whatsapp').textContent = decorator.whatsapp || 'Não informado';
+        document.getElementById('notification-email').textContent = decorator.communication_email || decorator.email || 'Não informado';
+        
+        // Obter templates
+        const templates = this.getMessageTemplates(decorator.nome, status);
+        
+        // Preencher mensagens
+        document.getElementById('whatsapp-message').value = templates.whatsapp;
+        document.getElementById('email-subject').value = templates.emailSubject;
+        document.getElementById('email-message').value = templates.emailBody;
+        
+        // Atualizar contador de caracteres
+        this.updateCharCounter();
+        
+        // Salvar dados do decorador e status para envio posterior
+        this.currentNotification = {
+            decorator: decorator,
+            status: status
+        };
+        
+        // Mostrar modal
+        modal.classList.remove('hidden');
+    }
+    
+    // Atualizar contador de caracteres do WhatsApp
+    updateCharCounter() {
+        const whatsappMessage = document.getElementById('whatsapp-message');
+        const charCount = document.getElementById('whatsapp-char-count');
+        
+        if (whatsappMessage && charCount) {
+            const count = whatsappMessage.value.length;
+            charCount.textContent = `${count} caracteres`;
+            
+            if (count > 1000) {
+                charCount.style.color = '#ef4444';
+            } else if (count > 800) {
+                charCount.style.color = '#f59e0b';
+            } else {
+                charCount.style.color = '#6b7280';
+            }
+        }
+    }
+    
+    // Fechar modal de notificação
+    closeNotificationModal() {
+        document.getElementById('notification-modal').classList.add('hidden');
+        this.currentNotification = null;
+    }
+    
+    // Enviar notificação
+    async sendNotification() {
+        if (!this.currentNotification) return;
+        
+        const sendWhatsApp = document.getElementById('send-whatsapp').checked;
+        const sendEmail = document.getElementById('send-email').checked;
+        
+        if (!sendWhatsApp && !sendEmail) {
+            this.showNotification('Selecione pelo menos um canal de envio', 'warning');
+            return;
+        }
+        
+        const whatsappMessage = document.getElementById('whatsapp-message').value;
+        const emailSubject = document.getElementById('email-subject').value;
+        const emailMessage = document.getElementById('email-message').value;
+        
+        // Dados para envio
+        const notificationData = {
+            decorator_id: this.currentNotification.decorator.id,
+            decorator_name: this.currentNotification.decorator.nome,
+            status: this.currentNotification.status,
+            channels: {
+                whatsapp: sendWhatsApp,
+                email: sendEmail
+            },
+            messages: {
+                whatsapp: whatsappMessage,
+                email: {
+                    subject: emailSubject,
+                    body: emailMessage
+                }
+            },
+            contacts: {
+                whatsapp: this.currentNotification.decorator.whatsapp,
+                email: this.currentNotification.decorator.communication_email || this.currentNotification.decorator.email
+            }
+        };
+        
+        try {
+            // Mostrar loading
+            const btn = document.getElementById('send-notification');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+            btn.disabled = true;
+            
+            // Simular envio (substituir por chamada real à API)
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Log para debug
+            console.log('Notificação enviada:', notificationData);
+            
+            // Sucesso
+            this.showNotification(
+                `Notificação enviada com sucesso para ${this.currentNotification.decorator.nome}!`,
+                'success'
+            );
+            
+            // Fechar modal
+            this.closeNotificationModal();
+            
+            // TODO: Implementar chamada real à API
+            // const response = await fetch('../services/admin.php', {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({
+            //         action: 'send_decorator_notification',
+            //         ...notificationData
+            //     })
+            // });
+            
+        } catch (error) {
+            console.error('Erro ao enviar notificação:', error);
+            this.showNotification('Erro ao enviar notificação', 'error');
+        } finally {
+            const btn = document.getElementById('send-notification');
+            btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar Notificação';
+            btn.disabled = false;
+        }
+    }
+    
+    // Configurar listeners do modal de notificação
+    setupNotificationModalListeners() {
+        // Fechar modal
+        const closeBtn = document.getElementById('close-notification-modal');
+        const cancelBtn = document.getElementById('cancel-notification');
+        const overlay = document.getElementById('notification-modal-overlay');
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeNotificationModal());
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.closeNotificationModal());
+        }
+        
+        if (overlay) {
+            overlay.addEventListener('click', () => this.closeNotificationModal());
+        }
+        
+        // Enviar notificação
+        const sendBtn = document.getElementById('send-notification');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendNotification());
+        }
+        
+        // Contador de caracteres WhatsApp
+        const whatsappMessage = document.getElementById('whatsapp-message');
+        if (whatsappMessage) {
+            whatsappMessage.addEventListener('input', () => this.updateCharCounter());
+        }
+        
+        // Controlar visibilidade das seções de mensagem
+        const sendWhatsAppCheckbox = document.getElementById('send-whatsapp');
+        const sendEmailCheckbox = document.getElementById('send-email');
+        const whatsappSection = document.getElementById('whatsapp-message-section');
+        const emailSection = document.getElementById('email-message-section');
+        
+        if (sendWhatsAppCheckbox && whatsappSection) {
+            sendWhatsAppCheckbox.addEventListener('change', (e) => {
+                whatsappSection.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+        
+        if (sendEmailCheckbox && emailSection) {
+            sendEmailCheckbox.addEventListener('change', (e) => {
+                emailSection.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+    }
+
+    // ========== SISTEMA DE SUPORTE ==========
+    
+    // Carregar chamados de suporte
+    loadSupportTickets() {
+        // Carregar do localStorage
+        const saved = localStorage.getItem('support_tickets');
+        this.supportTickets = saved ? JSON.parse(saved) : [];
+        this.filteredTickets = [...this.supportTickets];
+        
+        // Ordenar por data (mais recentes primeiro)
+        this.filteredTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        this.renderSupportTickets();
+        this.updateSupportStats();
+    }
+    
+    // Renderizar chamados de suporte
+    renderSupportTickets() {
+        const container = document.getElementById('support-tickets-container');
+        const emptyState = document.getElementById('support-empty');
+        
+        if (!container) return;
+        
+        if (this.filteredTickets.length === 0) {
+            container.innerHTML = '';
+            if (emptyState) emptyState.classList.remove('hidden');
+            return;
+        }
+        
+        if (emptyState) emptyState.classList.add('hidden');
+        
+        container.innerHTML = this.filteredTickets.map(ticket => {
+            const statusColors = {
+                'novo': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                'em_analise': 'bg-blue-100 text-blue-800 border-blue-300',
+                'resolvido': 'bg-green-100 text-green-800 border-green-300',
+                'fechado': 'bg-gray-100 text-gray-800 border-gray-300'
+            };
+            
+            const statusLabels = {
+                'novo': 'Novo',
+                'em_analise': 'Em Análise',
+                'resolvido': 'Resolvido',
+                'fechado': 'Fechado'
+            };
+            
+            const statusIcons = {
+                'novo': 'fa-exclamation-circle',
+                'em_analise': 'fa-sync',
+                'resolvido': 'fa-check-circle',
+                'fechado': 'fa-times-circle'
+            };
+            
+            return `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticket.id}')">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-1">${ticket.title}</h4>
+                            <div class="flex items-center space-x-4 text-sm text-gray-600">
+                                <span><i class="fas fa-user mr-1 text-blue-600"></i>${ticket.decorator_name}</span>
+                                <span><i class="fas fa-calendar mr-1 text-purple-600"></i>${this.formatDateTime(ticket.created_at)}</span>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[ticket.status]}">
+                            <i class="fas ${statusIcons[ticket.status]} mr-1"></i>${statusLabels[ticket.status]}
+                        </span>
+                    </div>
+                    <p class="text-gray-700 text-sm line-clamp-2 mb-3">${ticket.description}</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <div class="flex items-center space-x-3">
+                            ${ticket.attachment ? '<span><i class="fas fa-paperclip mr-1"></i>Anexo</span>' : ''}
+                            <span>ID: #${ticket.id.substring(0, 8)}</span>
+                        </div>
+                        <button class="text-indigo-600 hover:text-indigo-800 font-medium">
+                            Ver Detalhes <i class="fas fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Filtrar chamados
+    filterSupportTickets() {
+        const search = document.getElementById('support-search')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('support-status-filter')?.value || '';
+        
+        this.filteredTickets = this.supportTickets.filter(ticket => {
+            const matchesSearch = !search || 
+                ticket.title.toLowerCase().includes(search) ||
+                ticket.decorator_name.toLowerCase().includes(search) ||
+                ticket.description.toLowerCase().includes(search);
+            
+            const matchesStatus = !statusFilter || ticket.status === statusFilter;
+            
+            return matchesSearch && matchesStatus;
+        });
+        
+        this.renderSupportTickets();
+        this.updateSupportStats();
+    }
+    
+    // Atualizar estatísticas
+    updateSupportStats() {
+        const total = document.getElementById('support-total');
+        const newTickets = document.getElementById('support-new');
+        const analysis = document.getElementById('support-analysis');
+        const resolved = document.getElementById('support-resolved');
+        
+        if (total) total.textContent = this.supportTickets.length;
+        if (newTickets) newTickets.textContent = this.supportTickets.filter(t => t.status === 'novo').length;
+        if (analysis) analysis.textContent = this.supportTickets.filter(t => t.status === 'em_analise').length;
+        if (resolved) resolved.textContent = this.supportTickets.filter(t => t.status === 'resolvido').length;
+    }
+    
+    // Ver detalhes do chamado
+    viewTicketDetails(ticketId) {
+        const ticket = this.supportTickets.find(t => t.id === ticketId);
+        if (!ticket) {
+            this.showNotification('Chamado não encontrado', 'error');
+            return;
+        }
+        
+        this.currentTicket = ticket;
+        
+        // Preencher modal
+        document.getElementById('ticket-details-id').textContent = `Chamado #${ticket.id.substring(0, 8)}`;
+        document.getElementById('ticket-decorator-name').textContent = ticket.decorator_name;
+        document.getElementById('ticket-decorator-contact').textContent = ticket.decorator_email || 'Não informado';
+        document.getElementById('ticket-datetime').textContent = this.formatDateTime(ticket.created_at);
+        document.getElementById('ticket-title').textContent = ticket.title;
+        document.getElementById('ticket-description').textContent = ticket.description;
+        document.getElementById('ticket-new-status').value = ticket.status;
+        
+        // Badge de status
+        const statusColors = {
+            'novo': 'bg-yellow-100 text-yellow-800',
+            'em_analise': 'bg-blue-100 text-blue-800',
+            'resolvido': 'bg-green-100 text-green-800',
+            'fechado': 'bg-gray-100 text-gray-800'
+        };
+        
+        const statusLabels = {
+            'novo': 'Novo',
+            'em_analise': 'Em Análise',
+            'resolvido': 'Resolvido',
+            'fechado': 'Fechado'
+        };
+        
+        document.getElementById('ticket-status-badge').innerHTML = `
+            <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status]}">
+                ${statusLabels[ticket.status]}
+            </span>
+        `;
+        
+        // Anexo
+        const attachmentSection = document.getElementById('ticket-attachment-section');
+        const attachmentImg = document.getElementById('ticket-attachment');
+        
+        if (ticket.attachment) {
+            attachmentImg.src = ticket.attachment;
+            attachmentImg.onclick = () => window.open(ticket.attachment, '_blank');
+            attachmentSection.classList.remove('hidden');
+        } else {
+            attachmentSection.classList.add('hidden');
+        }
+        
+        // Mostrar modal
+        document.getElementById('ticket-details-modal').classList.remove('hidden');
+    }
+    
+    // Salvar status do chamado
+    saveTicketStatus() {
+        if (!this.currentTicket) return;
+        
+        const newStatus = document.getElementById('ticket-new-status').value;
+        const ticketIndex = this.supportTickets.findIndex(t => t.id === this.currentTicket.id);
+        
+        if (ticketIndex !== -1) {
+            this.supportTickets[ticketIndex].status = newStatus;
+            this.supportTickets[ticketIndex].updated_at = new Date().toISOString();
+            
+            // Salvar no localStorage
+            localStorage.setItem('support_tickets', JSON.stringify(this.supportTickets));
+            
+            // Atualizar visualização
+            this.filterSupportTickets();
+            
+            // Fechar modal
+            this.closeTicketDetails();
+            
+            this.showNotification('Status do chamado atualizado com sucesso!', 'success');
+        }
+    }
+    
+    // Excluir chamado
+    deleteTicket() {
+        if (!this.currentTicket) return;
+        
+        if (!confirm('Tem certeza que deseja excluir este chamado?')) {
+            return;
+        }
+        
+        this.supportTickets = this.supportTickets.filter(t => t.id !== this.currentTicket.id);
+        localStorage.setItem('support_tickets', JSON.stringify(this.supportTickets));
+        
+        this.filterSupportTickets();
+        this.closeTicketDetails();
+        
+        this.showNotification('Chamado excluído com sucesso!', 'success');
+    }
+    
+    // Fechar modal de detalhes
+    closeTicketDetails() {
+        document.getElementById('ticket-details-modal').classList.add('hidden');
+        this.currentTicket = null;
+    }
+    
+    // Configurar listeners do modal de chamados
+    setupTicketModalListeners() {
+        const closeBtn = document.getElementById('close-ticket-details');
+        const closeBtn2 = document.getElementById('close-ticket-btn');
+        const overlay = document.getElementById('ticket-details-overlay');
+        const saveBtn = document.getElementById('save-ticket-status');
+        const deleteBtn = document.getElementById('delete-ticket-btn');
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeTicketDetails());
+        }
+        
+        if (closeBtn2) {
+            closeBtn2.addEventListener('click', () => this.closeTicketDetails());
+        }
+        
+        if (overlay) {
+            overlay.addEventListener('click', () => this.closeTicketDetails());
+        }
+        
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveTicketStatus());
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => this.deleteTicket());
+        }
+    }
+    
+    // Formatar data e hora
+    formatDateTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 }
 
@@ -1008,4 +1806,17 @@ function copyDecoratorUrl() {
 // Inicializar sistema quando a página carregar
 document.addEventListener('DOMContentLoaded', () => {
     window.admin = new AdminSystem();
+    window.adminSystem = window.admin; // Alias para compatibilidade
 });
+
+// Funções globais para uso no HTML
+window.notifyDecorator = function(decoratorId, status) {
+    if (window.admin && window.admin.users) {
+        const decorator = window.admin.users.find(u => u.id === decoratorId);
+        if (decorator) {
+            window.admin.openNotificationModal(decorator, status);
+        } else {
+            console.error('Decorador não encontrado');
+        }
+    }
+};

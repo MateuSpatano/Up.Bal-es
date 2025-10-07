@@ -60,6 +60,7 @@ class CadastroService {
                 'slug' => $slug,
                 'perfil' => 'user', // Cliente comum
                 'ativo' => 1,
+                'aprovado_por_admin' => 1, // Clientes são aprovados automaticamente
                 'created_at' => date('Y-m-d H:i:s')
             ];
             
@@ -67,10 +68,10 @@ class CadastroService {
             $stmt = $this->pdo->prepare("
                 INSERT INTO usuarios (
                     nome, email, senha, telefone, endereco, cidade, estado, cep, 
-                    slug, perfil, ativo, created_at
+                    slug, perfil, ativo, aprovado_por_admin, created_at
                 ) VALUES (
                     :nome, :email, :senha, :telefone, :endereco, :cidade, :estado, :cep,
-                    :slug, :perfil, :ativo, :created_at
+                    :slug, :perfil, :ativo, :aprovado_por_admin, :created_at
                 )
             ");
             

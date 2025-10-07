@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Event listeners do dashboard
         setupDashboardEventListeners();
+        setupCostModalEventListeners();
     }
     
     function setupDashboardEventListeners() {
@@ -321,6 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
             case 'dashboard':
                 loadDashboardData();
+                loadProjetosConcluidos();
                 break;
             case 'account':
                 loadAccountData();
@@ -404,6 +406,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Atualizar receita recebida
         const receita = kpis.receita_recebida || 0;
         document.getElementById('kpi-receita-recebida').textContent = formatCurrency(receita);
+        
+        // Atualizar lucro total do mês
+        const lucroTotal = kpis.lucro_total_mes || 0;
+        document.getElementById('kpi-lucro-total-mes').textContent = formatCurrency(lucroTotal);
+        
+        // Atualizar margem média de lucro
+        const margemMedia = kpis.margem_media_lucro || 0;
+        document.getElementById('kpi-margem-media-lucro').textContent = margemMedia.toFixed(1) + '%';
         
         // Atualizar período nos cards
         const dateFrom = document.getElementById('dashboard-date-from').value;
@@ -531,11 +541,388 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('dashboard-error-message').textContent = message;
     }
     
+    // ========== FUNCIONALIDADES DE LANÇAMENTO DE CUSTOS ==========
+    
+    let projetosConcluidos = [];
+    let currentProjectId = null;
+    
+    function setupCostModalEventListeners() {
+        // Botão de atualizar projetos concluídos
+        const refreshBtn = document.getElementById('refresh-projetos-concluidos');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', loadProjetosConcluidos);
+        }
+        
+        // Modal de custos
+        const costModal = document.getElementById('cost-modal');
+        const closeCostModalBtn = document.getElementById('close-cost-modal');
+        const cancelCostBtn = document.getElementById('cancel-cost');
+        const costModalOverlay = document.getElementById('cost-modal-overlay');
+        
+        if (closeCostModalBtn) {
+            closeCostModalBtn.addEventListener('click', closeCostModal);
+        }
+        
+        if (cancelCostBtn) {
+            cancelCostBtn.addEventListener('click', closeCostModal);
+        }
+        
+        if (costModalOverlay) {
+            costModalOverlay.addEventListener('click', closeCostModal);
+        }
+        
+        // Formulário de custos
+        const costForm = document.getElementById('cost-form');
+        if (costForm) {
+            costForm.addEventListener('submit', handleCostSubmit);
+        }
+        
+        // Campos de custos para cálculo em tempo real
+        const costInputs = ['cost-materiais', 'cost-mao-obra', 'cost-diversos'];
+        costInputs.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('input', updateCostCalculations);
+            }
+        });
+    }
+    
+    function loadProjetosConcluidos() {
+        showProjetosConcluidosLoading();
+        
+        fetch('../services/painel.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'getData'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.projetos_concluidos) {
+                projetosConcluidos = data.projetos_concluidos;
+                renderProjetosConcluidos();
+            } else {
+                showProjetosConcluidosError(data.message || 'Erro ao carregar projetos.');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar projetos concluídos:', error);
+            showProjetosConcluidosError('Erro de conexão. Verifique sua internet e tente novamente.');
+        });
+    }
+    
+    function showProjetosConcluidosLoading() {
+        document.getElementById('projetos-concluidos-loading').classList.remove('hidden');
+        document.getElementById('projetos-concluidos-empty').classList.add('hidden');
+        document.getElementById('projetos-concluidos-list').classList.add('hidden');
+    }
+    
+    function showProjetosConcluidosError(message) {
+        document.getElementById('projetos-concluidos-loading').classList.add('hidden');
+        document.getElementById('projetos-concluidos-empty').classList.add('hidden');
+        document.getElementById('projetos-concluidos-list').classList.add('hidden');
+        
+        // Mostrar erro temporário
+        const listContainer = document.getElementById('projetos-concluidos-list');
+        listContainer.innerHTML = `
+            <div class="text-center py-8">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Erro ao carregar projetos</h3>
+                <p class="text-gray-600 mb-4">${message}</p>
+                <button onclick="loadProjetosConcluidos()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                    <i class="fas fa-redo mr-2"></i>Tentar Novamente
+                </button>
+            </div>
+        `;
+        listContainer.classList.remove('hidden');
+    }
+    
+    function renderProjetosConcluidos() {
+        document.getElementById('projetos-concluidos-loading').classList.add('hidden');
+        
+        if (projetosConcluidos.length === 0) {
+            document.getElementById('projetos-concluidos-empty').classList.remove('hidden');
+            document.getElementById('projetos-concluidos-list').classList.add('hidden');
+            return;
+        }
+        
+        document.getElementById('projetos-concluidos-empty').classList.add('hidden');
+        const listContainer = document.getElementById('projetos-concluidos-list');
+        
+        listContainer.innerHTML = projetosConcluidos.map(projeto => {
+            const dataFormatada = formatDate(projeto.data_evento);
+            const valorFormatado = formatCurrency(projeto.valor_estimado);
+            const tipoServico = getServiceTypeLabel(projeto.tipo_servico);
+            const custosLancados = projeto.custos_lancados;
+            
+            return `
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <h4 class="font-semibold text-gray-800">${projeto.cliente}</h4>
+                                <span class="px-2 py-1 text-xs font-medium rounded-full ${custosLancados ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                    ${custosLancados ? 'Custos Lançados' : 'Pendente'}
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                                <div>
+                                    <i class="fas fa-calendar mr-1"></i>
+                                    ${dataFormatada}
+                                </div>
+                                <div>
+                                    <i class="fas fa-tag mr-1"></i>
+                                    ${tipoServico}
+                                </div>
+                                <div>
+                                    <i class="fas fa-dollar-sign mr-1"></i>
+                                    ${valorFormatado}
+                                </div>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600">
+                                <i class="fas fa-map-marker-alt mr-1"></i>
+                                ${projeto.local_evento}
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 ml-4">
+                            <button onclick="openCostModal(${projeto.id})" 
+                                    class="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors duration-200 text-sm font-medium">
+                                <i class="fas fa-calculator mr-1"></i>
+                                ${custosLancados ? 'Editar Custos' : 'Lançar Custos'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        listContainer.classList.remove('hidden');
+    }
+    
+    function openCostModal(orcamentoId) {
+        currentProjectId = orcamentoId;
+        
+        // Buscar detalhes do projeto
+        fetch('../services/painel.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'getDetalhesCustos',
+                orcamento_id: orcamentoId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.projeto) {
+                populateCostModal(data.projeto);
+                showCostModal();
+            } else {
+                showNotification('Erro ao carregar dados do projeto.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar detalhes do projeto:', error);
+            showNotification('Erro de conexão. Tente novamente.', 'error');
+        });
+    }
+    
+    function populateCostModal(projeto) {
+        // Preencher informações do projeto
+        document.getElementById('cost-modal-cliente').textContent = projeto.cliente;
+        document.getElementById('cost-modal-data').textContent = formatDate(projeto.data_evento);
+        document.getElementById('cost-modal-servico').textContent = getServiceTypeLabel(projeto.tipo_servico);
+        document.getElementById('cost-modal-local').textContent = projeto.local_evento;
+        
+        // Preencher preço de venda
+        document.getElementById('cost-precio-venda').value = projeto.valor_estimado || 0;
+        
+        // Preencher custos se já existirem
+        document.getElementById('cost-materiais').value = projeto.custo_total_materiais || 0;
+        document.getElementById('cost-mao-obra').value = projeto.custo_total_mao_de_obra || 0;
+        document.getElementById('cost-diversos').value = projeto.custos_diversos || 0;
+        document.getElementById('cost-observacoes').value = projeto.observacoes || '';
+        
+        // Atualizar cálculos
+        updateCostCalculations();
+    }
+    
+    function showCostModal() {
+        document.getElementById('cost-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeCostModal() {
+        document.getElementById('cost-modal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+        
+        // Limpar formulário
+        document.getElementById('cost-form').reset();
+        document.getElementById('cost-success-message').classList.add('hidden');
+        currentProjectId = null;
+    }
+    
+    function updateCostCalculations() {
+        const precoVenda = parseFloat(document.getElementById('cost-precio-venda').value) || 0;
+        const materiais = parseFloat(document.getElementById('cost-materiais').value) || 0;
+        const maoObra = parseFloat(document.getElementById('cost-mao-obra').value) || 0;
+        const diversos = parseFloat(document.getElementById('cost-diversos').value) || 0;
+        
+        const custoTotal = materiais + maoObra + diversos;
+        const lucroLiquido = precoVenda - custoTotal;
+        const margemPercentual = precoVenda > 0 ? ((lucroLiquido / precoVenda) * 100) : 0;
+        
+        // Atualizar resumo
+        document.getElementById('cost-resumo-total').textContent = formatCurrency(custoTotal);
+        document.getElementById('cost-resumo-lucro').textContent = formatCurrency(lucroLiquido);
+        document.getElementById('cost-resumo-margem').textContent = margemPercentual.toFixed(1) + '%';
+        
+        // Atualizar cores baseado no lucro
+        const lucroElement = document.getElementById('cost-resumo-lucro');
+        const margemElement = document.getElementById('cost-resumo-margem');
+        
+        if (lucroLiquido < 0) {
+            lucroElement.className = 'font-medium text-red-600';
+            margemElement.className = 'font-medium text-red-600';
+        } else if (lucroLiquido === 0) {
+            lucroElement.className = 'font-medium text-yellow-600';
+            margemElement.className = 'font-medium text-yellow-600';
+        } else {
+            lucroElement.className = 'font-medium text-emerald-600';
+            margemElement.className = 'font-medium text-emerald-600';
+        }
+    }
+    
+    function handleCostSubmit(event) {
+        event.preventDefault();
+        
+        if (!currentProjectId) {
+            showNotification('Erro: ID do projeto não encontrado.', 'error');
+            return;
+        }
+        
+        const formData = new FormData(event.target);
+        const dadosCustos = {
+            custo_total_materiais: parseFloat(formData.get('custo_total_materiais')) || 0,
+            custo_total_mao_de_obra: parseFloat(formData.get('custo_total_mao_de_obra')) || 0,
+            custos_diversos: parseFloat(formData.get('custos_diversos')) || 0,
+            observacoes: formData.get('observacoes') || ''
+        };
+        
+        // Mostrar loading no botão
+        const saveBtn = document.getElementById('save-cost');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+        saveBtn.disabled = true;
+        
+        fetch('../services/painel.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'lancarCustos',
+                orcamento_id: currentProjectId,
+                dados_custos: dadosCustos
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar mensagem de sucesso
+                document.getElementById('cost-success-message').classList.remove('hidden');
+                
+                // Recarregar dados do dashboard após 2 segundos
+                setTimeout(() => {
+                    closeCostModal();
+                    loadDashboardKPIs(); // Recarregar KPIs
+                    loadProjetosConcluidos(); // Recarregar lista de projetos
+                    showNotification(data.message, 'success');
+                }, 2000);
+            } else {
+                showNotification(data.message || 'Erro ao salvar custos.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao salvar custos:', error);
+            showNotification('Erro de conexão. Tente novamente.', 'error');
+        })
+        .finally(() => {
+            // Restaurar botão
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
     function formatCurrency(value) {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         }).format(value);
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR');
+    }
+    
+    function getServiceTypeLabel(type) {
+        const labels = {
+            'arco-tradicional': 'Arco Tradicional',
+            'arco-desconstruido': 'Arco Desconstruído',
+            'escultura-balao': 'Escultura de Balão',
+            'centro-mesa': 'Centro de Mesa',
+            'baloes-piscina': 'Balões na Piscina'
+        };
+        return labels[type] || 'Serviço';
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Criar elemento de notificação
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full`;
+        
+        // Definir cores baseadas no tipo
+        const colors = {
+            success: 'bg-green-500 text-white',
+            error: 'bg-red-500 text-white',
+            warning: 'bg-yellow-500 text-white',
+            info: 'bg-blue-500 text-white'
+        };
+        
+        notification.className += ` ${colors[type] || colors.info}`;
+        notification.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-2 hover:opacity-75">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Animar entrada
+        setTimeout(() => {
+            notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Remover após 5 segundos
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 300);
+        }, 5000);
     }
     
     function formatPeriodText(dateFrom, dateTo) {
@@ -4506,10 +4893,10 @@ Qualquer dúvida, estou à disposição! 😊`;
             <div class="flex justify-between items-center">
                 <span class="text-green-600 font-semibold">R$ ${parseFloat(service.price || 0).toFixed(2)}</span>
                 <div class="flex space-x-2">
-                    <button onclick="editService('${service.id}')" class="text-blue-600 hover:text-blue-800">
+                    <button onclick="editService('${service.id}')" class="text-blue-600 hover:text-blue-800" title="Editar serviço">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteService('${service.id}')" class="text-red-600 hover:text-red-800">
+                    <button onclick="confirmDeleteServiceAction('${service.id}')" class="text-red-600 hover:text-red-800" title="Excluir serviço">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -4839,7 +5226,7 @@ Qualquer dúvida, estou à disposição! 😊`;
     function deleteService() {
         if (deletingServiceId) {
             portfolioServices = portfolioServices.filter(s => s.id !== deletingServiceId);
-            savePortfolioServices();
+            savePortfolioServices(); // Já chama updateHomepagePortfolio() internamente
             renderPortfolioServices();
             deleteServiceModal.classList.add('hidden');
             deletingServiceId = null;
@@ -5127,7 +5514,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 showSuccessToast('Serviço Adicionado', 'Novo serviço foi adicionado ao seu portfólio.');
         }
         
-        savePortfolioServices();
+        savePortfolioServices(); // Já chama updateHomepagePortfolio() internamente
         renderPortfolioServices();
         serviceModal.classList.add('hidden');
             
@@ -5645,6 +6032,154 @@ Qualquer dúvida, estou à disposição! 😊`;
     window.openSendBudgetModal = openSendBudgetModal;
     window.selectSendMethod = selectSendMethod;
     window.openImageModal = openImageModal;
+
+    // ========== SISTEMA DE SUPORTE ==========
+    
+    const supportBtn = document.getElementById('support-btn');
+    const supportModal = document.getElementById('support-modal');
+    const supportModalOverlay = document.getElementById('support-modal-overlay');
+    const closeSupportModal = document.getElementById('close-support-modal');
+    const cancelSupport = document.getElementById('cancel-support');
+    const supportForm = document.getElementById('support-form');
+    const supportAttachment = document.getElementById('support-attachment');
+    const supportPreview = document.getElementById('support-preview');
+    const supportPreviewImg = document.getElementById('support-preview-img');
+    const removeSupportAttachment = document.getElementById('remove-support-attachment');
+    const supportSuccessMessage = document.getElementById('support-success-message');
+    
+    // Abrir modal de suporte
+    if (supportBtn) {
+        supportBtn.addEventListener('click', () => {
+            supportModal.classList.remove('hidden');
+            supportSuccessMessage.classList.add('hidden');
+        });
+    }
+    
+    // Fechar modal de suporte
+    function closeSupportModalFunc() {
+        supportModal.classList.add('hidden');
+        supportForm.reset();
+        supportPreview.classList.add('hidden');
+        supportSuccessMessage.classList.add('hidden');
+    }
+    
+    if (closeSupportModal) {
+        closeSupportModal.addEventListener('click', closeSupportModalFunc);
+    }
+    
+    if (cancelSupport) {
+        cancelSupport.addEventListener('click', closeSupportModalFunc);
+    }
+    
+    if (supportModalOverlay) {
+        supportModalOverlay.addEventListener('click', closeSupportModalFunc);
+    }
+    
+    // Preview de anexo
+    if (supportAttachment) {
+        supportAttachment.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Validar tamanho
+                if (file.size > 5 * 1024 * 1024) {
+                    showErrorToast('Arquivo muito grande', 'O anexo deve ter no máximo 5MB');
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Validar tipo
+                if (!file.type.startsWith('image/')) {
+                    showErrorToast('Tipo inválido', 'Apenas imagens são permitidas');
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Mostrar preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    supportPreviewImg.src = e.target.result;
+                    supportPreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Remover anexo
+    if (removeSupportAttachment) {
+        removeSupportAttachment.addEventListener('click', () => {
+            supportAttachment.value = '';
+            supportPreview.classList.add('hidden');
+        });
+    }
+    
+    // Enviar formulário de suporte
+    if (supportForm) {
+        supportForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Obter dados do usuário logado
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            
+            if (!userData.nome) {
+                showErrorToast('Erro', 'Usuário não identificado. Faça login novamente.');
+                return;
+            }
+            
+            // Coletar dados do formulário
+            const formData = new FormData(supportForm);
+            const title = formData.get('title');
+            const description = formData.get('description');
+            const attachmentFile = formData.get('attachment');
+            
+            // Processar anexo se existir
+            let attachmentData = null;
+            if (attachmentFile && attachmentFile.size > 0) {
+                attachmentData = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(attachmentFile);
+                });
+            }
+            
+            // Criar objeto do chamado
+            const ticket = {
+                id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                title: title,
+                description: description,
+                attachment: attachmentData,
+                decorator_id: userData.id,
+                decorator_name: userData.nome,
+                decorator_email: userData.email || userData.google_email || 'Não informado',
+                status: 'novo',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            // Salvar no localStorage
+            const existingTickets = JSON.parse(localStorage.getItem('support_tickets') || '[]');
+            existingTickets.push(ticket);
+            localStorage.setItem('support_tickets', JSON.stringify(existingTickets));
+            
+            // Mostrar mensagem de sucesso
+            supportSuccessMessage.classList.remove('hidden');
+            
+            // Limpar formulário
+            supportForm.reset();
+            supportPreview.classList.add('hidden');
+            
+            // Mostrar toast
+            showSuccessToast('Feedback Enviado', 'Seu chamado foi registrado com sucesso! Nossa equipe entrará em contato em breve.');
+            
+            // Fechar modal após 3 segundos
+            setTimeout(() => {
+                closeSupportModalFunc();
+            }, 3000);
+            
+            // Log para debug
+            console.log('Chamado de suporte criado:', ticket);
+        });
+    }
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });
