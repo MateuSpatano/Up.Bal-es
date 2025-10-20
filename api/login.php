@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../services/config.new.php';
+require_once __DIR__ . '/../services/config.php';
 require_once __DIR__ . '/../services/auth_middleware.php';
 
 // Verificar método HTTP

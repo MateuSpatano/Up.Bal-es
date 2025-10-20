@@ -8,7 +8,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Firebase\JWT\ExpiredException;
 
-require_once __DIR__ . '/config.new.php';
+require_once __DIR__ . '/config.php';
 
 /**
  * Gerar token JWT para um usuário
