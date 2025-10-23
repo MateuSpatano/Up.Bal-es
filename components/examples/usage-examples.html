@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemplos de Uso - Componentes Up.Baloes</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Componentes -->
+    <script src="../index.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    
+    <div class="max-w-6xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                🧩 Componentes Up.Baloes
+            </h1>
+            <p class="text-xl text-gray-600">
+                Exemplos de uso dos componentes reutilizáveis
+            </p>
+        </div>
+        
+        <!-- Botões -->
+        <section class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-mouse-pointer mr-2 text-blue-600"></i>
+                Botões
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Botão Primário -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Botão Primário</h3>
+                    <div id="primary-button-example"></div>
+                </div>
+                
+                <!-- Botão Flutuante -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Botão Flutuante</h3>
+                    <div id="floating-button-example"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Formulários -->
+        <section class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-edit mr-2 text-green-600"></i>
+                Formulários
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Campo de Entrada -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Campo de Entrada</h3>
+                    <div id="input-field-example"></div>
+                </div>
+                
+                <!-- Campo de Email -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Campo de Email</h3>
+                    <div id="email-field-example"></div>
+                </div>
+                
+                <!-- Campo de Senha -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Campo de Senha</h3>
+                    <div id="password-field-example"></div>
+                </div>
+                
+                <!-- Campo de Telefone -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Campo de Telefone</h3>
+                    <div id="phone-field-example"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Cards -->
+        <section class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-id-card mr-2 text-purple-600"></i>
+                Cards
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Card de Informações -->
+                <div id="info-card-example"></div>
+                
+                <!-- Card de Métrica -->
+                <div id="metric-card-example"></div>
+                
+                <!-- Card de Serviço -->
+                <div id="service-card-example"></div>
+            </div>
+        </section>
+        
+        <!-- Sidebar -->
+        <section class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-bars mr-2 text-orange-600"></i>
+                Sidebar
+            </h2>
+            
+            <div class="relative h-96 bg-gray-50 rounded-lg">
+                <div id="sidebar-example"></div>
+            </div>
+        </section>
+        
+        <!-- Modais -->
+        <section class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                <i class="fas fa-window-maximize mr-2 text-red-600"></i>
+                Modais
+            </h2>
+            
+            <div class="flex flex-wrap gap-4">
+                <button onclick="showConfirmationExample()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <i class="fas fa-question-circle mr-2"></i>
+                    Modal de Confirmação
+                </button>
+                
+                <button onclick="showSuccessExample()" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    Modal de Sucesso
+                </button>
+                
+                <button onclick="showErrorExample()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    Modal de Erro
+                </button>
+                
+                <button onclick="showWarningExample()" 
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Modal de Aviso
+                </button>
+            </div>
+        </section>
+        
+    </div>
+    
+    <script>
+        // Inicializar exemplos quando DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeExamples();
+        });
+        
+        function initializeExamples() {
+            // Botão Primário
+            createPrimaryButton('primary-button-example', {
+                text: 'Salvar',
+                icon: 'fas fa-save',
+                variant: 'blue',
+                onClick: () => alert('Botão clicado!')
+            });
+            
+            // Botão Flutuante
+            createFloatingButton('floating-button-example', {
+                icon: 'fas fa-plus',
+                color: 'blue',
+                tooltip: 'Adicionar item',
+                onClick: () => alert('Botão flutuante clicado!')
+            });
+            
+            // Campo de Entrada
+            createInputField('input-field-example', {
+                label: 'Nome Completo',
+                placeholder: 'Digite seu nome',
+                icon: 'fas fa-user',
+                required: true
+            });
+            
+            // Campo de Email
+            createEmailField('email-field-example', {
+                label: 'Email',
+                placeholder: 'Digite seu email',
+                required: true
+            });
+            
+            // Campo de Senha
+            createPasswordField('password-field-example', {
+                label: 'Senha',
+                placeholder: 'Digite sua senha',
+                required: true
+            });
+            
+            // Campo de Telefone
+            createPhoneField('phone-field-example', {
+                label: 'Telefone',
+                placeholder: '(11) 99999-9999',
+                required: true
+            });
+            
+            // Card de Informações
+            createInfoCard('info-card-example', {
+                title: 'Card de Informações',
+                subtitle: 'Subtítulo do card',
+                content: 'Este é um exemplo de card de informações com conteúdo personalizado.',
+                icon: 'fas fa-info-circle',
+                iconColor: 'blue',
+                actions: [
+                    {
+                        text: 'Ação 1',
+                        variant: 'primary',
+                        onClick: 'alert("Ação 1 executada!")'
+                    },
+                    {
+                        text: 'Ação 2',
+                        variant: 'secondary',
+                        onClick: 'alert("Ação 2 executada!")'
+                    }
+                ]
+            });
+            
+            // Card de Métrica
+            createMetricCard('metric-card-example', {
+                title: 'Total de Vendas',
+                subtitle: 'Este mês',
+                content: '<div class="text-3xl font-bold text-green-600">R$ 15.420,00</div>',
+                icon: 'fas fa-chart-line',
+                iconColor: 'green'
+            });
+            
+            // Card de Serviço
+            createServiceCard('service-card-example', {
+                title: 'Decoração de Aniversário',
+                subtitle: 'Arco de balões tradicional',
+                content: 'Decoração completa com arco de balões, centro de mesa e balões espalhados.',
+                image: 'https://via.placeholder.com/300x200',
+                imageAlt: 'Decoração de aniversário',
+                icon: 'fas fa-birthday-cake',
+                iconColor: 'purple',
+                actions: [
+                    {
+                        text: 'Ver Detalhes',
+                        variant: 'primary',
+                        onClick: 'alert("Ver detalhes do serviço!")'
+                    }
+                ]
+            });
+            
+            // Sidebar
+            createSidebar('sidebar-example', {
+                title: 'Menu Principal',
+                logoText: 'Up.Baloes',
+                items: [
+                    {
+                        text: 'Dashboard',
+                        icon: 'fas fa-home',
+                        href: '#',
+                        module: 'dashboard',
+                        active: true
+                    },
+                    {
+                        text: 'Orçamentos',
+                        icon: 'fas fa-file-invoice',
+                        href: '#',
+                        module: 'budgets',
+                        badge: '3'
+                    },
+                    {
+                        text: 'Clientes',
+                        icon: 'fas fa-users',
+                        href: '#',
+                        module: 'clients'
+                    },
+                    {
+                        text: 'Portfólio',
+                        icon: 'fas fa-images',
+                        href: '#',
+                        module: 'portfolio'
+                    },
+                    {
+                        text: 'Configurações',
+                        icon: 'fas fa-cog',
+                        href: '#',
+                        module: 'settings'
+                    }
+                ],
+                user: {
+                    name: 'João Silva',
+                    email: 'joao@exemplo.com',
+                    avatar: null
+                },
+                collapsible: true
+            });
+        }
+        
+        // Funções para exemplos de modais
+        function showConfirmationExample() {
+            showConfirmation(
+                'Confirmar Exclusão',
+                'Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.',
+                () => alert('Item excluído!'),
+                () => alert('Exclusão cancelada!')
+            );
+        }
+        
+        function showSuccessExample() {
+            showSuccess(
+                'Sucesso!',
+                'Operação realizada com sucesso!'
+            );
+        }
+        
+        function showErrorExample() {
+            showError(
+                'Erro!',
+                'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
+            );
+        }
+        
+        function showWarningExample() {
+            showWarning(
+                'Atenção!',
+                'Esta ação pode afetar outros dados do sistema.',
+                () => alert('Ação confirmada!'),
+                () => alert('Ação cancelada!')
+            );
+        }
+    </script>
+    
+</body>
+</html>
