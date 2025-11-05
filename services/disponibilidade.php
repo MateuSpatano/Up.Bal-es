@@ -5,7 +5,7 @@
  */
 
 // Incluir configuração do banco de dados
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 // Configurar cabeçalhos para JSON
 header('Content-Type: application/json');

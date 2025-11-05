@@ -10,8 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php';
-require_once '../utils/gerador-slug.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../utils/gerador-slug.php';
 
 // Classe de gerenciamento de decoradores
 class DecoratorService {
@@ -37,11 +37,12 @@ class DecoratorService {
         try {
             $stmt = $this->pdo->prepare("
                 SELECT 
-                    id, nome, email, telefone, endereco, cidade, estado, cep, 
+                    id, nome, email, telefone, 
                     slug, created_at, updated_at
                 FROM usuarios 
-                WHERE slug = ? AND tipo = 'decorator' AND status = 'active'
+                WHERE slug = ? AND is_active = 1
             ");
+            // Nota: campos cidade e estado não estão na tabela usuarios no schema atual
             $stmt->execute([$slug]);
             $decorator = $stmt->fetch();
             
@@ -78,19 +79,14 @@ class DecoratorService {
     
     /**
      * Buscar serviços do decorador
+     * Nota: Esta função retorna array vazio pois a tabela de serviços ainda não está implementada
+     * A estrutura de dados será definida conforme necessário
      */
     private function getDecoratorServices($decoratorId) {
         try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, nome, descricao, preco_base, categoria, 
-                    imagem_url, ativo, created_at
-                FROM servicos 
-                WHERE decorador_id = ? AND ativo = 1
-                ORDER BY nome ASC
-            ");
-            $stmt->execute([$decoratorId]);
-            return $stmt->fetchAll();
+            // Retornar array vazio até que a tabela de serviços seja criada
+            // TODO: Implementar tabela de serviços quando necessário
+            return [];
             
         } catch (Exception $e) {
             error_log('Erro ao buscar serviços do decorador: ' . $e->getMessage());
@@ -100,20 +96,14 @@ class DecoratorService {
     
     /**
      * Buscar portfólio do decorador
+     * Nota: Esta função retorna array vazio pois a tabela de portfólio ainda não está implementada
+     * A estrutura de dados será definida conforme necessário
      */
     private function getDecoratorPortfolio($decoratorId) {
         try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, titulo, descricao, imagem_url, 
-                    data_evento, tipo_evento, created_at
-                FROM portfolio 
-                WHERE decorador_id = ? AND ativo = 1
-                ORDER BY data_evento DESC
-                LIMIT 12
-            ");
-            $stmt->execute([$decoratorId]);
-            return $stmt->fetchAll();
+            // Retornar array vazio até que a tabela de portfólio seja criada
+            // TODO: Implementar tabela de portfólio quando necessário
+            return [];
             
         } catch (Exception $e) {
             error_log('Erro ao buscar portfólio do decorador: ' . $e->getMessage());
@@ -127,7 +117,7 @@ class DecoratorService {
     public function createDecorator($data) {
         try {
             // Validar dados obrigatórios
-            $requiredFields = ['nome', 'email', 'telefone', 'whatsapp', 'communication_email', 'endereco', 'senha'];
+            $requiredFields = ['nome', 'email', 'telefone', 'senha'];
             foreach ($requiredFields as $field) {
                 if (empty($data[$field])) {
                     return [
@@ -145,14 +135,6 @@ class DecoratorService {
                 ];
             }
             
-            // Validar email de comunicação
-            if (!filter_var($data['communication_email'], FILTER_VALIDATE_EMAIL)) {
-                return [
-                    'success' => false,
-                    'message' => 'E-mail para comunicação inválido'
-                ];
-            }
-            
             // Verificar se email já existe
             $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
             $stmt->execute([$data['email']]);
@@ -163,40 +145,23 @@ class DecoratorService {
                 ];
             }
             
-            // Verificar se email de comunicação já existe
-            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE communication_email = ?");
-            $stmt->execute([$data['communication_email']]);
-            if ($stmt->fetch()) {
-                return [
-                    'success' => false,
-                    'message' => 'E-mail para comunicação já cadastrado'
-                ];
-            }
-            
             // Gerar slug único
             $slug = generateUniqueSlug($this->pdo, $data['nome']);
             
             // Hash da senha
             $hashedPassword = password_hash($data['senha'], PASSWORD_DEFAULT);
             
-            // Inserir decorador
+            // Inserir decorador (usando estrutura da tabela usuarios do schema)
             $stmt = $this->pdo->prepare("
                 INSERT INTO usuarios (
-                    nome, email, telefone, whatsapp, communication_email, endereco, cidade, estado, cep,
-                    senha, tipo, status, slug, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'decorator', 'active', ?, NOW(), NOW())
+                    nome, email, telefone, senha, slug, is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 1, NOW(), NOW())
             ");
             
             $stmt->execute([
                 $data['nome'],
                 $data['email'],
                 $data['telefone'],
-                $data['whatsapp'],
-                $data['communication_email'],
-                $data['endereco'],
-                $data['cidade'] ?? null,
-                $data['estado'] ?? null,
-                $data['cep'] ?? null,
                 $hashedPassword,
                 $slug
             ]);
@@ -232,7 +197,7 @@ class DecoratorService {
             $stmt = $this->pdo->prepare("
                 UPDATE usuarios 
                 SET slug = ?, updated_at = NOW() 
-                WHERE id = ? AND tipo = 'decorator'
+                WHERE id = ?
             ");
             $stmt->execute([$slug, $decoratorId]);
             
@@ -260,10 +225,10 @@ class DecoratorService {
         try {
             $stmt = $this->pdo->prepare("
                 SELECT 
-                    id, nome, email, telefone, cidade, estado, 
+                    id, nome, email, telefone, 
                     slug, created_at
                 FROM usuarios 
-                WHERE tipo = 'decorator' AND status = 'active'
+                WHERE is_active = 1
                 ORDER BY nome ASC
             ");
             $stmt->execute();

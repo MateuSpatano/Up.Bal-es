@@ -186,15 +186,114 @@ INSERT INTO decorator_availability (
     max_daily_services = VALUES(max_daily_services),
     updated_at = CURRENT_TIMESTAMP;
 
--- Inserir algumas datas bloqueadas padrão
-INSERT INTO decorator_blocked_dates (user_id, blocked_date, reason, is_recurring) VALUES 
-(1, '2024-12-25', 'Natal - Feriado', TRUE),
-(1, '2024-12-31', 'Reveillon - Feriado', TRUE),
-(1, '2025-01-01', 'Ano Novo - Feriado', TRUE)
-ON DUPLICATE KEY UPDATE 
-    reason = VALUES(reason),
-    is_recurring = VALUES(is_recurring),
-    updated_at = CURRENT_TIMESTAMP;
+-- Nota: Datas bloqueadas devem ser configuradas pelo decorador através da interface administrativa
+
+-- =====================================================
+-- ADICIONAR CAMPOS DE CONTATO NA TABELA USUARIOS
+-- =====================================================
+
+-- Adicionar campo WhatsApp se não existir
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS 
+    WHERE TABLE_SCHEMA = 'up_baloes' AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'whatsapp');
+SET @sql = IF(@col_exists = 0, 
+    'ALTER TABLE usuarios ADD COLUMN whatsapp VARCHAR(20) NULL AFTER telefone', 
+    'SELECT "Campo whatsapp já existe"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Adicionar campo Instagram se não existir
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS 
+    WHERE TABLE_SCHEMA = 'up_baloes' AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'instagram');
+SET @sql = IF(@col_exists = 0, 
+    'ALTER TABLE usuarios ADD COLUMN instagram VARCHAR(255) NULL AFTER whatsapp', 
+    'SELECT "Campo instagram já existe"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Adicionar campo Email de Comunicação se não existir
+SET @col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS 
+    WHERE TABLE_SCHEMA = 'up_baloes' AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'email_comunicacao');
+SET @sql = IF(@col_exists = 0, 
+    'ALTER TABLE usuarios ADD COLUMN email_comunicacao VARCHAR(100) NULL AFTER email', 
+    'SELECT "Campo email_comunicacao já existe"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Criar índices para melhorar performance (se não existirem)
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS 
+    WHERE TABLE_SCHEMA = 'up_baloes' AND TABLE_NAME = 'usuarios' AND INDEX_NAME = 'idx_whatsapp');
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_whatsapp ON usuarios(whatsapp)', 
+    'SELECT "Índice idx_whatsapp já existe"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS 
+    WHERE TABLE_SCHEMA = 'up_baloes' AND TABLE_NAME = 'usuarios' AND INDEX_NAME = 'idx_instagram');
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_instagram ON usuarios(instagram)', 
+    'SELECT "Índice idx_instagram já existe"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Atualizar campos existentes: se o email_comunicacao não existir, usar o email como padrão
+UPDATE usuarios 
+SET email_comunicacao = email 
+WHERE email_comunicacao IS NULL AND email IS NOT NULL;
+
+-- =====================================================
+-- TABELA DE PERSONALIZAÇÃO DA PÁGINA PÚBLICA DO DECORADOR
+-- =====================================================
+
+-- Criar tabela para personalização da página pública
+CREATE TABLE IF NOT EXISTS decorator_page_customization (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    decorator_id INT NOT NULL,
+    
+    -- Conteúdo textual
+    page_title VARCHAR(255) DEFAULT NULL COMMENT 'Título da página',
+    page_description TEXT DEFAULT NULL COMMENT 'Descrição da página',
+    welcome_text TEXT DEFAULT NULL COMMENT 'Texto de boas-vindas',
+    
+    -- Visual
+    cover_image_url VARCHAR(500) DEFAULT NULL COMMENT 'URL da imagem de capa',
+    primary_color VARCHAR(7) DEFAULT '#667eea' COMMENT 'Cor primária (hex)',
+    secondary_color VARCHAR(7) DEFAULT '#764ba2' COMMENT 'Cor secundária (hex)',
+    accent_color VARCHAR(7) DEFAULT '#f59e0b' COMMENT 'Cor de destaque (hex)',
+    
+    -- Serviços (JSON)
+    services_config JSON DEFAULT NULL COMMENT 'Configuração de serviços com ícones',
+    
+    -- Redes sociais (JSON)
+    social_media JSON DEFAULT NULL COMMENT 'Links de redes sociais',
+    
+    -- SEO
+    meta_title VARCHAR(255) DEFAULT NULL COMMENT 'Título para SEO',
+    meta_description TEXT DEFAULT NULL COMMENT 'Descrição para SEO',
+    meta_keywords VARCHAR(500) DEFAULT NULL COMMENT 'Palavras-chave para SEO',
+    
+    -- Configurações de exibição
+    show_contact_section BOOLEAN DEFAULT TRUE COMMENT 'Mostrar seção de contato',
+    show_services_section BOOLEAN DEFAULT TRUE COMMENT 'Mostrar seção de serviços',
+    show_portfolio_section BOOLEAN DEFAULT TRUE COMMENT 'Mostrar seção de portfólio',
+    
+    -- Status
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'Personalização ativa',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Relacionamentos
+    FOREIGN KEY (decorator_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_decorator_page (decorator_id),
+    INDEX idx_decorator_id (decorator_id),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+COMMENT='Personalização da página pública de cada decorador';
 
 -- =====================================================
 -- VERIFICAÇÕES FINAIS

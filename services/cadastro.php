@@ -1,6 +1,6 @@
 <?php
 // Serviço de cadastro Up.Baloes
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 // Headers CORS
 header('Content-Type: application/json');

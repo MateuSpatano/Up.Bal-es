@@ -11,7 +11,7 @@ header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
 
 // Incluir configurações
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 // Verificar método HTTP
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

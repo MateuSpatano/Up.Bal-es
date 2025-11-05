@@ -1058,98 +1058,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Orçamentos carregados:', budgets);
             } else {
                 showNotification('Erro ao carregar orçamentos: ' + result.message, 'error');
-                // Usar dados de exemplo em caso de erro
-                loadSampleBudgets();
+                budgets = [];
             }
         } catch (error) {
             console.error('Erro ao carregar orçamentos:', error);
-            showNotification('Erro de conexão. Usando dados de exemplo.', 'warning');
-            // Usar dados de exemplo em caso de erro
-            loadSampleBudgets();
+            showNotification('Erro de conexão ao carregar orçamentos.', 'error');
+            budgets = [];
         }
-    }
-    
-    function loadSampleBudgets() {
-        // Dados de exemplo para demonstração
-        budgets = [
-            {
-                id: 1,
-                client: 'Maria Silva',
-                email: 'maria@email.com',
-                phone: '(11) 99999-9999',
-                event_date: '2024-12-15',
-                event_time: '14:00',
-                event_location: 'Rua das Flores, 123',
-                service_type: 'arco-tradicional',
-                description: 'Decoração de aniversário infantil com tema de super-heróis',
-                estimated_value: 500.00,
-                notes: 'Cliente prefere cores vibrantes',
-                status: 'pendente',
-                created_at: '2024-12-01T10:00:00Z'
-            },
-            {
-                id: 2,
-                client: 'João Santos',
-                email: 'joao@email.com',
-                phone: '(11) 88888-8888',
-                event_date: '2024-12-20',
-                event_time: '16:00',
-                event_location: 'Salão de Festas Central',
-                service_type: 'arco-desconstruido',
-                description: 'Decoração de casamento com tema romântico',
-                estimated_value: 1200.00,
-                notes: 'Cerimônia ao ar livre',
-                status: 'aprovado',
-                created_at: '2024-11-28T14:30:00Z'
-            },
-            {
-                id: 3,
-                client: 'Ana Costa',
-                email: 'ana@email.com',
-                phone: '(11) 77777-7777',
-                event_date: '2024-12-18',
-                event_time: '19:00',
-                event_location: 'Faculdade Central',
-                service_type: 'escultura-balao',
-                description: 'Decoração de formatura com tema acadêmico',
-                estimated_value: 800.00,
-                notes: 'Evento noturno, iluminação especial',
-                status: 'recusado',
-                created_at: '2024-11-30T09:15:00Z'
-            },
-            {
-                id: 4,
-                client: 'Carlos Oliveira',
-                email: 'carlos@email.com',
-                phone: '(11) 66666-6666',
-                event_date: '2024-12-25',
-                event_time: '20:00',
-                event_location: 'Casa de Eventos',
-                service_type: 'centro-mesa',
-                description: 'Decoração natalina para festa de família',
-                estimated_value: 300.00,
-                notes: 'Cliente cancelou por mudança de planos',
-                status: 'cancelado',
-                created_at: '2024-11-25T16:45:00Z'
-            },
-            {
-                id: 5,
-                client: 'Patricia Santos',
-                email: 'patricia@email.com',
-                phone: '(11) 55555-5555',
-                event_date: '2024-12-30',
-                event_time: '15:00',
-                event_location: 'Salão de Festas',
-                service_type: 'baloes-piscina',
-                description: 'Decoração para festa de Ano Novo',
-                estimated_value: 600.00,
-                notes: 'Festa temática dourada',
-                status: 'aprovado',
-                created_at: '2024-12-01T11:20:00Z'
-            }
-        ];
-        
-        updateBudgetsDisplay();
     }
     
     function applyFilters() {
@@ -4758,38 +4673,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                 portfolioServices = [];
             }
         } else {
-            // Se não há serviços salvos, criar alguns de exemplo
-            portfolioServices = [
-                {
-                    id: 'demo-1',
-                    type: 'Arco Tradicional',
-                    title: 'Arco de Balões para Aniversário',
-                    description: 'Arco tradicional com balões coloridos perfeito para aniversários e comemorações.',
-                    price: '150.00',
-                    arcSize: '3m de altura',
-                    image: null
-                },
-                {
-                    id: 'demo-2',
-                    type: 'Centro de Mesa',
-                    title: 'Centro de Mesa Elegante',
-                    description: 'Centro de mesa com balões e decoração elegante para eventos especiais.',
-                    price: '80.00',
-                    arcSize: null,
-                    image: null
-                },
-                {
-                    id: 'demo-3',
-                    type: 'Escultura de Balão',
-                    title: 'Escultura de Personagem',
-                    description: 'Escultura personalizada de personagens em balões para festas temáticas.',
-                    price: '200.00',
-                    arcSize: '1.5m de altura',
-                    image: null
-                }
-            ];
-            
-            savePortfolioServices();
+            // Se não há serviços salvos, inicializar array vazio
+            portfolioServices = [];
         }
         
         renderPortfolioServices();

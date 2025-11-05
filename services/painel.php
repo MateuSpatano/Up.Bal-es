@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 session_start();
 
 // Incluir configuração do banco de dados
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 /**
  * Classe para gerenciamento do dashboard

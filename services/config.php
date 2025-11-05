@@ -1,15 +1,27 @@
 <?php
-// Configurações do sistema Up.Baloes
-define('ENVIRONMENT', 'development');
+/**
+ * Configurações do sistema Up.Baloes
+ * Centraliza todas as variáveis de ambiente e configurações do sistema
+ */
 
-// Configurações do banco de dados MySQL
+// Carregar variáveis de ambiente se o arquivo .env existir
+if (file_exists(__DIR__ . '/../.env')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+    $dotenv->load();
+}
+
+// Ambiente (development ou production)
+define('ENVIRONMENT', $_ENV['ENVIRONMENT'] ?? 'development');
+
+// Configurações do banco de dados MySQL - Centralizadas
 $database_config = [
-    'host' => 'localhost',
-    'dbname' => 'up_baloes',
-    'username' => 'root',
-    'password' => '',
+    'host' => $_ENV['DB_HOST'] ?? 'localhost',
+    'dbname' => $_ENV['DB_NAME'] ?? 'up_baloes',
+    'username' => $_ENV['DB_USER'] ?? 'root',
+    'password' => $_ENV['DB_PASS'] ?? '',
     'charset' => 'utf8mb4',
-    'port' => 3306,
+    'port' => (int)($_ENV['DB_PORT'] ?? 3306),
     'options' => [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -29,14 +41,14 @@ $security_config = [
     'lockout_duration' => 900,
 ];
 
-// Configurações de email
+// Configurações de email - Centralizadas
 $email_config = [
-    'smtp_host' => 'smtp.gmail.com',
-    'smtp_port' => 587,
-    'smtp_username' => 'your-email@gmail.com',
-    'smtp_password' => 'your-app-password',
-    'from_email' => 'noreply@upbaloes.com',
-    'from_name' => 'Up.Baloes System'
+    'smtp_host' => $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com',
+    'smtp_port' => (int)($_ENV['SMTP_PORT'] ?? 587),
+    'smtp_username' => $_ENV['SMTP_USERNAME'] ?? 'your-email@gmail.com',
+    'smtp_password' => $_ENV['SMTP_PASSWORD'] ?? 'your-app-password',
+    'from_email' => $_ENV['SMTP_FROM_EMAIL'] ?? 'noreply@upbaloes.com',
+    'from_name' => $_ENV['SMTP_FROM_NAME'] ?? 'Up.Baloes System'
 ];
 
 // Configurações de upload
@@ -60,12 +72,25 @@ $cache_config = [
     'path' => '../cache/'
 ];
 
-// URLs do sistema
+// URLs do sistema - Centralizadas
 $urls = [
-    'base' => 'http://localhost/Up.BaloesV3/',
+    'base' => $_ENV['BASE_URL'] ?? 'http://localhost/Up.BaloesV3/',
     'login' => 'pages/login.html',
     'dashboard' => 'pages/dashboard.html',
     'reset_password' => 'pages/reset-password.html'
+];
+
+// Configurações JWT - Centralizadas
+$jwt_config = [
+    'secret' => $_ENV['JWT_SECRET'] ?? 'your_jwt_secret_key_here',
+    'expiration' => (int)($_ENV['JWT_EXPIRATION'] ?? 28800)
+];
+
+// Configurações Google OAuth - Centralizadas
+$google_config = [
+    'client_id' => $_ENV['GOOGLE_CLIENT_ID'] ?? '',
+    'client_secret' => $_ENV['GOOGLE_CLIENT_SECRET'] ?? '',
+    'redirect_uri' => $_ENV['GOOGLE_REDIRECT_URI'] ?? $urls['base'] . 'services/google-callback.php'
 ];
 
 // Configurações de desenvolvimento

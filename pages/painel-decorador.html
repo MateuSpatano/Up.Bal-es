@@ -27,26 +27,6 @@
     
     <!-- Verificação de Autenticação Decorador -->
     <script>
-        // ===== VARIÁVEL DE DESENVOLVIMENTO - REMOVER EM PRODUÇÃO =====
-        const DEV_MODE = true; // Mude para false em produção
-        
-        if (DEV_MODE) {
-            // Simular decorador logado automaticamente
-            const mockDecoratorUser = {
-                id: 2,
-                nome: 'Decorador Desenvolvimento',
-                email: 'decorador@dev.com',
-                role: 'decorator',
-                telefone: '(11) 98888-8888',
-                whatsapp: '(11) 98888-8888',
-                endereco: 'Rua Teste, 123',
-                slug: 'decorador-dev'
-            };
-            localStorage.setItem('userData', JSON.stringify(mockDecoratorUser));
-            localStorage.setItem('userToken', 'dev_token_decorator_456');
-            console.log('🔧 MODO DESENVOLVIMENTO: Decorador logado automaticamente');
-        }
-        // ==============================================================
     </script>
     
     <!-- Sidebar Fixo -->

@@ -166,15 +166,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== FUNCIONALIDADES DO USUÁRIO ==========
     
-    // Simular login/logout
-    function simulateLogin() {
-        const userBtn = userMenuBtn.querySelector('span');
-        if (userBtn) {
-            userBtn.textContent = 'João Silva';
+    // Função de login - deve ser implementada com chamada real ao backend
+    // TODO: Implementar integração com services/login.php
+    async function performLogin() {
+        try {
+            // Esta função deve ser implementada com chamada real ao backend
+            // Por enquanto apenas atualiza a interface se já houver dados do usuário
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.name) {
+                const userBtn = userMenuBtn.querySelector('span');
+                if (userBtn) {
+                    userBtn.textContent = userData.name;
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao realizar login:', error);
         }
-        
-        // Mostrar notificação
-        showNotification('Login realizado com sucesso!', 'success');
     }
 
     async function simulateLogout() {
@@ -409,16 +416,16 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('Erro ao carregar dados do localStorage:', e);
         }
 
-        // Se não houver dados salvos, usar dados padrão
+        // Se não houver dados salvos, inicializar com valores vazios
         if (!userData) {
             userData = {
-                name: 'João Silva',
-                email: 'joao@exemplo.com',
-                phone: '(11) 99999-9999',
-                address: 'Rua das Flores, 123',
-                city: 'São Paulo',
-                state: 'SP',
-                zipcode: '01234-567'
+                name: '',
+                email: '',
+                phone: '',
+                address: '',
+                city: '',
+                state: '',
+                zipcode: ''
             };
         }
 
@@ -1017,3 +1024,76 @@ function initHomepagePortfolio() {
 
 // Inicializar portfólio quando a página carregar
 initHomepagePortfolio();
+
+// ========== FUNCIONALIDADES DE CONTATOS ==========
+
+// Carregar informações de contato
+async function loadContactInfo() {
+    try {
+        const response = await fetch('services/contatos.php');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const contactData = result.data;
+            
+            // Atualizar email
+            const emailElement = document.getElementById('contact-email');
+            const emailText = document.getElementById('contact-email-text');
+            if (emailElement && emailText) {
+                if (contactData.email) {
+                    emailElement.href = contactData.email_link || 'mailto:' + contactData.email;
+                    emailText.textContent = contactData.email;
+                } else {
+                    emailText.textContent = 'Não disponível';
+                    emailElement.style.pointerEvents = 'none';
+                    emailElement.style.opacity = '0.5';
+                }
+            }
+            
+            // Atualizar WhatsApp
+            const whatsappElement = document.getElementById('contact-whatsapp');
+            const whatsappText = document.getElementById('contact-whatsapp-text');
+            if (whatsappElement && whatsappText) {
+                if (contactData.whatsapp) {
+                    whatsappElement.href = contactData.whatsapp_link || '#';
+                    whatsappText.textContent = contactData.whatsapp;
+                } else {
+                    whatsappText.textContent = 'Não disponível';
+                    whatsappElement.style.pointerEvents = 'none';
+                    whatsappElement.style.opacity = '0.5';
+                }
+            }
+            
+            // Atualizar Instagram
+            const instagramElement = document.getElementById('contact-instagram');
+            const instagramText = document.getElementById('contact-instagram-text');
+            if (instagramElement && instagramText) {
+                if (contactData.instagram) {
+                    instagramElement.href = contactData.instagram_link || '#';
+                    // Remover @ se houver e mostrar apenas o handle
+                    const instagramHandle = contactData.instagram.replace(/^@/, '');
+                    instagramText.textContent = '@' + instagramHandle;
+                } else {
+                    instagramText.textContent = 'Não disponível';
+                    instagramElement.style.pointerEvents = 'none';
+                    instagramElement.style.opacity = '0.5';
+                }
+            }
+        } else {
+            // Se não houver dados, mostrar mensagem
+            console.warn('Nenhuma informação de contato disponível');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar informações de contato:', error);
+        // Em caso de erro, manter os textos "Carregando..." ou mostrar mensagem de erro
+        const errorText = 'Erro ao carregar';
+        const elements = ['contact-email-text', 'contact-whatsapp-text', 'contact-instagram-text'];
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = errorText;
+        });
+    }
+}
+
+// Carregar contatos quando a página carregar
+loadContactInfo();

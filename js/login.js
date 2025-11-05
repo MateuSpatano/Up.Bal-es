@@ -249,41 +249,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
 
-    // Simular login (substituir por chamada real ao backend)
-    async function simulateLogin(formData) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                // Simular validação
-                if (formData.email === 'admin@upbaloes.com' && formData.password === '123456') {
-                    resolve({
-                        success: true,
-                        user: {
-                            id: 1,
-                            name: 'Administrador',
-                            email: formData.email,
-                            role: 'admin'
-                        }
-                    });
-                } else {
-                    resolve({
-                        success: false,
-                        message: 'Email ou senha incorretos.'
-                    });
-                }
-            }, 1500);
-        });
+    // Função de login - deve ser implementada com chamada real ao backend
+    // TODO: Implementar integração com services/login.php
+    async function performLogin(formData) {
+        try {
+            const response = await fetch('../services/login.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('Erro ao realizar login:', error);
+            return {
+                success: false,
+                message: 'Erro de conexão com o servidor.'
+            };
+        }
     }
 
-    // Simular recuperação de senha
-    async function simulatePasswordReset(email) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({
-                    success: true,
-                    message: 'Email enviado com sucesso!'
-                });
-            }, 1000);
-        });
+    // Função de recuperação de senha - deve ser implementada com chamada real ao backend
+    // TODO: Implementar integração com serviço de recuperação de senha
+    async function performPasswordReset(email) {
+        try {
+            // Usar serviço de login com action reset_password
+            const response = await fetch('../services/login.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    action: 'reset_password',
+                    email: email 
+                })
+            });
+            
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('Erro ao solicitar recuperação de senha:', error);
+            return {
+                success: false,
+                message: 'Erro de conexão com o servidor.'
+            };
+        }
     }
 
     // ========== INICIALIZAÇÃO ==========

@@ -11,7 +11,7 @@ header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
 
 // Incluir configurações
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 // Verificar se é uma requisição POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -39,6 +39,10 @@ try {
             getUsers($input);
             break;
             
+        case 'get_user':
+            getUser($input);
+            break;
+            
         case 'create_decorator':
             createDecorator($input);
             break;
@@ -55,12 +59,70 @@ try {
             getDashboardData();
             break;
             
+        case 'get_page_customization':
+            getPageCustomization($input);
+            break;
+            
+        case 'save_page_customization':
+            savePageCustomization($input);
+            break;
+            
         default:
             errorResponse('Ação não reconhecida', 400);
     }
     
 } catch (Exception $e) {
     errorResponse($e->getMessage(), 500);
+}
+
+/**
+ * Obter dados de um usuário específico
+ */
+function getUser($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $userId = $input['user_id'] ?? 0;
+        if (!$userId) {
+            errorResponse('ID do usuário é obrigatório', 400);
+        }
+        
+        // Buscar dados completos do usuário
+        $stmt = $pdo->prepare("
+            SELECT 
+                id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
+                perfil, ativo, aprovado_por_admin, created_at
+            FROM usuarios 
+            WHERE id = ?
+        ");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            errorResponse('Usuário não encontrado', 404);
+        }
+        
+        // Formatar dados para resposta
+        $userData = [
+            'id' => $user['id'],
+            'name' => $user['nome'],
+            'email' => $user['email'],
+            'phone' => $user['telefone'],
+            'whatsapp' => $user['whatsapp'],
+            'instagram' => $user['instagram'],
+            'email_comunicacao' => $user['email_comunicacao'],
+            'type' => $user['perfil'] === 'decorator' ? 'decorator' : 'client',
+            'status' => $user['ativo'] ? 'active' : 'inactive',
+            'approved' => $user['aprovado_por_admin'] ? true : false,
+            'created_at' => $user['created_at']
+        ];
+        
+        successResponse($userData, 'Dados do usuário carregados');
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar usuário: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
 }
 
 /**
@@ -123,8 +185,8 @@ function getUsers($input) {
         
         // Buscar usuários
         $query = "
-            SELECT id, nome, email, telefone, perfil, ativo, aprovado_por_admin, 
-                   created_at, cidade, estado
+            SELECT id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
+                   perfil, ativo, aprovado_por_admin, created_at, cidade, estado
             FROM usuarios 
             WHERE {$whereClause}
             ORDER BY created_at DESC
@@ -140,6 +202,11 @@ function getUsers($input) {
         
         // Processar dados
         foreach ($users as &$user) {
+            $user['name'] = $user['nome'];
+            $user['phone'] = $user['telefone'] ?? '';
+            $user['whatsapp'] = $user['whatsapp'] ?? '';
+            $user['instagram'] = $user['instagram'] ?? '';
+            $user['email_comunicacao'] = $user['email_comunicacao'] ?? '';
             $user['type'] = $user['perfil'] === 'decorator' ? 'decorator' : 'client';
             $user['status'] = $user['ativo'] ? 'active' : 'inactive';
             
@@ -148,6 +215,8 @@ function getUsers($input) {
                 $user['status'] = 'pending_approval';
             }
             
+            unset($user['nome']);
+            unset($user['telefone']);
             unset($user['perfil']);
             unset($user['ativo']);
         }
@@ -309,6 +378,25 @@ function updateUser($input) {
         if (isset($input['phone'])) {
             $updateFields[] = "telefone = ?";
             $params[] = sanitizeInput($input['phone']);
+        }
+        
+        if (isset($input['whatsapp'])) {
+            $updateFields[] = "whatsapp = ?";
+            $params[] = sanitizeInput($input['whatsapp']);
+        }
+        
+        if (isset($input['instagram'])) {
+            $updateFields[] = "instagram = ?";
+            $params[] = sanitizeInput($input['instagram']);
+        }
+        
+        if (isset($input['email_comunicacao'])) {
+            // Validar email se fornecido
+            if (!empty($input['email_comunicacao']) && !validateEmail($input['email_comunicacao'])) {
+                errorResponse('Email de comunicação inválido', 400);
+            }
+            $updateFields[] = "email_comunicacao = ?";
+            $params[] = !empty($input['email_comunicacao']) ? sanitizeInput($input['email_comunicacao']) : null;
         }
         
         if (isset($input['status'])) {
@@ -486,6 +574,215 @@ function generateSlug($name) {
     }
     
     return $slug;
+}
+
+/**
+ * Obter personalização da página pública
+ */
+function getPageCustomization($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $decoratorId = $input['decorator_id'] ?? 0;
+        if (!$decoratorId) {
+            errorResponse('ID do decorador é obrigatório', 400);
+        }
+        
+        // Verificar se decorador existe
+        $stmt = $pdo->prepare("SELECT id, nome FROM usuarios WHERE id = ? AND perfil = 'decorator'");
+        $stmt->execute([$decoratorId]);
+        $decorator = $stmt->fetch();
+        
+        if (!$decorator) {
+            errorResponse('Decorador não encontrado', 404);
+        }
+        
+        // Buscar personalização
+        $stmt = $pdo->prepare("
+            SELECT * FROM decorator_page_customization 
+            WHERE decorator_id = ?
+        ");
+        $stmt->execute([$decoratorId]);
+        $customization = $stmt->fetch();
+        
+        // Buscar dados de contato do decorador
+        $stmt = $pdo->prepare("
+            SELECT email_comunicacao, whatsapp, instagram 
+            FROM usuarios 
+            WHERE id = ?
+        ");
+        $stmt->execute([$decoratorId]);
+        $contactData = $stmt->fetch();
+        
+        if (!$customization) {
+            // Retornar estrutura vazia se não houver personalização, mas incluir dados de contato
+            $response = [
+                'page_title' => '',
+                'page_description' => '',
+                'welcome_text' => '',
+                'cover_image_url' => '',
+                'primary_color' => '#667eea',
+                'secondary_color' => '#764ba2',
+                'accent_color' => '#f59e0b',
+                'social_media' => json_encode([
+                    'facebook' => '',
+                    'instagram' => '',
+                    'whatsapp' => '',
+                    'youtube' => ''
+                ]),
+                'meta_title' => '',
+                'meta_description' => '',
+                'meta_keywords' => '',
+                'contact_email' => $contactData['email_comunicacao'] ?? '',
+                'contact_whatsapp' => $contactData['whatsapp'] ?? '',
+                'contact_instagram' => $contactData['instagram'] ?? ''
+            ];
+            successResponse($response, 'Nenhuma personalização encontrada');
+        } else {
+            // Adicionar dados de contato à resposta
+            $customization['contact_email'] = $contactData['email_comunicacao'] ?? '';
+            $customization['contact_whatsapp'] = $contactData['whatsapp'] ?? '';
+            $customization['contact_instagram'] = $contactData['instagram'] ?? '';
+            successResponse($customization, 'Configurações carregadas');
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao carregar personalização: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Salvar personalização da página pública
+ */
+function savePageCustomization($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $decoratorId = $input['decorator_id'] ?? 0;
+        if (!$decoratorId) {
+            errorResponse('ID do decorador é obrigatório', 400);
+        }
+        
+        // Verificar se decorador existe
+        $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
+        $stmt->execute([$decoratorId]);
+        if (!$stmt->fetch()) {
+            errorResponse('Decorador não encontrado', 404);
+        }
+        
+        // Validar dados obrigatórios
+        if (empty($input['page_title']) || empty($input['page_description'])) {
+            errorResponse('Título e descrição são obrigatórios', 400);
+        }
+        
+        // Verificar se já existe personalização
+        $stmt = $pdo->prepare("SELECT id FROM decorator_page_customization WHERE decorator_id = ?");
+        $stmt->execute([$decoratorId]);
+        $exists = $stmt->fetch();
+        
+        // Atualizar campos de contato na tabela usuarios se fornecidos
+        if (isset($input['contact_email']) || isset($input['contact_whatsapp']) || isset($input['contact_instagram'])) {
+            $updateUserFields = [];
+            $updateUserParams = [];
+            
+            if (isset($input['contact_email']) && !empty($input['contact_email'])) {
+                if (!validateEmail($input['contact_email'])) {
+                    errorResponse('Email de comunicação inválido', 400);
+                }
+                $updateUserFields[] = "email_comunicacao = ?";
+                $updateUserParams[] = sanitizeInput($input['contact_email']);
+            }
+            
+            if (isset($input['contact_whatsapp']) && !empty($input['contact_whatsapp'])) {
+                $updateUserFields[] = "whatsapp = ?";
+                $updateUserParams[] = sanitizeInput($input['contact_whatsapp']);
+            }
+            
+            if (isset($input['contact_instagram']) && !empty($input['contact_instagram'])) {
+                $updateUserFields[] = "instagram = ?";
+                $updateUserParams[] = sanitizeInput($input['contact_instagram']);
+            }
+            
+            if (!empty($updateUserFields)) {
+                $updateUserFields[] = "updated_at = NOW()";
+                $updateUserParams[] = $decoratorId;
+                
+                $updateUserQuery = "UPDATE usuarios SET " . implode(', ', $updateUserFields) . " WHERE id = ?";
+                $updateUserStmt = $pdo->prepare($updateUserQuery);
+                $updateUserStmt->execute($updateUserParams);
+            }
+        }
+        
+        if ($exists) {
+            // Atualizar
+            $stmt = $pdo->prepare("
+                UPDATE decorator_page_customization SET
+                    page_title = ?,
+                    page_description = ?,
+                    welcome_text = ?,
+                    cover_image_url = ?,
+                    primary_color = ?,
+                    secondary_color = ?,
+                    accent_color = ?,
+                    social_media = ?,
+                    meta_title = ?,
+                    meta_description = ?,
+                    meta_keywords = ?,
+                    updated_at = NOW()
+                WHERE decorator_id = ?
+            ");
+            
+            $stmt->execute([
+                sanitizeInput($input['page_title']),
+                sanitizeInput($input['page_description']),
+                !empty($input['welcome_text']) ? sanitizeInput($input['welcome_text']) : null,
+                !empty($input['cover_image_url']) ? sanitizeInput($input['cover_image_url']) : null,
+                !empty($input['primary_color']) ? sanitizeInput($input['primary_color']) : '#667eea',
+                !empty($input['secondary_color']) ? sanitizeInput($input['secondary_color']) : '#764ba2',
+                !empty($input['accent_color']) ? sanitizeInput($input['accent_color']) : '#f59e0b',
+                !empty($input['social_media']) ? $input['social_media'] : null,
+                !empty($input['meta_title']) ? sanitizeInput($input['meta_title']) : null,
+                !empty($input['meta_description']) ? sanitizeInput($input['meta_description']) : null,
+                !empty($input['meta_keywords']) ? sanitizeInput($input['meta_keywords']) : null,
+                $decoratorId
+            ]);
+        } else {
+            // Inserir
+            $stmt = $pdo->prepare("
+                INSERT INTO decorator_page_customization (
+                    decorator_id, page_title, page_description, welcome_text,
+                    cover_image_url, primary_color, secondary_color, accent_color,
+                    social_media, meta_title, meta_description, meta_keywords,
+                    is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+            ");
+            
+            $stmt->execute([
+                $decoratorId,
+                sanitizeInput($input['page_title']),
+                sanitizeInput($input['page_description']),
+                !empty($input['welcome_text']) ? sanitizeInput($input['welcome_text']) : null,
+                !empty($input['cover_image_url']) ? sanitizeInput($input['cover_image_url']) : null,
+                !empty($input['primary_color']) ? sanitizeInput($input['primary_color']) : '#667eea',
+                !empty($input['secondary_color']) ? sanitizeInput($input['secondary_color']) : '#764ba2',
+                !empty($input['accent_color']) ? sanitizeInput($input['accent_color']) : '#f59e0b',
+                !empty($input['social_media']) ? $input['social_media'] : null,
+                !empty($input['meta_title']) ? sanitizeInput($input['meta_title']) : null,
+                !empty($input['meta_description']) ? sanitizeInput($input['meta_description']) : null,
+                !empty($input['meta_keywords']) ? sanitizeInput($input['meta_keywords']) : null
+            ]);
+        }
+        
+        // Log da ação
+        logAdminAction($_SESSION['admin_id'], 'save_page_customization', $decoratorId, $pdo);
+        
+        successResponse(null, 'Personalização salva com sucesso!');
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao salvar personalização: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
 }
 
 /**

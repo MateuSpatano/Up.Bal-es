@@ -202,23 +202,54 @@ class AdminSystem {
     // Editar usuário
     async editUser(userId) {
         try {
-            // Buscar dados do usuário
-            const user = this.users.find(u => u.id === userId);
-            if (!user) {
-                this.showNotification('Usuário não encontrado', 'error');
-                return;
-            }
+            // Buscar dados completos do usuário do servidor
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_user',
+                    user_id: userId
+                })
+            });
             
-            // Preencher modal de edição
-            document.getElementById('edit-user-id').value = user.id;
-            document.getElementById('edit-user-name').value = user.name;
-            document.getElementById('edit-user-email').value = user.email;
-            document.getElementById('edit-user-phone').value = user.phone || '';
-            document.getElementById('edit-user-status').value = user.status;
+            const result = await response.json();
+            
+            if (!result.success) {
+                // Fallback: buscar da lista local
+                const user = this.users.find(u => u.id === userId);
+                if (!user) {
+                    this.showNotification('Usuário não encontrado', 'error');
+                    return;
+                }
+                
+                // Preencher modal de edição com dados locais
+                document.getElementById('edit-user-id').value = user.id;
+                document.getElementById('edit-user-name').value = user.name;
+                document.getElementById('edit-user-email').value = user.email;
+                document.getElementById('edit-user-phone').value = user.phone || '';
+                document.getElementById('edit-user-whatsapp').value = user.whatsapp || '';
+                document.getElementById('edit-user-instagram').value = user.instagram || '';
+                document.getElementById('edit-user-email-comunicacao').value = user.email_comunicacao || '';
+                document.getElementById('edit-user-status').value = user.status;
+            } else {
+                // Preencher com dados do servidor
+                const user = result.data;
+                document.getElementById('edit-user-id').value = user.id;
+                document.getElementById('edit-user-name').value = user.name || '';
+                document.getElementById('edit-user-email').value = user.email || '';
+                document.getElementById('edit-user-phone').value = user.phone || '';
+                document.getElementById('edit-user-whatsapp').value = user.whatsapp || '';
+                document.getElementById('edit-user-instagram').value = user.instagram || '';
+                document.getElementById('edit-user-email-comunicacao').value = user.email_comunicacao || '';
+                document.getElementById('edit-user-status').value = user.status || 'active';
+            }
             
             // Mostrar seção de aprovação se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
-            if (user.type === 'decorator' && approvalSection) {
+            const user = this.users.find(u => u.id === userId) || result.data;
+            if (user && user.type === 'decorator' && approvalSection) {
                 approvalSection.classList.remove('hidden');
                 document.getElementById('edit-user-approved').value = user.status === 'active' ? '1' : '0';
             } else if (approvalSection) {
@@ -242,6 +273,9 @@ class AdminSystem {
                 name: document.getElementById('edit-user-name').value,
                 email: document.getElementById('edit-user-email').value,
                 phone: document.getElementById('edit-user-phone').value,
+                whatsapp: document.getElementById('edit-user-whatsapp').value,
+                instagram: document.getElementById('edit-user-instagram').value,
+                email_comunicacao: document.getElementById('edit-user-email-comunicacao').value,
                 status: document.getElementById('edit-user-status').value
             };
             
@@ -383,6 +417,36 @@ class AdminSystem {
                 this.togglePasswordVisibility(e.target);
             });
         });
+
+        // Modal de personalização da página
+        const closePageCustomizationBtn = document.getElementById('close-page-customization-modal');
+        const cancelPageCustomizationBtn = document.getElementById('cancel-page-customization');
+        const pageCustomizationOverlay = document.getElementById('page-customization-overlay');
+        const pageCustomizationForm = document.getElementById('page-customization-form');
+        const previewPageCustomizationBtn = document.getElementById('preview-page-customization');
+
+        if (closePageCustomizationBtn) {
+            closePageCustomizationBtn.addEventListener('click', () => this.closePageCustomizationModal());
+        }
+
+        if (cancelPageCustomizationBtn) {
+            cancelPageCustomizationBtn.addEventListener('click', () => this.closePageCustomizationModal());
+        }
+
+        if (pageCustomizationOverlay) {
+            pageCustomizationOverlay.addEventListener('click', () => this.closePageCustomizationModal());
+        }
+
+        if (pageCustomizationForm) {
+            pageCustomizationForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.savePageCustomization();
+            });
+        }
+
+        if (previewPageCustomizationBtn) {
+            previewPageCustomizationBtn.addEventListener('click', () => this.previewPageCustomization());
+        }
     }
 
     // Configurar listeners dos modais
@@ -847,6 +911,9 @@ class AdminSystem {
                         ${user.type === 'decorator' && user.slug ? `
                             <button onclick="admin.copyDecoratorLink('${user.url}')" class="text-green-600 hover:text-green-900 p-1" title="Copiar Link">
                                 <i class="fas fa-link text-xs md:text-sm"></i>
+                            </button>
+                            <button onclick="admin.editPageCustomization(${user.id})" class="text-indigo-600 hover:text-indigo-900 p-1" title="Editar Tela Inicial">
+                                <i class="fas fa-palette text-xs md:text-sm"></i>
                             </button>
                         ` : ''}
                         ${user.type === 'decorator' ? `
@@ -1755,6 +1822,313 @@ class AdminSystem {
             hour: '2-digit',
             minute: '2-digit'
         });
+    }
+
+    // ========== EDIÇÃO DA PÁGINA PÚBLICA ==========
+    
+    // Editar personalização da página
+    async editPageCustomization(decoratorId) {
+        try {
+            // Buscar dados do decorador
+            const user = this.users.find(u => u.id === decoratorId);
+            if (!user || user.type !== 'decorator') {
+                this.showNotification('Decorador não encontrado', 'error');
+                return;
+            }
+            
+            // Preencher nome no modal
+            document.getElementById('page-customization-decorator-name').textContent = user.name;
+            document.getElementById('page-customization-decorator-id').value = decoratorId;
+            
+            // Carregar configurações existentes
+            await this.loadPageCustomization(decoratorId);
+            
+            // Configurar tabs
+            this.setupPageCustomizationTabs();
+            
+            // Configurar cores
+            this.setupColorInputs();
+            
+            // Configurar contadores de caracteres
+            this.setupCharCounters();
+            
+            // Mostrar modal
+            document.getElementById('page-customization-modal').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Erro ao abrir edição de página:', error);
+            this.showNotification('Erro ao carregar configurações da página', 'error');
+        }
+    }
+    
+    // Carregar configurações da página
+    async loadPageCustomization(decoratorId) {
+        try {
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_page_customization',
+                    decorator_id: decoratorId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const config = result.data;
+                
+                // Preencher campos de contato
+                if (document.getElementById('contact-email')) {
+                    document.getElementById('contact-email').value = config.contact_email || '';
+                }
+                if (document.getElementById('contact-whatsapp')) {
+                    document.getElementById('contact-whatsapp').value = config.contact_whatsapp || '';
+                }
+                if (document.getElementById('contact-instagram')) {
+                    document.getElementById('contact-instagram').value = config.contact_instagram || '';
+                }
+                
+                // Verificar se há dados salvos
+                const hasData = config.page_title && config.page_description;
+                
+                // Preencher campos de conteúdo
+                document.getElementById('page-title').value = config.page_title || '';
+                document.getElementById('page-description').value = config.page_description || '';
+                document.getElementById('welcome-text').value = config.welcome_text || '';
+                
+                // Preencher campos visuais
+                document.getElementById('cover-image-url').value = config.cover_image_url || '';
+                const primaryColor = config.primary_color || '#667eea';
+                const secondaryColor = config.secondary_color || '#764ba2';
+                const accentColor = config.accent_color || '#f59e0b';
+                
+                document.getElementById('primary-color').value = primaryColor;
+                document.getElementById('primary-color-hex').value = primaryColor;
+                document.getElementById('secondary-color').value = secondaryColor;
+                document.getElementById('secondary-color-hex').value = secondaryColor;
+                document.getElementById('accent-color').value = accentColor;
+                document.getElementById('accent-color-hex').value = accentColor;
+                
+                // Preencher redes sociais
+                if (config.social_media) {
+                    const social = typeof config.social_media === 'string' ? JSON.parse(config.social_media) : config.social_media;
+                    document.getElementById('social-facebook').value = social.facebook || '';
+                    document.getElementById('social-instagram').value = social.instagram || '';
+                    document.getElementById('social-whatsapp').value = social.whatsapp || '';
+                    document.getElementById('social-youtube').value = social.youtube || '';
+                } else {
+                    document.getElementById('social-facebook').value = '';
+                    document.getElementById('social-instagram').value = '';
+                    document.getElementById('social-whatsapp').value = '';
+                    document.getElementById('social-youtube').value = '';
+                }
+                
+                // Preencher SEO
+                document.getElementById('meta-title').value = config.meta_title || '';
+                document.getElementById('meta-description').value = config.meta_description || '';
+                document.getElementById('meta-keywords').value = config.meta_keywords || '';
+                
+                // Atualizar contadores
+                this.updateCharCounters();
+            }
+            
+        } catch (error) {
+            console.error('Erro ao carregar personalização:', error);
+            this.showNotification('Erro ao carregar configurações. Verifique a conexão com o servidor.', 'error');
+        }
+    }
+    
+    // Salvar personalização da página
+    async savePageCustomization() {
+        try {
+            const form = document.getElementById('page-customization-form');
+            const formData = new FormData(form);
+            
+            const decoratorId = formData.get('decorator_id');
+            
+            // Coletar dados do formulário
+            const customizationData = {
+                action: 'save_page_customization',
+                decorator_id: decoratorId,
+                page_title: formData.get('page_title'),
+                page_description: formData.get('page_description'),
+                welcome_text: formData.get('welcome_text'),
+                cover_image_url: formData.get('cover_image_url'),
+                primary_color: formData.get('primary_color'),
+                secondary_color: formData.get('secondary_color'),
+                accent_color: formData.get('accent_color'),
+                social_media: JSON.stringify({
+                    facebook: formData.get('social_facebook'),
+                    instagram: formData.get('social_instagram'),
+                    whatsapp: formData.get('social_whatsapp'),
+                    youtube: formData.get('social_youtube')
+                }),
+                meta_title: formData.get('meta_title'),
+                meta_description: formData.get('meta_description'),
+                meta_keywords: formData.get('meta_keywords'),
+                // Campos de contato para página inicial
+                contact_email: formData.get('contact_email'),
+                contact_whatsapp: formData.get('contact_whatsapp'),
+                contact_instagram: formData.get('contact_instagram')
+            };
+            
+            // Validar dados obrigatórios
+            if (!customizationData.page_title || !customizationData.page_description) {
+                this.showNotification('Título e descrição são obrigatórios', 'error');
+                return;
+            }
+            
+            // Mostrar loading
+            const submitBtn = document.getElementById('save-page-customization');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+            submitBtn.disabled = true;
+            
+            // Enviar para o servidor
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(customizationData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification('Personalização salva com sucesso!', 'success');
+                this.closePageCustomizationModal();
+            } else {
+                this.showNotification('Erro: ' + result.message, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Erro ao salvar personalização:', error);
+            this.showNotification('Erro ao salvar personalização', 'error');
+        } finally {
+            const submitBtn = document.getElementById('save-page-customization');
+            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Alterações';
+            submitBtn.disabled = false;
+        }
+    }
+    
+    // Fechar modal de personalização
+    closePageCustomizationModal() {
+        document.getElementById('page-customization-modal').classList.add('hidden');
+        document.getElementById('page-customization-form').reset();
+    }
+    
+    // Configurar tabs
+    setupPageCustomizationTabs() {
+        const tabs = document.querySelectorAll('.page-customization-tab');
+        const panels = document.querySelectorAll('.tab-panel');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.getAttribute('data-tab');
+                
+                // Remover active de todas as tabs
+                tabs.forEach(t => {
+                    t.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                    t.classList.add('text-gray-500');
+                });
+                
+                // Adicionar active na tab clicada
+                tab.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+                tab.classList.remove('text-gray-500');
+                
+                // Esconder todos os painéis
+                panels.forEach(p => p.classList.add('hidden'));
+                
+                // Mostrar painel correspondente
+                const panel = document.getElementById(`tab-${targetTab}-panel`);
+                if (panel) {
+                    panel.classList.remove('hidden');
+                }
+            });
+        });
+    }
+    
+    // Configurar inputs de cor
+    setupColorInputs() {
+        const colorInputs = ['primary', 'secondary', 'accent'];
+        
+        colorInputs.forEach(color => {
+            const colorPicker = document.getElementById(`${color}-color`);
+            const colorHex = document.getElementById(`${color}-color-hex`);
+            
+            if (colorPicker && colorHex) {
+                // Sincronizar color picker com input de texto
+                colorPicker.addEventListener('input', (e) => {
+                    colorHex.value = e.target.value;
+                });
+                
+                // Sincronizar input de texto com color picker
+                colorHex.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                        colorPicker.value = value;
+                    }
+                });
+            }
+        });
+    }
+    
+    // Configurar contadores de caracteres
+    setupCharCounters() {
+        const metaTitle = document.getElementById('meta-title');
+        const metaDescription = document.getElementById('meta-description');
+        const metaTitleCount = document.getElementById('meta-title-count');
+        const metaDescriptionCount = document.getElementById('meta-description-count');
+        
+        if (metaTitle && metaTitleCount) {
+            metaTitle.addEventListener('input', () => {
+                const count = metaTitle.value.length;
+                metaTitleCount.textContent = `${count} caracteres`;
+                metaTitleCount.style.color = count > 60 ? '#ef4444' : '#6b7280';
+            });
+        }
+        
+        if (metaDescription && metaDescriptionCount) {
+            metaDescription.addEventListener('input', () => {
+                const count = metaDescription.value.length;
+                metaDescriptionCount.textContent = `${count} caracteres`;
+                metaDescriptionCount.style.color = count > 160 ? '#ef4444' : '#6b7280';
+            });
+        }
+    }
+    
+    // Atualizar contadores de caracteres
+    updateCharCounters() {
+        const metaTitle = document.getElementById('meta-title');
+        const metaDescription = document.getElementById('meta-description');
+        const metaTitleCount = document.getElementById('meta-title-count');
+        const metaDescriptionCount = document.getElementById('meta-description-count');
+        
+        if (metaTitle && metaTitleCount) {
+            const count = metaTitle.value.length;
+            metaTitleCount.textContent = `${count} caracteres`;
+        }
+        
+        if (metaDescription && metaDescriptionCount) {
+            const count = metaDescription.value.length;
+            metaDescriptionCount.textContent = `${count} caracteres`;
+        }
+    }
+    
+    // Visualizar página
+    previewPageCustomization() {
+        const decoratorId = document.getElementById('page-customization-decorator-id').value;
+        const user = this.users.find(u => u.id === parseInt(decoratorId));
+        
+        if (user && user.slug) {
+            window.open(`../${user.slug}`, '_blank');
+        } else {
+            this.showNotification('Slug do decorador não encontrado', 'error');
+        }
     }
 }
 

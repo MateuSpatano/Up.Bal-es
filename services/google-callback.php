@@ -5,8 +5,8 @@
  * IMPORTANTE: Só permite login para e-mails pré-cadastrados
  */
 
-require_once __DIR__ . '/services/config.php';
-require_once __DIR__ . '/services/auth_middleware.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth_middleware.php';
 
 // Iniciar sessão se ainda não foi iniciada
 if (session_status() === PHP_SESSION_NONE) {
