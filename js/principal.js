@@ -1,4 +1,65 @@
 // Sistema principal Up.Baloes
+const CART_STORAGE_KEY = 'upbaloes_cart_items';
+
+function getStoredCartItems() {
+    try {
+        const storedItems = localStorage.getItem(CART_STORAGE_KEY);
+        if (!storedItems) {
+            return [];
+        }
+
+        const parsedItems = JSON.parse(storedItems);
+        return Array.isArray(parsedItems) ? parsedItems : [];
+    } catch (error) {
+        console.warn('Erro ao carregar itens do carrinho:', error);
+        return [];
+    }
+}
+
+function getCartItemsTotal(items = getStoredCartItems()) {
+    return items.reduce((total, item) => {
+        const quantity = Number(item.quantity);
+        return total + (Number.isFinite(quantity) && quantity > 0 ? quantity : 1);
+    }, 0);
+}
+
+function setStoredCartItems(items) {
+    try {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+        window.dispatchEvent(new CustomEvent('cart-items-updated', {
+            detail: {
+                items,
+                total: getCartItemsTotal(items)
+            }
+        }));
+    } catch (error) {
+        console.error('Erro ao salvar itens do carrinho:', error);
+    }
+}
+
+function addItemToCartStorage(item) {
+    const items = getStoredCartItems();
+    const existingIndex = items.findIndex(cartItem => cartItem.id === item.id);
+
+    if (existingIndex >= 0) {
+        const currentQuantity = Number(items[existingIndex].quantity) || 0;
+        const itemQuantity = Number(item.quantity) || 1;
+        items[existingIndex] = {
+            ...items[existingIndex],
+            ...item,
+            quantity: currentQuantity + itemQuantity
+        };
+    } else {
+        items.push({
+            ...item,
+            quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1
+        });
+    }
+
+    setStoredCartItems(items);
+    return items;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     
     // Elementos DOM
@@ -145,21 +206,54 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ========== FUNCIONALIDADES DO CARRINHO ==========
-    
-    // Simular adicionar item ao carrinho
-    function addToCart() {
-        const cartBadge = document.querySelector('.cart-badge');
-        if (cartBadge) {
-            let currentCount = parseInt(cartBadge.textContent) || 0;
-            cartBadge.textContent = currentCount + 1;
-            
-            // Efeito visual
+
+    const cartBadge = document.querySelector('.cart-badge');
+    const cartLinks = document.querySelectorAll('a[href="#carrinho"]');
+
+    function updateCartBadgeUI(shouldAnimate = false) {
+        if (!cartBadge) {
+            return;
+        }
+
+        const totalItems = getCartItemsTotal();
+        cartBadge.textContent = totalItems;
+
+        if (shouldAnimate && totalItems > 0) {
             cartBadge.classList.add('animate-pulse');
             setTimeout(() => {
                 cartBadge.classList.remove('animate-pulse');
             }, 1000);
         }
     }
+
+    function notifyCartStatus() {
+        const totalItems = getCartItemsTotal();
+        if (totalItems > 0) {
+            const suffix = totalItems === 1 ? 'item' : 'itens';
+            showNotification(`Você possui ${totalItems} ${suffix} no carrinho.`, 'info');
+        } else {
+            showNotification('Nenhum produto selecionado no carrinho.', 'warning');
+        }
+    }
+
+    cartLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            notifyCartStatus();
+        });
+    });
+
+    updateCartBadgeUI();
+
+    window.addEventListener('cart-items-updated', function(event) {
+        updateCartBadgeUI(true);
+    });
+
+    window.addEventListener('storage', function(event) {
+        if (event.key === CART_STORAGE_KEY) {
+            updateCartBadgeUI();
+        }
+    });
 
     // ========== ANIMAÇÕES E EFEITOS ==========
     
@@ -299,6 +393,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     }
 
+    window.showNotification = showNotification;
+
     function getIconForType(type) {
         const icons = {
             success: 'check-circle',
@@ -341,13 +437,6 @@ document.addEventListener('DOMContentLoaded', function() {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             showContactInfo();
-        });
-    });
-
-    document.querySelectorAll('a[href="#carrinho"]').forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            addToCart();
         });
     });
 
@@ -873,16 +962,25 @@ document.addEventListener('DOMContentLoaded', function() {
 // ========== FUNÇÕES GLOBAIS ==========
 
 // Função para adicionar item ao carrinho (pode ser chamada de outros scripts)
-function addToCartGlobal(productId, productName) {
-    console.log(`Adicionando ${productName} (ID: ${productId}) ao carrinho`);
-    
-    // Aqui você pode implementar a lógica real de adição ao carrinho
-    // Por exemplo, fazer uma requisição AJAX para o backend
-    
-    // Por enquanto, apenas mostrar notificação
-    if (typeof showNotification === 'function') {
-        showNotification(`${productName} adicionado ao carrinho!`, 'success');
+function addToCartGlobal(productId, productName, quantity = 1, additionalData = {}) {
+    const item = {
+        id: productId,
+        name: productName || 'Produto',
+        quantity: Number(quantity) > 0 ? Number(quantity) : 1,
+        ...additionalData
+    };
+
+    const updatedItems = addItemToCartStorage(item);
+    const totalItems = getCartItemsTotal(updatedItems);
+
+    if (typeof window.showNotification === 'function') {
+        const suffix = totalItems === 1 ? 'item' : 'itens';
+        window.showNotification(`${item.name} adicionado ao carrinho! Agora você possui ${totalItems} ${suffix}.`, 'success');
+    } else {
+        console.log(`${item.name} adicionado ao carrinho. Total de itens: ${totalItems}`);
     }
+
+    return updatedItems;
 }
 
 // Função para fazer login (pode ser chamada de outros scripts)
