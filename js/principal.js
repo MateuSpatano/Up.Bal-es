@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Efeito de scroll na navbar
     function handleNavbarScroll() {
+        if (!navbar) {
+            return;
+        }
+
         if (window.scrollY > 50) {
             navbar.classList.add('navbar-scrolled');
         } else {
@@ -23,10 +27,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    window.addEventListener('scroll', handleNavbarScroll);
+    if (navbar) {
+        window.addEventListener('scroll', handleNavbarScroll);
+    }
 
     // Toggle do dropdown do usuário
     function toggleUserDropdown() {
+        if (!userDropdown) {
+            return;
+        }
+
         isUserMenuOpen = !isUserMenuOpen;
         
         if (isUserMenuOpen) {
@@ -40,24 +50,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listeners para o dropdown do usuário
-    userMenuBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleUserDropdown();
-    });
+    if (userMenuBtn && userDropdown) {
+        userMenuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleUserDropdown();
+        });
 
-    // Fechar dropdown quando clicar fora
-    document.addEventListener('click', function(e) {
-        if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-            if (isUserMenuOpen) {
-                toggleUserDropdown();
+        // Fechar dropdown quando clicar fora
+        document.addEventListener('click', function(e) {
+            if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                if (isUserMenuOpen) {
+                    toggleUserDropdown();
+                }
             }
-        }
-    });
+        });
+    }
 
     // ========== MENU MOBILE ==========
     
     // Toggle do menu mobile
     function toggleMobileMenu() {
+        if (!mobileMenu || !mobileMenuBtn) {
+            return;
+        }
+
         isMobileMenuOpen = !isMobileMenuOpen;
         
         if (isMobileMenuOpen) {
@@ -74,19 +90,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listener para o botão do menu mobile
-    mobileMenuBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleMobileMenu();
-    });
+    if (mobileMenuBtn && mobileMenu) {
+        mobileMenuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleMobileMenu();
+        });
 
-    // Fechar menu mobile quando clicar fora
-    document.addEventListener('click', function(e) {
-        if (!mobileMenuBtn.contains(e.target) && !mobileMenu.contains(e.target)) {
-            if (isMobileMenuOpen) {
-                toggleMobileMenu();
+        // Fechar menu mobile quando clicar fora
+        document.addEventListener('click', function(e) {
+            if (!mobileMenuBtn.contains(e.target) && !mobileMenu.contains(e.target)) {
+                if (isMobileMenuOpen) {
+                    toggleMobileMenu();
+                }
             }
-        }
-    });
+        });
+    }
 
     // ========== NAVEGAÇÃO SUAVE ==========
     
@@ -174,9 +192,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Por enquanto apenas atualiza a interface se já houver dados do usuário
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
             if (userData.name) {
-                const userBtn = userMenuBtn.querySelector('span');
-                if (userBtn) {
-                    userBtn.textContent = userData.name;
+                if (userMenuBtn) {
+                    const userBtn = userMenuBtn.querySelector('span');
+                    if (userBtn) {
+                        userBtn.textContent = userData.name;
+                    }
                 }
             }
         } catch (error) {
@@ -192,43 +212,47 @@ document.addEventListener('DOMContentLoaded', function() {
             // Fallback para logout local
             localStorage.removeItem('userToken');
             localStorage.removeItem('userData');
-            const userBtn = userMenuBtn.querySelector('span');
-            if (userBtn) {
-                userBtn.textContent = 'Usuário';
+            if (userMenuBtn) {
+                const userBtn = userMenuBtn.querySelector('span');
+                if (userBtn) {
+                    userBtn.textContent = 'Usuário';
+                }
             }
             showNotification('Logout realizado com sucesso!', 'info');
         }
     }
 
     // Adicionar event listeners para as opções do dropdown
-    const loginLink = userDropdown.querySelector('a[href="#"]:first-child');
-    const logoutLink = userDropdown.querySelector('a[href="#"]:last-child');
-    const accountLink = userDropdown.querySelector('a[href="#"]:nth-child(2)');
+    if (userDropdown) {
+        const loginLink = userDropdown.querySelector('a[href="#"]:first-child');
+        const logoutLink = userDropdown.querySelector('a[href="#"]:last-child');
+        const accountLink = userDropdown.querySelector('a[href="#"]:nth-child(2)');
 
-    if (loginLink) {
-        loginLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Redirecionar para a tela de login
-            window.location.href = 'pages/login.html';
-            toggleUserDropdown();
-        });
-    }
+        if (loginLink) {
+            loginLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Redirecionar para a tela de login
+                window.location.href = 'pages/login.html';
+                toggleUserDropdown();
+            });
+        }
 
-    if (logoutLink) {
-        logoutLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            simulateLogout();
-            toggleUserDropdown();
-        });
-    }
+        if (logoutLink) {
+            logoutLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                simulateLogout();
+                toggleUserDropdown();
+            });
+        }
 
-    if (accountLink) {
-        accountLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Redirecionar para a página de gerenciamento de conta
-            window.location.href = 'pages/login.html';
-            toggleUserDropdown();
-        });
+        if (accountLink) {
+            accountLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Redirecionar para a página de gerenciamento de conta
+                window.location.href = 'pages/login.html';
+                toggleUserDropdown();
+            });
+        }
     }
 
     // ========== SISTEMA DE NOTIFICAÇÕES ==========
@@ -821,9 +845,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Atualizar interface do usuário
     function updateUserInterface(userData) {
         // Atualizar nome do usuário na navbar
-        const userBtn = userMenuBtn.querySelector('span');
-        if (userBtn && userData.name) {
-            userBtn.textContent = userData.name;
+        if (userMenuBtn) {
+            const userBtn = userMenuBtn.querySelector('span');
+            if (userBtn && userData.name) {
+                userBtn.textContent = userData.name;
+            }
         }
         
         // Salvar dados no localStorage para persistência

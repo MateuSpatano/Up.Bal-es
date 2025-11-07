@@ -19,9 +19,20 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
+    email_comunicacao VARCHAR(100) DEFAULT NULL,
+    google_email VARCHAR(100) DEFAULT NULL,
     telefone VARCHAR(20),
+    whatsapp VARCHAR(20),
+    cpf VARCHAR(14),
+    endereco VARCHAR(255),
+    cidade VARCHAR(100),
+    estado VARCHAR(2),
+    cep VARCHAR(10),
     senha VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE,
+    perfil ENUM('user','decorator','admin') DEFAULT 'user',
+    ativo TINYINT(1) DEFAULT 1,
+    aprovado_por_admin TINYINT(1) DEFAULT 0,
     bio TEXT,
     especialidades TEXT,
     portfolio_images JSON,
@@ -37,9 +48,60 @@ CREATE TABLE IF NOT EXISTS usuarios (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),
     INDEX idx_slug (slug),
-    INDEX idx_is_active (is_active)
+    INDEX idx_is_active (is_active),
+    INDEX idx_ativo (ativo),
+    INDEX idx_perfil (perfil),
+    INDEX idx_aprovado (aprovado_por_admin)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
 COMMENT='Tabela de usuários do sistema (decoradores)';
+
+-- =====================================================
+-- TABELA DE TOKENS "LEMBRAR-ME"
+-- =====================================================
+CREATE TABLE IF NOT EXISTS remember_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    is_admin TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_token (token),
+    INDEX idx_user_admin (user_id, is_admin),
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+COMMENT='Tokens para funcionalidade lembrar acesso.';
+
+-- =====================================================
+-- TABELA DE TOKENS DE RECUPERAÇÃO DE SENHA
+-- =====================================================
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_token_reset (token),
+    INDEX idx_user_reset (user_id),
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+COMMENT='Tokens utilizados no fluxo de recuperação de senha.';
+
+-- =====================================================
+-- TABELA DE LOG DE ACESSOS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS access_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    action VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user (user_id),
+    INDEX idx_action_log (action),
+    INDEX idx_created_at_log (created_at),
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+COMMENT='Registros de acesso e ações do sistema.';
 
 -- =====================================================
 -- TABELA DE ORÇAMENTOS
@@ -133,14 +195,20 @@ COMMENT='Datas bloqueadas pelos decoradores';
 
 -- Inserir usuário administrador padrão
 INSERT INTO usuarios (
-    nome, email, telefone, senha, slug, bio, 
-    especialidades, is_active, is_admin, email_verified
+    nome, email, email_comunicacao, google_email, telefone, whatsapp, senha, slug, perfil,
+    ativo, aprovado_por_admin, bio, especialidades, is_active, is_admin, email_verified
 ) VALUES (
     'Administrador',
     'admin@upbaloes.com',
+    'admin@upbaloes.com',
+    'admin@upbaloes.com',
+    '(11) 99999-9999',
     '(11) 99999-9999',
     '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password
     'admin',
+    'admin',
+    1,
+    1,
     'Administrador do sistema Up.Baloes',
     '["Arco Tradicional", "Arco Desconstruído", "Escultura de Balão", "Centro de Mesa", "Balões na Piscina"]',
     TRUE,
@@ -149,6 +217,14 @@ INSERT INTO usuarios (
 ) ON DUPLICATE KEY UPDATE
     nome = VALUES(nome),
     telefone = VALUES(telefone),
+    email_comunicacao = VALUES(email_comunicacao),
+    google_email = VALUES(google_email),
+    whatsapp = VALUES(whatsapp),
+    perfil = VALUES(perfil),
+    ativo = VALUES(ativo),
+    aprovado_por_admin = VALUES(aprovado_por_admin),
+    is_active = VALUES(is_active),
+    is_admin = VALUES(is_admin),
     bio = VALUES(bio),
     especialidades = VALUES(especialidades);
 

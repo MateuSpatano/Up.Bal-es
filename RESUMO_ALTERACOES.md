@@ -147,3 +147,6 @@ cp env.example .env
 - ✅ Valores padrão para desenvolvimento
 - ✅ Fácil configuração para deploy
 
+
+
+
