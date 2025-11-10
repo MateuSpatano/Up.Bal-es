@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     email_comunicacao VARCHAR(100) DEFAULT NULL,
-    google_email VARCHAR(100) DEFAULT NULL,
     telefone VARCHAR(20),
     whatsapp VARCHAR(20),
     cpf VARCHAR(14),
@@ -190,78 +189,10 @@ CREATE TABLE IF NOT EXISTS decorator_blocked_dates (
 COMMENT='Datas bloqueadas pelos decoradores';
 
 -- =====================================================
--- INSERIR DADOS INICIAIS
+-- ORIENTAÇÕES PARA DADOS INICIAIS
 -- =====================================================
-
--- Inserir usuário administrador padrão
-INSERT INTO usuarios (
-    nome, email, email_comunicacao, google_email, telefone, whatsapp, senha, slug, perfil,
-    ativo, aprovado_por_admin, bio, especialidades, is_active, is_admin, email_verified
-) VALUES (
-    'Administrador',
-    'admin@upbaloes.com',
-    'admin@upbaloes.com',
-    'admin@upbaloes.com',
-    '(11) 99999-9999',
-    '(11) 99999-9999',
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password
-    'admin',
-    'admin',
-    1,
-    1,
-    'Administrador do sistema Up.Baloes',
-    '["Arco Tradicional", "Arco Desconstruído", "Escultura de Balão", "Centro de Mesa", "Balões na Piscina"]',
-    TRUE,
-    TRUE,
-    TRUE
-) ON DUPLICATE KEY UPDATE
-    nome = VALUES(nome),
-    telefone = VALUES(telefone),
-    email_comunicacao = VALUES(email_comunicacao),
-    google_email = VALUES(google_email),
-    whatsapp = VALUES(whatsapp),
-    perfil = VALUES(perfil),
-    ativo = VALUES(ativo),
-    aprovado_por_admin = VALUES(aprovado_por_admin),
-    is_active = VALUES(is_active),
-    is_admin = VALUES(is_admin),
-    bio = VALUES(bio),
-    especialidades = VALUES(especialidades);
-
--- Inserir configuração de disponibilidade padrão para o admin
-INSERT INTO decorator_availability (
-    user_id, 
-    available_days, 
-    time_schedules, 
-    service_intervals,
-    max_daily_services
-) VALUES (
-    1,
-    '["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]',
-    '[
-        {"day": "monday", "start_time": "08:00", "end_time": "18:00"},
-        {"day": "tuesday", "start_time": "08:00", "end_time": "18:00"},
-        {"day": "wednesday", "start_time": "08:00", "end_time": "18:00"},
-        {"day": "thursday", "start_time": "08:00", "end_time": "18:00"},
-        {"day": "friday", "start_time": "08:00", "end_time": "18:00"},
-        {"day": "saturday", "start_time": "08:00", "end_time": "16:00"}
-    ]',
-    '[
-        {"day": "monday", "interval": 1, "unit": "hours"},
-        {"day": "tuesday", "interval": 1, "unit": "hours"},
-        {"day": "wednesday", "interval": 1, "unit": "hours"},
-        {"day": "thursday", "interval": 1, "unit": "hours"},
-        {"day": "friday", "interval": 1, "unit": "hours"},
-        {"day": "saturday", "interval": 1, "unit": "hours"}
-    ]',
-    5
-) ON DUPLICATE KEY UPDATE
-    available_days = VALUES(available_days),
-    time_schedules = VALUES(time_schedules),
-    service_intervals = VALUES(service_intervals),
-    max_daily_services = VALUES(max_daily_services),
-    updated_at = CURRENT_TIMESTAMP;
-
+-- O script não cria usuários, disponibilidades, portfólios ou orçamentos pré-carregados.
+-- Cadastre todas as informações iniciais diretamente pela aplicação.
 -- Nota: Datas bloqueadas devem ser configuradas pelo decorador através da interface administrativa
 
 -- =====================================================
@@ -370,6 +301,41 @@ CREATE TABLE IF NOT EXISTS decorator_page_customization (
     INDEX idx_is_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
 COMMENT='Personalização da página pública de cada decorador';
+
+-- =====================================================
+-- TABELA DE ITENS DO PORTFÓLIO DOS DECORADORES
+-- =====================================================
+CREATE TABLE IF NOT EXISTS decorator_portfolio_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    decorator_id INT NOT NULL,
+    service_type VARCHAR(100) NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) DEFAULT NULL,
+    arc_size VARCHAR(120) DEFAULT NULL,
+    image_path VARCHAR(255) DEFAULT NULL,
+    display_order INT DEFAULT 0,
+    is_featured TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (decorator_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_decorator_order (decorator_id, display_order),
+    INDEX idx_decorator_created (decorator_id, created_at),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci 
+COMMENT='Itens do portfólio gerenciados pelos decoradores';
+
+-- =====================================================
+-- DADOS FICTÍCIOS PARA DEMONSTRAÇÃO DO PAINEL ADMINISTRATIVO
+-- =====================================================
+--
+-- Decoradores fictícios removidos do script inicial. Cadastre decoradores reais via painel administrativo.
+
+-- Clientes fictícios removidos: utilize a aplicação para cadastrar clientes reais.
+
+-- Dados demonstrativos de disponibilidade, personalização e orçamentos removidos.
+-- Utilize os painéis correspondentes para cadastrar informações reais quando necessário.
 
 -- =====================================================
 -- VERIFICAÇÕES FINAIS

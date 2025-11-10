@@ -7,9 +7,16 @@ class AdminSystem {
         this.itemsPerPage = 10;
         this.filteredUsers = [];
         this.charts = {};
+        this.dashboardData = null;
         this.supportTickets = [];
         this.filteredTickets = [];
         this.currentTicket = null;
+        this.adminProfile = null;
+        this.pendingAdminProfileImage = null;
+        this.removeAdminProfileImage = false;
+        this.adminPhotoFeedbackTimeout = null;
+        this.adminSettingsLoaded = false;
+        this.defaultAdminPhoto = '../Images/Logo System.jpeg';
         
         this.init();
     }
@@ -24,6 +31,7 @@ class AdminSystem {
         this.loadDashboardData();
         this.initializeCharts();
         this.loadSupportTickets();
+        this.initializeSettingsModule();
         
         // Atualizar hora a cada minuto
         setInterval(() => this.updateCurrentTime(), 60000);
@@ -64,6 +72,7 @@ class AdminSystem {
             
             if (result.success) {
                 this.users = result.data.users;
+                this.refreshUsersChart();
                 this.updateUsersTable();
                 this.updatePagination(result.data.pagination);
             } else {
@@ -529,39 +538,88 @@ class AdminSystem {
             this.renderUsersTable();
         } else if (pageId === 'support') {
             this.loadSupportTickets();
+        } else if (pageId === 'settings') {
+            this.loadAdminProfile(!this.adminSettingsLoaded);
         }
     }
 
     // Carregar dados do dashboard
-    loadDashboardData() {
-        // Simular dados (em produção, viria de uma API)
-        const dashboardData = {
-            totalClients: this.users.filter(u => u.type === 'client').length,
-            activeDecorators: this.users.filter(u => u.type === 'decorator' && u.status === 'active').length,
-            totalRequests: 45, // Simulado
-            totalServices: 32  // Simulado
+    async loadDashboardData() {
+        const fallbackMetrics = {
+            total_clients: this.users.filter(u => u.type === 'client').length,
+            active_decorators: this.users.filter(u => u.type === 'decorator' && u.status === 'active').length,
+            total_requests: 0,
+            total_services: 0,
+            pending_approvals: 0
         };
 
-        // Atualizar métricas
-        document.getElementById('total-clients').textContent = dashboardData.totalClients;
-        document.getElementById('active-decorators').textContent = dashboardData.activeDecorators;
-        document.getElementById('total-requests').textContent = dashboardData.totalRequests;
-        document.getElementById('total-services').textContent = dashboardData.totalServices;
+        try {
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: 'get_dashboard_data' })
+            });
 
-        // Carregar atividades recentes
-        this.loadRecentActivities();
+            const result = await response.json();
+
+            if (response.ok && result.success && result.data) {
+                this.dashboardData = result.data;
+                this.updateDashboardMetrics(result.data);
+                this.loadRecentActivities(result.data.activities || []);
+                return;
+            }
+
+            console.warn('Não foi possível carregar dados atualizados do dashboard.', result);
+        } catch (error) {
+            console.error('Erro ao carregar dados do dashboard:', error);
+        }
+
+        this.dashboardData = null;
+        this.updateDashboardMetrics(fallbackMetrics);
+        this.loadRecentActivities([]);
+    }
+
+    updateDashboardMetrics(metrics = {}) {
+        const totalClientsEl = document.getElementById('total-clients');
+        const activeDecoratorsEl = document.getElementById('active-decorators');
+        const totalRequestsEl = document.getElementById('total-requests');
+        const totalServicesEl = document.getElementById('total-services');
+
+        const totalClients = Number(metrics.total_clients ?? metrics.totalClients ?? 0);
+        const activeDecorators = Number(metrics.active_decorators ?? metrics.activeDecorators ?? 0);
+        const totalRequests = Number(metrics.total_requests ?? metrics.totalRequests ?? 0);
+        const totalServices = Number(metrics.total_services ?? metrics.totalServices ?? 0);
+
+        if (totalClientsEl) {
+            totalClientsEl.textContent = totalClients.toLocaleString('pt-BR');
+        }
+        if (activeDecoratorsEl) {
+            activeDecoratorsEl.textContent = activeDecorators.toLocaleString('pt-BR');
+        }
+        if (totalRequestsEl) {
+            totalRequestsEl.textContent = totalRequests.toLocaleString('pt-BR');
+        }
+        if (totalServicesEl) {
+            totalServicesEl.textContent = totalServices.toLocaleString('pt-BR');
+        }
     }
 
     // Carregar atividades recentes
-    loadRecentActivities() {
-        const activities = [
-            { action: 'Novo decorador criado', user: 'Ana Oliveira', time: '2 horas atrás', type: 'success' },
-            { action: 'Cliente desativado', user: 'Pedro Costa', time: '4 horas atrás', type: 'warning' },
-            { action: 'Solicitação de orçamento', user: 'João Silva', time: '6 horas atrás', type: 'info' },
-            { action: 'Serviço concluído', user: 'Maria Santos', time: '1 dia atrás', type: 'success' }
-        ];
-
+    loadRecentActivities(activities = []) {
         const container = document.getElementById('recent-activities');
+        if (!container) return;
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            container.innerHTML = `
+                <div class="flex items-center justify-center py-6">
+                    <p class="text-sm text-gray-500">Nenhuma atividade recente disponível.</p>
+                </div>
+            `;
+            return;
+        }
+
         container.innerHTML = activities.map(activity => `
             <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center ${
@@ -593,7 +651,7 @@ class AdminSystem {
                 labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
                 datasets: [{
                     label: 'Solicitações',
-                    data: [12, 19, 8, 15, 22, 18],
+                    data: [0, 0, 0, 0, 0, 0],
                     borderColor: 'rgb(59, 130, 246)',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.4,
@@ -673,21 +731,40 @@ class AdminSystem {
         });
     }
 
+    refreshUsersChart() {
+        if (!this.charts.users) return;
+
+        this.charts.users.data.datasets[0].data = [
+            this.users.filter(u => u.type === 'client').length,
+            this.users.filter(u => u.type === 'decorator').length
+        ];
+
+        this.charts.users.update();
+    }
+
     // Criar decorador
     async createDecorator() {
         const form = document.getElementById('create-decorator-form');
         const formData = new FormData(form);
         
+        const name = (formData.get('name') || '').trim();
+        const cpf = (formData.get('cpf') || '').trim();
+        const phone = (formData.get('phone') || '').trim();
+        const whatsapp = (formData.get('whatsapp') || '').trim();
+        const communicationEmail = (formData.get('communication_email') || '').trim();
+        const address = (formData.get('address') || '').trim();
+        const password = formData.get('password') || '';
+        
         const decoratorData = {
             action: 'create',
-            nome: formData.get('name'),
-            cpf: formData.get('cpf'),
-            google_email: formData.get('google_email'),
-            telefone: formData.get('phone'),
-            whatsapp: formData.get('whatsapp'),
-            communication_email: formData.get('communication_email'),
-            endereco: formData.get('address'),
-            senha: formData.get('password')
+            nome: name,
+            cpf,
+            email: communicationEmail,
+            telefone: phone,
+            whatsapp,
+            communication_email: communicationEmail,
+            endereco: address,
+            senha: password
         };
 
         // Validações
@@ -717,9 +794,11 @@ class AdminSystem {
                 // Adicionar usuário localmente
                 const newDecorator = {
                     id: result.data.id,
-                    name: decoratorData.nome,
-                    email: decoratorData.email,
+                    name: result.data.name || decoratorData.nome,
+                    email: result.data.email || decoratorData.email,
                     phone: decoratorData.telefone,
+                    communication_email: result.data.communication_email || decoratorData.communication_email,
+                    whatsapp: result.data.whatsapp || decoratorData.whatsapp,
                     type: 'decorator',
                     status: 'active',
                     createdAt: new Date().toISOString().split('T')[0],
@@ -738,11 +817,7 @@ class AdminSystem {
                 
                 // Atualizar dashboard
                 this.loadDashboardData();
-                this.charts.users.data.datasets[0].data = [
-                    this.users.filter(u => u.type === 'client').length,
-                    this.users.filter(u => u.type === 'decorator').length
-                ];
-                this.charts.users.update();
+                this.refreshUsersChart();
             } else {
                 this.showNotification(result.message || 'Erro ao criar decorador', 'error');
             }
@@ -769,16 +844,6 @@ class AdminSystem {
             return false;
         }
 
-        if (!this.validateEmail(data.google_email)) {
-            this.showNotification('E-mail Google inválido', 'error');
-            return false;
-        }
-
-        if (this.users.find(u => u.google_email === data.google_email)) {
-            this.showNotification('E-mail Google já cadastrado', 'error');
-            return false;
-        }
-
         if (!data.telefone || data.telefone.trim().length < 10) {
             this.showNotification('Telefone inválido', 'error');
             return false;
@@ -789,14 +854,26 @@ class AdminSystem {
             return false;
         }
 
-        if (!this.validateEmail(data.communication_email)) {
-            this.showNotification('E-mail para comunicação inválido', 'error');
+        if (!this.validateEmail(data.email)) {
+            this.showNotification('E-mail inválido', 'error');
             return false;
         }
-
-        if (this.users.find(u => u.communication_email === data.communication_email)) {
-            this.showNotification('E-mail para comunicação já cadastrado', 'error');
+        
+        if (this.users.find(u => (u.email || '').toLowerCase() === data.email.toLowerCase())) {
+            this.showNotification('E-mail já cadastrado', 'error');
             return false;
+        }
+        
+        if (data.communication_email && data.communication_email.toLowerCase() !== data.email.toLowerCase()) {
+            if (!this.validateEmail(data.communication_email)) {
+                this.showNotification('E-mail para comunicação inválido', 'error');
+                return false;
+            }
+            
+            if (this.users.find(u => (u.communication_email || '').toLowerCase() === data.communication_email.toLowerCase())) {
+                this.showNotification('E-mail para comunicação já cadastrado', 'error');
+                return false;
+            }
         }
 
         if (!data.senha || data.senha.length < 8) {
@@ -1019,6 +1096,7 @@ class AdminSystem {
 
         this.users.splice(userIndex, 1);
         this.filteredUsers = [...this.users];
+        this.refreshUsersChart();
         this.renderUsersTable();
         this.showNotification('Usuário excluído com sucesso!', 'success');
     }

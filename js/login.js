@@ -21,7 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const sendResetEmail = document.getElementById('send-reset-email');
     const forgotEmailInput = document.getElementById('forgot-email');
 
-    // Estado dos campos
+    // Regex e estado dos campos
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     let isPasswordVisible = false;
     let isLoading = false;
 
@@ -49,16 +50,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Função de validação de email
+    function isValidEmailValue(value) {
+        return emailRegex.test(value.trim());
+    }
+    
     function validateEmail(input) {
         const email = input.value.trim();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         
         if (email === '') {
             removeValidationClasses(input);
             return false;
         }
         
-        if (emailRegex.test(email)) {
+        if (isValidEmailValue(email)) {
             addValidationClass(input, 'success');
             return true;
         } else {
@@ -196,25 +200,32 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (!validateEmail({ value: email })) {
+        if (!isValidEmailValue(email)) {
             showMessage('Por favor, digite um email válido.', 'error');
             return;
         }
+        
+        sendResetEmail.disabled = true;
+        const originalSendText = sendResetEmail.innerHTML;
+        sendResetEmail.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
         
         try {
             // Chamada para o backend PHP
             const response = await resetPasswordWithPHP(email);
             
             if (response.success) {
-                showMessage('Email de recuperação enviado com sucesso!', 'success');
+                showMessage(response.message || 'Se o email estiver cadastrado, você receberá instruções de recuperação.', 'success');
                 closeModal();
             } else {
-                showMessage('Erro ao enviar email. Tente novamente.', 'error');
+                showMessage(response.message || 'Erro ao enviar email. Tente novamente.', 'error');
             }
             
         } catch (error) {
             console.error('Erro ao enviar email:', error);
             showMessage('Erro de conexão. Tente novamente.', 'error');
+        } finally {
+            sendResetEmail.disabled = false;
+            sendResetEmail.innerHTML = originalSendText;
         }
     });
 
@@ -247,56 +258,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             messageContainer.classList.add('hidden');
         }, 5000);
-    }
-
-    // Função de login - deve ser implementada com chamada real ao backend
-    // TODO: Implementar integração com services/login.php
-    async function performLogin(formData) {
-        try {
-            const response = await fetch('../services/login.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            const result = await response.json();
-            return result;
-        } catch (error) {
-            console.error('Erro ao realizar login:', error);
-            return {
-                success: false,
-                message: 'Erro de conexão com o servidor.'
-            };
-        }
-    }
-
-    // Função de recuperação de senha - deve ser implementada com chamada real ao backend
-    // TODO: Implementar integração com serviço de recuperação de senha
-    async function performPasswordReset(email) {
-        try {
-            // Usar serviço de login com action reset_password
-            const response = await fetch('../services/login.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    action: 'reset_password',
-                    email: email 
-                })
-            });
-            
-            const result = await response.json();
-            return result;
-        } catch (error) {
-            console.error('Erro ao solicitar recuperação de senha:', error);
-            return {
-                success: false,
-                message: 'Erro de conexão com o servidor.'
-            };
-        }
     }
 
     // ========== INICIALIZAÇÃO ==========
@@ -446,77 +407,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== LOGIN COM GOOGLE ==========
-    
-    const googleLoginBtn = document.getElementById('google-login-btn');
-    
-    if (googleLoginBtn) {
-        googleLoginBtn.addEventListener('click', function() {
-            initiateGoogleLogin();
-        });
-    }
-    
-    // Verificar se há mensagem de erro do Google na URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const errorCode = urlParams.get('error');
-    
-    if (errorCode) {
-        const errorMessages = {
-            'google_auth_denied': 'Você negou a autorização do Google. Por favor, tente novamente.',
-            'google_auth_missing_code': 'Erro na autorização do Google. Código de autorização não encontrado.',
-            'google_token_exchange_failed': 'Erro ao trocar código de autorização. Tente novamente.',
-            'google_userinfo_failed': 'Erro ao obter suas informações do Google. Tente novamente.',
-            'google_email_not_found': 'Seu e-mail do Google não está cadastrado no sistema. Entre em contato com o administrador para ter acesso.',
-            'decorator_not_approved': 'Sua conta de decorador ainda não foi aprovada pelo administrador.',
-            'jwt_generation_failed': 'Erro ao gerar token de autenticação. Tente novamente.',
-            'google_unexpected_error': 'Erro inesperado ao fazer login com Google. Tente novamente.'
-        };
-        
-        const errorMessage = errorMessages[errorCode] || 'Erro ao fazer login com Google.';
-        showMessage(errorMessage, 'error');
-        
-        // Limpar o parâmetro da URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
     console.log('Login page loaded successfully!');
 });
-
-/**
- * Iniciar processo de login com Google OAuth 2.0
- */
-function initiateGoogleLogin() {
-    // Obter credenciais do Google (você deve configurá-las no .env)
-    // Para fins de demonstração, usaremos valores de placeholder
-    // Em produção, estes valores virão do backend
-    
-    // Buscar configurações do Google OAuth do backend
-    fetch('../api/google-config.php')
-        .then(response => response.json())
-        .then(config => {
-            if (!config.client_id) {
-                showMessage('Login com Google não configurado. Entre em contato com o administrador.', 'error');
-                return;
-            }
-            
-            const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-            const params = new URLSearchParams({
-                client_id: config.client_id,
-                redirect_uri: config.redirect_uri,
-                response_type: 'code',
-                scope: 'email profile',
-                access_type: 'online',
-                prompt: 'select_account'
-            });
-            
-            // Redirecionar para a página de autorização do Google
-            window.location.href = `${googleAuthUrl}?${params.toString()}`;
-        })
-        .catch(error => {
-            console.error('Erro ao obter configurações do Google:', error);
-            showMessage('Erro ao iniciar login com Google. Tente novamente.', 'error');
-        });
-}
 
 // Função auxiliar para mostrar mensagens (caso não esteja definida no escopo global)
 function showMessage(text, type) {

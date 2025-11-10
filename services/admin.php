@@ -66,6 +66,18 @@ try {
         case 'save_page_customization':
             savePageCustomization($input);
             break;
+        
+        case 'get_admin_profile':
+            getAdminProfile();
+            break;
+        
+        case 'update_admin_profile':
+            updateAdminProfile($input);
+            break;
+        
+        case 'change_admin_password':
+            changeAdminPassword($input);
+            break;
             
         default:
             errorResponse('Ação não reconhecida', 400);
@@ -264,25 +276,11 @@ function createDecorator($input) {
             errorResponse('Email de comunicação inválido', 400);
         }
         
-        // Validar email do Google se fornecido
-        if (!empty($input['google_email']) && !validateEmail($input['google_email'])) {
-            errorResponse('Email do Google inválido', 400);
-        }
-        
         // Verificar se email já existe
         $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
         $stmt->execute([$input['email']]);
         if ($stmt->fetch()) {
             errorResponse('Este email já está cadastrado', 400);
-        }
-        
-        // Verificar se email do Google já existe (se fornecido)
-        if (!empty($input['google_email'])) {
-            $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE google_email = ?");
-            $stmt->execute([$input['google_email']]);
-            if ($stmt->fetch()) {
-                errorResponse('Este email do Google já está cadastrado', 400);
-            }
         }
         
         // Gerar slug único
@@ -295,10 +293,10 @@ function createDecorator($input) {
         $stmt = $pdo->prepare("
             INSERT INTO usuarios (
                 nome, email, senha, telefone, endereco, slug, perfil, 
-                ativo, aprovado_por_admin, created_at, whatsapp, email_comunicacao, google_email
+                ativo, aprovado_por_admin, created_at, whatsapp, email_comunicacao
             ) VALUES (
                 :nome, :email, :senha, :telefone, :endereco, :slug, 'decorator',
-                1, 1, NOW(), :whatsapp, :email_comunicacao, :google_email
+                1, 1, NOW(), :whatsapp, :email_comunicacao
             )
         ");
         
@@ -310,8 +308,7 @@ function createDecorator($input) {
             'endereco' => sanitizeInput($input['address']),
             'slug' => $slug,
             'whatsapp' => sanitizeInput($input['whatsapp']),
-            'email_comunicacao' => sanitizeInput($input['communication_email']),
-            'google_email' => !empty($input['google_email']) ? sanitizeInput($input['google_email']) : null
+            'email_comunicacao' => sanitizeInput($input['communication_email'])
         ];
         
         $stmt->execute($params);
@@ -409,25 +406,6 @@ function updateUser($input) {
             $approved = $input['aprovado_por_admin'] ? 1 : 0;
             $updateFields[] = "aprovado_por_admin = ?";
             $params[] = $approved;
-        }
-        
-        // Atualizar email do Google (se fornecido e usuário for decorador)
-        if (isset($input['google_email']) && $user['perfil'] === 'decorator') {
-            if (!empty($input['google_email'])) {
-                if (!validateEmail($input['google_email'])) {
-                    errorResponse('Email do Google inválido', 400);
-                }
-                
-                // Verificar se email do Google já existe para outro usuário
-                $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE google_email = ? AND id != ?");
-                $stmt->execute([$input['google_email'], $userId]);
-                if ($stmt->fetch()) {
-                    errorResponse('Este email do Google já está em uso', 400);
-                }
-            }
-            
-            $updateFields[] = "google_email = ?";
-            $params[] = !empty($input['google_email']) ? sanitizeInput($input['google_email']) : null;
         }
         
         if (empty($updateFields)) {
@@ -802,6 +780,281 @@ function logAdminAction($adminId, $action, $targetId, $pdo) {
         ]);
     } catch (Exception $e) {
         error_log("Erro ao registrar log administrativo: " . $e->getMessage());
+    }
+}
+
+/**
+ * Obter dados do perfil do administrador logado
+ */
+function getAdminProfile() {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $adminId = $_SESSION['admin_id'] ?? null;
+        if (!$adminId) {
+            errorResponse('Administrador não autenticado', 401);
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                id,
+                nome,
+                email,
+                telefone,
+                whatsapp,
+                instagram,
+                email_comunicacao,
+                bio,
+                foto_perfil,
+                created_at,
+                updated_at
+            FROM usuarios
+            WHERE id = ? AND perfil = 'admin'
+            LIMIT 1
+        ");
+        $stmt->execute([$adminId]);
+        $admin = $stmt->fetch();
+        
+        if (!$admin) {
+            errorResponse('Perfil administrativo não encontrado', 404);
+        }
+        
+        $profile = [
+            'id' => (int)$admin['id'],
+            'name' => $admin['nome'],
+            'email' => $admin['email'],
+            'phone' => $admin['telefone'],
+            'whatsapp' => $admin['whatsapp'],
+            'instagram' => $admin['instagram'],
+            'communication_email' => $admin['email_comunicacao'],
+            'bio' => $admin['bio'],
+            'profile_photo' => $admin['foto_perfil'],
+            'created_at' => $admin['created_at'],
+            'updated_at' => $admin['updated_at']
+        ];
+        
+        successResponse($profile, 'Perfil administrativo carregado');
+    } catch (PDOException $e) {
+        error_log("Erro ao obter perfil do admin: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Atualizar informações do perfil do administrador
+ */
+function updateAdminProfile($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $adminId = $_SESSION['admin_id'] ?? null;
+        if (!$adminId) {
+            errorResponse('Administrador não autenticado', 401);
+        }
+        
+        $name = trim($input['name'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+        $whatsapp = trim($input['whatsapp'] ?? '');
+        $instagram = trim($input['instagram'] ?? '');
+        $communicationEmail = trim($input['communication_email'] ?? '');
+        $bio = trim($input['bio'] ?? '');
+        $profileImage = $input['profile_image'] ?? null;
+        $removeImage = !empty($input['remove_profile_image']);
+        
+        if (empty($name)) {
+            errorResponse('Nome é obrigatório', 400);
+        }
+        
+        if (empty($email) || !validateEmail($email)) {
+            errorResponse('Email inválido', 400);
+        }
+        
+        if (!empty($communicationEmail) && !validateEmail($communicationEmail)) {
+            errorResponse('Email de comunicação inválido', 400);
+        }
+        
+        // Verificar se email já está em uso por outro usuário
+        $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = ? AND id != ?");
+        $stmt->execute([$email, $adminId]);
+        if ($stmt->fetch()) {
+            errorResponse('Este email já está em uso por outro usuário', 400);
+        }
+        
+        // Buscar dados atuais para manipular arquivo de imagem
+        $stmt = $pdo->prepare("SELECT foto_perfil FROM usuarios WHERE id = ?");
+        $stmt->execute([$adminId]);
+        $currentData = $stmt->fetch();
+        $currentPhoto = $currentData['foto_perfil'] ?? null;
+        $newPhotoPath = $currentPhoto;
+        
+        if ($profileImage) {
+            $newPhotoPath = saveAdminProfileImage($profileImage, $currentPhoto, $adminId);
+        } elseif ($removeImage && $currentPhoto) {
+            removeStoredFile($currentPhoto);
+            $newPhotoPath = null;
+        }
+        
+        $updateFields = [
+            'nome' => sanitizeInput($name),
+            'email' => sanitizeInput($email),
+            'telefone' => !empty($phone) ? sanitizeInput($phone) : null,
+            'whatsapp' => !empty($whatsapp) ? sanitizeInput($whatsapp) : null,
+            'instagram' => !empty($instagram) ? sanitizeInput($instagram) : null,
+            'email_comunicacao' => !empty($communicationEmail) ? sanitizeInput($communicationEmail) : null,
+            'bio' => !empty($bio) ? $bio : null,
+            'foto_perfil' => $newPhotoPath,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $setClause = [];
+        $params = [];
+        
+        foreach ($updateFields as $column => $value) {
+            $setClause[] = "{$column} = ?";
+            $params[] = $value;
+        }
+        
+        $params[] = $adminId;
+        
+        $sql = "UPDATE usuarios SET " . implode(', ', $setClause) . " WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        
+        logAdminAction($adminId, 'update_admin_profile', $adminId, $pdo);
+        
+        $response = [
+            'name' => $updateFields['nome'],
+            'email' => $updateFields['email'],
+            'phone' => $updateFields['telefone'],
+            'whatsapp' => $updateFields['whatsapp'],
+            'instagram' => $updateFields['instagram'],
+            'communication_email' => $updateFields['email_comunicacao'],
+            'bio' => $updateFields['bio'],
+            'profile_photo' => $updateFields['foto_perfil']
+        ];
+        
+        successResponse($response, 'Perfil atualizado com sucesso!');
+    } catch (PDOException $e) {
+        error_log("Erro ao atualizar perfil do admin: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Alterar senha do administrador
+ */
+function changeAdminPassword($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $adminId = $_SESSION['admin_id'] ?? null;
+        if (!$adminId) {
+            errorResponse('Administrador não autenticado', 401);
+        }
+        
+        $currentPassword = $input['current_password'] ?? '';
+        $newPassword = $input['new_password'] ?? '';
+        $confirmPassword = $input['confirm_password'] ?? '';
+        
+        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            errorResponse('Todos os campos de senha são obrigatórios', 400);
+        }
+        
+        if ($newPassword !== $confirmPassword) {
+            errorResponse('A confirmação de senha não confere', 400);
+        }
+        
+        if (strlen($newPassword) < 8) {
+            errorResponse('A nova senha deve ter ao menos 8 caracteres', 400);
+        }
+        
+        if (!preg_match('/[A-Za-z]/', $newPassword) || !preg_match('/\d/', $newPassword)) {
+            errorResponse('A nova senha deve conter letras e números', 400);
+        }
+        
+        $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ? AND perfil = 'admin'");
+        $stmt->execute([$adminId]);
+        $admin = $stmt->fetch();
+        
+        if (!$admin || !password_verify($currentPassword, $admin['senha'])) {
+            errorResponse('Senha atual incorreta', 400);
+        }
+        
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE usuarios SET senha = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$hashedPassword, $adminId]);
+        
+        logAdminAction($adminId, 'change_admin_password', $adminId, $pdo);
+        
+        successResponse(null, 'Senha atualizada com sucesso!');
+    } catch (PDOException $e) {
+        error_log("Erro ao alterar senha do admin: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Salvar imagem de perfil do administrador
+ */
+function saveAdminProfileImage($base64Image, $currentPhoto, $adminId) {
+    if (strpos($base64Image, 'base64,') === false) {
+        errorResponse('Formato de imagem inválido', 400);
+    }
+    
+    [$meta, $data] = explode('base64,', $base64Image);
+    $data = str_replace(' ', '+', $data);
+    $binaryData = base64_decode($data, true);
+    
+    if ($binaryData === false) {
+        errorResponse('Não foi possível processar a imagem enviada', 400);
+    }
+    
+    $allowedMime = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp'
+    ];
+    
+    $mimeType = null;
+    if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);/', $meta, $matches)) {
+        $mimeType = strtolower($matches[1]);
+    }
+    
+    if (!$mimeType || !isset($allowedMime[$mimeType])) {
+        errorResponse('Tipo de imagem não suportado. Utilize JPG, PNG, GIF ou WebP', 400);
+    }
+    
+    $extension = $allowedMime[$mimeType];
+    $uploadDir = __DIR__ . '/../uploads/admin/';
+    
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    $filename = 'admin_' . $adminId . '_' . time() . '.' . $extension;
+    $fullPath = $uploadDir . $filename;
+    
+    if (file_put_contents($fullPath, $binaryData) === false) {
+        errorResponse('Erro ao salvar imagem de perfil', 500);
+    }
+    
+    // Remover imagem anterior
+    if ($currentPhoto) {
+        removeStoredFile($currentPhoto);
+    }
+    
+    return 'uploads/admin/' . $filename;
+}
+
+/**
+ * Remover arquivo armazenado anteriormente
+ */
+function removeStoredFile($relativePath) {
+    $filePath = realpath(__DIR__ . '/../' . ltrim($relativePath, '/'));
+    if ($filePath && file_exists($filePath) && strpos($filePath, realpath(__DIR__ . '/..')) === 0) {
+        @unlink($filePath);
     }
 }
 ?>

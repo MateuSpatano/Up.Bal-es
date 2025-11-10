@@ -1,6 +1,20 @@
-# Resumo das Alterações - Sistema de Edição de Tela Inicial do Decorador
+# Resumo das Alterações Recentes
 
-## ✅ Funcionalidades Implementadas
+## 🔐 Autenticação e Segurança
+- Login centralizado no `services/login.php` com tokens "lembrar-me", logs (`access_logs`) e bloqueio por perfil
+- Novo fluxo de recuperação de senha com validação de token (`password_reset_tokens`) e página dedicada (`pages/reset-password.html`)
+- Configuração de SMTP documentada no `.env` e na instalação para habilitar notificações por email
+- Script SQL `database/setup_mysql.sql` atualizado com criação condicional de colunas (`whatsapp`, `instagram`, `email_comunicacao`) e índices
+
+## 🎨 Portfólio do Decorador
+- Serviço `services/portfolio.php` permite CRUD completo dos itens do portfólio autenticado
+- `js/painel-decorador.js` sincroniza as ações de interface com o backend (listagem, criação, edição e limpeza)
+- Dados persistidos na tabela `decorator_portfolio_items`, com suporte a upload de imagens e ordenação
+- Integração com o painel administrativo para gerar links e comunicar atualizações entre abas
+
+## 🧩 Personalização da Página do Decorador
+
+### ✅ Funcionalidades Implementadas
 
 ### 1. Botão de Edição no Admin
 - ✅ Adicionado botão "Editar Tela Inicial" (ícone de paleta) na listagem de usuários para cada decorador
@@ -40,7 +54,7 @@
 - ✅ Valores padrão definidos para desenvolvimento
 - ✅ Fácil configuração para produção
 
-## 📋 Estrutura de Tabelas do Banco de Dados
+### 📋 Estrutura de Tabelas do Banco de Dados
 
 ### Nova Tabela: `decorator_page_customization`
 
@@ -60,7 +74,7 @@
 - Foreign Key para `usuarios(id)` com CASCADE DELETE
 - Unique constraint em `decorator_id`
 
-## 🔧 Variáveis de Ambiente Centralizadas
+### 🔧 Variáveis de Ambiente Centralizadas
 
 ### Banco de Dados
 - `DB_HOST` - Host do MySQL
@@ -79,10 +93,7 @@
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
 - `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`
 
-### Google OAuth (Opcional)
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-
-## 📝 Arquivos Modificados
+### 📝 Arquivos Modificados
 
 1. **pages/admin.html** - Modal de edição adicionado
 2. **js/admin.js** - Funções de edição e gerenciamento
@@ -92,7 +103,7 @@
 6. **env.example** - Documentação completa das variáveis
 7. **database/add_page_customization.sql** - Script de criação da tabela
 
-## 🚀 Como Usar
+### 🚀 Como Usar
 
 ### 1. Executar Script SQL
 ```bash
@@ -112,7 +123,7 @@ cp env.example .env
 4. Edite os campos desejados
 5. Salve as alterações
 
-## ⚠️ Observações Importantes
+### ⚠️ Observações Importantes
 
 1. **Tabela do Banco**: É necessário executar o script SQL `database/add_page_customization.sql` antes de usar a funcionalidade.
 
@@ -122,7 +133,7 @@ cp env.example .env
 
 4. **Segurança**: Todas as entradas são sanitizadas antes de salvar no banco de dados.
 
-## ✨ Melhorias Implementadas
+### ✨ Melhorias Implementadas
 
 - ✅ Interface visual moderna e intuitiva
 - ✅ Validação de dados no frontend e backend
@@ -132,7 +143,7 @@ cp env.example .env
 - ✅ Sistema de tabs para organização
 - ✅ Valores padrão quando não há personalização
 
-## 📊 Resumo Final
+### 📊 Resumo Final
 
 **Alterações na Estrutura de Tabelas:**
 - ✅ **SIM, houve alteração**: Nova tabela `decorator_page_customization` criada
@@ -146,6 +157,8 @@ cp env.example .env
 - ✅ Documentação completa no `env.example`
 - ✅ Valores padrão para desenvolvimento
 - ✅ Fácil configuração para deploy
+
+
 
 
 

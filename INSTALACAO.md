@@ -42,7 +42,12 @@ DB_PASS=sua_senha_mysql
 JWT_SECRET=sua_chave_jwt_aqui
 ```
 
-### 4. Testar Instalação
+### 4. Configurar envio de emails (opcional)
+- Edite as variáveis `SMTP_*` no arquivo `.env` com as credenciais do seu provedor (Gmail, Outlook, etc.)
+- O envio de emails é necessário para a recuperação de senha e notificações automáticas
+- Em ambientes de desenvolvimento, utilize senhas de aplicativo ou serviços de sandbox (Mailtrap, Mailhog)
+
+### 5. Testar Instalação
 1. Acesse: `http://localhost/Up.BaloesV3`
 2. Faça login com: admin@upbaloes.com / admin123
 3. Verifique se o painel administrativo carrega
@@ -67,7 +72,6 @@ composer install --no-dev
 ```
 
 ## Próximos Passos
-1. Configure Google OAuth (opcional)
-2. Personalize o sistema
-3. Configure backup do banco
-4. Deploy em produção
+1. Personalize o sistema
+2. Configure backup do banco
+3. Deploy em produção

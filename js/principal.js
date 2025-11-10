@@ -278,23 +278,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== FUNCIONALIDADES DO USUÁRIO ==========
     
-    // Função de login - deve ser implementada com chamada real ao backend
-    // TODO: Implementar integração com services/login.php
-    async function performLogin() {
+    function hydrateUserMenu() {
         try {
-            // Esta função deve ser implementada com chamada real ao backend
-            // Por enquanto apenas atualiza a interface se já houver dados do usuário
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.name) {
-                if (userMenuBtn) {
-                    const userBtn = userMenuBtn.querySelector('span');
-                    if (userBtn) {
-                        userBtn.textContent = userData.name;
-                    }
+            if (userData && userData.name && userMenuBtn) {
+                const userBtn = userMenuBtn.querySelector('span');
+                if (userBtn) {
+                    userBtn.textContent = userData.name;
                 }
             }
         } catch (error) {
-            console.error('Erro ao realizar login:', error);
+            console.error('Erro ao carregar informações do usuário:', error);
         }
     }
 
@@ -348,6 +342,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+    
+    hydrateUserMenu();
 
     // ========== SISTEMA DE NOTIFICAÇÕES ==========
     
@@ -992,7 +988,10 @@ function loginUser(email, password) {
     
     return new Promise((resolve) => {
         setTimeout(() => {
-            resolve({ success: true, user: { name: 'João Silva', email: email } });
+            const derivedName = (typeof email === 'string' && email.includes('@'))
+                ? email.split('@')[0]
+                : '';
+            resolve({ success: true, user: { name: derivedName, email } });
         }, 1000);
     });
 }

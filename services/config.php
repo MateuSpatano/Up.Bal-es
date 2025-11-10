@@ -186,6 +186,37 @@ function verifyPassword($password, $hash) {
     return password_verify($password, $hash);
 }
 
+// Enviar email simples (HTML) utilizando as configurações definidas
+function sendEmail($to, $subject, $htmlBody, $textBody = null) {
+    global $email_config;
+    
+    $fromEmail = $email_config['from_email'] ?? 'noreply@upbaloes.com';
+    $fromName = $email_config['from_name'] ?? 'Up.Baloes';
+    $replyTo = $email_config['reply_to'] ?? $fromEmail;
+    
+    $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . mb_encode_mimeheader($fromName, 'UTF-8') . " <{$fromEmail}>",
+        'Reply-To: ' . $replyTo,
+        'X-Mailer: PHP/' . phpversion()
+    ];
+    
+    $body = $htmlBody;
+    if ($textBody !== null && trim($textBody) !== '') {
+        $body .= "<br><br><pre style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #6B7280;\">" . htmlspecialchars($textBody) . '</pre>';
+    }
+    
+    $result = @mail($to, $encodedSubject, $body, implode("\r\n", $headers));
+    
+    if (!$result) {
+        error_log("Falha ao enviar email para {$to} com assunto '{$subject}'");
+    }
+    
+    return $result;
+}
+
 // Resposta JSON padronizada
 function jsonResponse($data, $status_code = 200) {
     http_response_code($status_code);

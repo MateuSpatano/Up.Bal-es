@@ -1,6 +1,6 @@
 # 🎈 Up.Baloes - Sistema de Gestão
 
-Sistema completo de gerenciamento para decorações com balões, incluindo autenticação JWT, login com Google OAuth 2.0 e gestão de clientes, decoradores e administradores.
+Sistema completo de gerenciamento para decorações com balões, incluindo autenticação JWT e gestão de clientes, decoradores e administradores.
 
 ## 🚀 Instalação Rápida
 
@@ -36,12 +36,9 @@ JWT_EXPIRATION=28800
 # Sistema
 BASE_URL=http://localhost/Up.BaloesV3
 ENVIRONMENT=development
-
-# Google OAuth (opcional)
-GOOGLE_CLIENT_ID=seu_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=seu_client_secret
-GOOGLE_REDIRECT_URI=http://localhost/Up.BaloesV3/google-callback.php
 ```
+
+> Configure também as variáveis `SMTP_*` no `.env` para habilitar o envio de emails de recuperação de senha e notificações.
 
 ### 4. Acessar o Sistema
 ```
@@ -68,17 +65,17 @@ Up.BaloesV3/
 
 - **Backend:** PHP 7.4+, MySQL 5.7+
 - **Frontend:** HTML5, TailwindCSS, JavaScript ES6+
-- **Autenticação:** JWT, Google OAuth 2.0
-- **Dependências:** Firebase JWT, Google API Client
+- **Autenticação:** JWT
+- **Dependências:** Firebase JWT, vlucas/phpdotenv
 
 ## 📋 Funcionalidades
 
-- ✅ Autenticação JWT com expiração
-- ✅ Login com Google OAuth 2.0
-- ✅ Gestão de usuários (Admin, Decorador, Cliente)
-- ✅ Sistema de orçamentos
-- ✅ Painel administrativo
-- ✅ Interface responsiva
+- ✅ Autenticação com sessões, tokens "lembrar-me" e recuperação de senha por email
+- ✅ Gestão de usuários (Admin, Decorador, Cliente) com aprovação de decoradores
+- ✅ Sistema de orçamentos com registros de atividade
+- ✅ Personalização da página pública do decorador e gestão de portfólio
+- ✅ Painel administrativo com métricas em tempo real
+- ✅ Interface responsiva otimizada para desktop e mobile
 
 ## 🛠️ Desenvolvimento
 
@@ -92,14 +89,19 @@ $adminData = requireAdminAuth(); // Apenas admin
 
 ### Endpoints da API
 - `POST /api/login.php` - Login com JWT
-- `GET /api/google-config.php` - Configuração Google OAuth
-- `POST /services/login.php` - Login tradicional
+- `POST /services/login.php` - Login tradicional, lembrete de sessão e recuperação de senha
 - `POST /services/admin.php` - Gestão administrativa
+- `POST /services/portfolio.php` - CRUD do portfólio do decorador autenticado
 
 ### Banco de Dados
-- **usuarios** - Dados dos usuários
+- **usuarios** - Dados dos usuários e perfis
+- **remember_tokens** - Tokens persistentes do "lembrar-me"
+- **password_reset_tokens** - Tokens temporários para redefinição de senha
+- **access_logs** - Histórico de logins, logouts e eventos relevantes
 - **orcamentos** - Solicitações de orçamento
-- **budget_logs** - Log de ações
+- **budget_logs** - Log de ações nos orçamentos
+- **decorator_page_customization** - Configurações da página pública do decorador
+- **decorator_portfolio_items** - Serviços exibidos no portfólio público
 - **decorator_availability** - Disponibilidade dos decoradores
 - **decorator_blocked_dates** - Datas bloqueadas
 

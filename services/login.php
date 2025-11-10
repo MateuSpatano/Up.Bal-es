@@ -57,6 +57,14 @@ try {
             handlePasswordReset($input);
             break;
             
+        case 'validate_reset_token':
+            validateResetToken($input);
+            break;
+        
+        case 'set_new_password':
+            setNewPassword($input);
+            break;
+        
         default:
             errorResponse('Ação não reconhecida', 400);
     }
@@ -375,6 +383,10 @@ function handlePasswordReset($input) {
         $token = generateSecureToken(32);
         $expires_at = date('Y-m-d H:i:s', time() + $GLOBALS['security_config']['password_reset_lifetime']);
         
+        // Remover tokens anteriores do usuário
+        $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = ?");
+        $stmt->execute([$user['id']]);
+        
         // Salvar token no banco
         $stmt = $pdo->prepare("
             INSERT INTO password_reset_tokens (user_id, token, expires_at) 
@@ -382,9 +394,36 @@ function handlePasswordReset($input) {
         ");
         $stmt->execute([$user['id'], $token, $expires_at]);
         
-        // Aqui você enviaria o email com o token
-        // Por enquanto, apenas logamos
-        error_log("Token de recuperação gerado para {$email}: {$token}");
+        cleanupExpiredResetTokens($pdo);
+        
+        $baseUrl = rtrim($GLOBALS['urls']['base'] ?? '', '/');
+        $resetPath = 'pages/reset-password.html';
+        $separator = substr($baseUrl, -1) === '/' ? '' : '/';
+        $resetLink = $baseUrl . $separator . $resetPath . '?token=' . urlencode($token);
+        
+        $subject = 'Recuperação de senha - Up.Baloes';
+        $userName = $user['nome'] ?? 'usuário';
+        $htmlBody = "
+            <p>Olá {$userName},</p>
+            <p>Recebemos uma solicitação para redefinir sua senha do sistema Up.Baloes.</p>
+            <p>Para criar uma nova senha, clique no botão abaixo:</p>
+            <p style=\"margin: 24px 0;\">
+                <a href=\"{$resetLink}\" style=\"display:inline-block;padding:12px 24px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;\">Redefinir minha senha</a>
+            </p>
+            <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
+            <p style=\"word-break:break-all;\"><a href=\"{$resetLink}\" target=\"_blank\">{$resetLink}</a></p>
+            <p>Este link é válido por " . ($GLOBALS['security_config']['password_reset_lifetime'] / 60) . " minutos.</p>
+            <p>Se você não solicitou a alteração de senha, ignore este email.</p>
+            <p>Atenciosamente,<br>Equipe Up.Baloes</p>
+        ";
+        
+        $textBody = "Olá {$userName},\n\nRecebemos uma solicitação para redefinir sua senha no Up.Baloes.\n\nAcesse o link abaixo para criar uma nova senha (válido por " . ($GLOBALS['security_config']['password_reset_lifetime'] / 60) . " minutos):\n{$resetLink}\n\nSe você não solicitou a alteração, ignore este email.\n\nEquipe Up.Baloes";
+        
+        $emailSent = sendEmail($email, $subject, $htmlBody, $textBody);
+        
+        if (!$emailSent) {
+            error_log("Falha ao enviar email de recuperação para {$email}");
+        }
         
         successResponse(null, 'Se o email estiver cadastrado, você receberá instruções de recuperação.');
         
@@ -452,6 +491,143 @@ function checkRememberToken($token, $isAdmin = false) {
     } catch (Exception $e) {
         error_log("Erro ao verificar token de lembrar: " . $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * Validar token de recuperação de senha
+ */
+function validateResetToken($input) {
+    $token = trim($input['token'] ?? '');
+    
+    if (empty($token)) {
+        errorResponse('Token de recuperação inválido.', 400);
+    }
+    
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        cleanupExpiredResetTokens($pdo);
+        
+        $stmt = $pdo->prepare("
+            SELECT prt.user_id, prt.expires_at, u.email, u.nome
+            FROM password_reset_tokens prt
+            INNER JOIN usuarios u ON u.id = prt.user_id
+            WHERE prt.token = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$token]);
+        $data = $stmt->fetch();
+        
+        if (!$data) {
+            errorResponse('Token inválido ou expirado.', 400);
+        }
+        
+        if (strtotime($data['expires_at']) < time()) {
+            $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE token = ?");
+            $stmt->execute([$token]);
+            errorResponse('Token expirado. Solicite uma nova recuperação.', 400);
+        }
+        
+        successResponse([
+            'email' => $data['email'],
+            'name' => $data['nome'],
+            'expires_at' => $data['expires_at']
+        ], 'Token válido.');
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao validar token de recuperação: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Definir nova senha utilizando token válido
+ */
+function setNewPassword($input) {
+    $token = trim($input['token'] ?? '');
+    $password = $input['password'] ?? '';
+    $confirmPassword = $input['confirm_password'] ?? '';
+    
+    if (empty($token)) {
+        errorResponse('Token de recuperação inválido.', 400);
+    }
+    
+    if (empty($password) || empty($confirmPassword)) {
+        errorResponse('Informe a nova senha e a confirmação.', 400);
+    }
+    
+    if ($password !== $confirmPassword) {
+        errorResponse('As senhas informadas não coincidem.', 400);
+    }
+    
+    if (strlen($password) < 8) {
+        errorResponse('A nova senha deve ter pelo menos 8 caracteres.', 400);
+    }
+    
+    if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+        errorResponse('A nova senha deve conter letras e números.', 400);
+    }
+    
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        cleanupExpiredResetTokens($pdo);
+        
+        $stmt = $pdo->prepare("
+            SELECT prt.user_id, prt.expires_at, u.email
+            FROM password_reset_tokens prt
+            INNER JOIN usuarios u ON u.id = prt.user_id
+            WHERE prt.token = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$token]);
+        $data = $stmt->fetch();
+        
+        if (!$data) {
+            errorResponse('Token inválido ou expirado.', 400);
+        }
+        
+        if (strtotime($data['expires_at']) < time()) {
+            $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE token = ?");
+            $stmt->execute([$token]);
+            errorResponse('Token expirado. Solicite uma nova recuperação.', 400);
+        }
+        
+        $hashedPassword = hashPassword($password);
+        
+        $pdo->beginTransaction();
+        
+        $stmt = $pdo->prepare("UPDATE usuarios SET senha = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$hashedPassword, $data['user_id']]);
+        
+        $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = ?");
+        $stmt->execute([$data['user_id']]);
+        
+        $pdo->commit();
+        
+        logAccess($data['user_id'], 'password_reset', $pdo);
+        
+        successResponse(null, 'Senha redefinida com sucesso! Você já pode fazer login.');
+        
+    } catch (PDOException $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Erro ao redefinir senha: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Remover tokens expirados de recuperação
+ */
+function cleanupExpiredResetTokens($pdo) {
+    try {
+        $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
+        $stmt->execute();
+    } catch (Exception $e) {
+        error_log("Erro ao limpar tokens expirados: " . $e->getMessage());
     }
 }
 

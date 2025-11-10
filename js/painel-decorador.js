@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageTitle = document.getElementById('page-title');
     const userName = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
+    const userDisplayName = document.getElementById('user-display-name');
     
     // Modal de gerenciamento de conta
     const accountModal = document.getElementById('account-modal');
@@ -2346,34 +2347,47 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Se não houver dados salvos, usar dados padrão
         if (!userData) {
-            userData = {
-                name: 'João Silva',
-                email: 'joao@decorador.com',
-                phone: '(11) 99999-9999',
-                whatsapp: '(11) 99999-9999',
-                communication_email: 'comunicacao@decorador.com',
-                address: 'Rua das Flores, 123',
-                city: 'São Paulo',
-                state: 'SP',
-                zipcode: '01234-567'
-            };
+            updateUserInterface({});
+            return;
         }
         
         // Atualizar interface
         updateUserInterface(userData);
     }
     
-    function updateUserInterface(userData) {
-        if (userName && userData.name) {
-            userName.textContent = userData.name;
+    function updateUserInterface(userData = {}) {
+        const nameValue = typeof userData.name === 'string' && userData.name.trim().length > 0
+            ? userData.name.trim()
+            : '--';
+        const emailValue = typeof userData.email === 'string' && userData.email.trim().length > 0
+            ? userData.email.trim()
+            : '--';
+        
+        if (userName) {
+            userName.textContent = nameValue;
         }
         
-        if (userEmail && userData.email) {
-            userEmail.textContent = userData.email;
+        if (userDisplayName) {
+            userDisplayName.textContent = nameValue;
         }
         
-        // Salvar dados no localStorage
-        localStorage.setItem('userData', JSON.stringify(userData));
+        if (userEmail) {
+            userEmail.textContent = emailValue;
+        }
+        
+        const shouldPersist = userData && Object.values(userData).some(value => {
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'string') {
+                return value.trim().length > 0;
+            }
+            return true;
+        });
+        
+        if (shouldPersist) {
+            localStorage.setItem('userData', JSON.stringify(userData));
+        } else {
+            localStorage.removeItem('userData');
+        }
     }
 
     // ========== MODAL DE GERENCIAMENTO DE CONTA ==========
@@ -4661,30 +4675,66 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     // Carregar serviços do portfólio
-    function loadPortfolioServices() {
-        // Tentar carregar serviços existentes do localStorage
-        const savedServices = localStorage.getItem('portfolio_services');
-        
-        if (savedServices) {
-            try {
-                portfolioServices = JSON.parse(savedServices);
-            } catch (error) {
-                console.error('Erro ao carregar serviços salvos:', error);
+    async function loadPortfolioServices(showToastOnError = true) {
+        try {
+            const response = await fetch('../services/portfolio.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'list_portfolio_items'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                const items = Array.isArray(result.data?.items) ? result.data.items : [];
+                portfolioServices = items.map(normalizePortfolioItem);
+            } else {
                 portfolioServices = [];
+                if (showToastOnError) {
+                    showWarningToast('Portfólio', result.message || 'Não foi possível carregar seus serviços.');
+                }
             }
-        } else {
-            // Se não há serviços salvos, inicializar array vazio
+        } catch (error) {
+            console.error('Erro ao carregar portfólio:', error);
             portfolioServices = [];
+            if (showToastOnError) {
+                showErrorToast('Portfólio', 'Erro ao carregar seu portfólio. Verifique a conexão e tente novamente.');
+            }
         }
         
         renderPortfolioServices();
+        updateHomepagePortfolio();
     }
     
-    // Salvar serviços do portfólio
-    function savePortfolioServices() {
-        localStorage.setItem('portfolio_services', JSON.stringify(portfolioServices));
-        // Atualizar portfólio na página inicial
-        updateHomepagePortfolio();
+    function normalizePortfolioItem(item = {}) {
+        const imagePath = item.image || item.image_url || item.image_path || null;
+        let normalizedImage = null;
+        
+        if (imagePath) {
+            if (imagePath.startsWith('../')) {
+                normalizedImage = imagePath;
+            } else if (imagePath.startsWith('uploads/')) {
+                normalizedImage = `../${imagePath}`;
+            } else {
+                normalizedImage = imagePath;
+            }
+        }
+        
+        return {
+            id: item.id,
+            type: item.type || item.service_type || 'Serviço',
+            title: item.title || 'Serviço',
+            description: item.description || '',
+            price: item.price !== null && item.price !== undefined ? Number(item.price) : null,
+            arcSize: item.arcSize || item.arc_size || '',
+            image: normalizedImage,
+            created_at: item.created_at || null,
+            updated_at: item.updated_at || null
+        };
     }
     
     // Renderizar serviços do portfólio (otimizado)
@@ -5108,14 +5158,46 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     // Excluir serviço
-    function deleteService() {
-        if (deletingServiceId) {
-            portfolioServices = portfolioServices.filter(s => s.id !== deletingServiceId);
-            savePortfolioServices(); // Já chama updateHomepagePortfolio() internamente
-            renderPortfolioServices();
-            deleteServiceModal.classList.add('hidden');
-            deletingServiceId = null;
-            showSuccessToast('Serviço Excluído', 'O serviço foi removido do seu portfólio com sucesso.');
+    async function deleteService() {
+        if (!deletingServiceId) return;
+        
+        let originalButtonContent = null;
+        try {
+            if (confirmDeleteService) {
+                originalButtonContent = confirmDeleteService.innerHTML;
+                confirmDeleteService.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Removendo...';
+                confirmDeleteService.disabled = true;
+            }
+            
+            const response = await fetch('../services/portfolio.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'delete_portfolio_item',
+                    id: deletingServiceId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                deleteServiceModal.classList.add('hidden');
+                deletingServiceId = null;
+                await loadPortfolioServices(false);
+                showSuccessToast('Serviço removido', result.message || 'O serviço foi removido do portfólio.');
+            } else {
+                showErrorToast('Erro', result.message || 'Não foi possível remover o serviço. Tente novamente.');
+            }
+        } catch (error) {
+            console.error('Erro ao remover serviço:', error);
+            showErrorToast('Erro', 'Erro ao remover o serviço. Verifique sua conexão.');
+        } finally {
+            if (confirmDeleteService) {
+                confirmDeleteService.disabled = false;
+                confirmDeleteService.innerHTML = originalButtonContent || '<i class="fas fa-trash mr-2"></i>Excluir';
+            }
         }
     }
 
@@ -5349,75 +5431,78 @@ Qualquer dúvida, estou à disposição! 😊`;
         }, currentEditingImage.type, 0.9);
     }
     
-    // Processar imagem
-    function processImage(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-    }
-    
     // Salvar serviço
     async function saveServiceData(formData) {
+        const isEdit = Boolean(editingServiceId);
+        let originalButtonContent = null;
+        
         try {
-        const serviceData = {
-            id: editingServiceId || Date.now().toString(),
-            type: formData.get('type'),
-            title: formData.get('title'),
-            description: formData.get('description'),
-            price: formData.get('price') || null,
-            arcSize: formData.get('arcSize') || null,
-            image: null
-        };
-        
-        // Processar imagem se fornecida
-        const imageFile = formData.get('image');
-        if (imageFile && imageFile.size > 0) {
-            serviceData.image = await processImage(imageFile);
-        } else if (editingServiceId) {
-            // Manter imagem existente se não for fornecida nova imagem
-            const existingService = portfolioServices.find(s => s.id === editingServiceId);
-            if (existingService) {
-                serviceData.image = existingService.image;
+            if (saveService) {
+                originalButtonContent = saveService.innerHTML;
+                saveService.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                saveService.disabled = true;
             }
-        }
-        
-        if (editingServiceId) {
-            // Editar serviço existente
-            const index = portfolioServices.findIndex(s => s.id === editingServiceId);
-            if (index !== -1) {
-                portfolioServices[index] = serviceData;
-                    showSuccessToast('Serviço Atualizado', 'As alterações foram salvas com sucesso.');
-                } else {
-                    showErrorToast('Erro', 'Serviço não encontrado para atualização.');
-                    return;
+            
+            const payload = new FormData();
+            payload.append('action', isEdit ? 'update_portfolio_item' : 'create_portfolio_item');
+            if (isEdit) {
+                payload.append('id', editingServiceId);
             }
-        } else {
-            // Adicionar novo serviço
-            portfolioServices.push(serviceData);
-                showSuccessToast('Serviço Adicionado', 'Novo serviço foi adicionado ao seu portfólio.');
-        }
-        
-        savePortfolioServices(); // Já chama updateHomepagePortfolio() internamente
-        renderPortfolioServices();
-        serviceModal.classList.add('hidden');
             
-            // Resetar formulário
-            editingServiceId = null;
-            document.getElementById('image-preview').classList.add('hidden');
-            document.getElementById('open-image-editor').classList.add('hidden');
+            for (const [key, value] of formData.entries()) {
+                if (key === 'image' && value instanceof File && value.size === 0) {
+                    continue;
+                }
+                payload.append(key, value);
+            }
             
+            const response = await fetch('../services/portfolio.php', {
+                method: 'POST',
+                body: payload
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                await loadPortfolioServices(false);
+                
+                serviceModal.classList.add('hidden');
+                serviceForm.reset();
+                editingServiceId = null;
+                const preview = document.getElementById('image-preview');
+                const openEditorBtn = document.getElementById('open-image-editor');
+                if (preview) preview.classList.add('hidden');
+                if (openEditorBtn) openEditorBtn.classList.add('hidden');
+                
+                const message = result.message || (isEdit ? 'Serviço atualizado com sucesso!' : 'Serviço adicionado com sucesso!');
+                showSuccessToast('Portfólio', message);
+            } else {
+                showErrorToast('Erro', result.message || 'Não foi possível salvar o serviço. Tente novamente.');
+            }
         } catch (error) {
             console.error('Erro ao salvar serviço:', error);
-            showErrorToast('Erro', 'Ocorreu um erro ao salvar o serviço. Tente novamente.');
+            showErrorToast('Erro', 'Ocorreu um erro ao salvar o serviço. Verifique sua conexão e tente novamente.');
+        } finally {
+            if (saveService) {
+                saveService.disabled = false;
+                saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+            }
         }
     }
     
     // Atualizar portfólio na página inicial
     function updateHomepagePortfolio() {
-        // Salvar dados no localStorage
-        localStorage.setItem('homepage_portfolio', JSON.stringify(portfolioServices));
+        const sanitizedServices = portfolioServices.map(service => ({
+            id: service.id,
+            type: service.type,
+            title: service.title,
+            description: service.description,
+            price: service.price,
+            arcSize: service.arcSize,
+            image: service.image
+        }));
+        
+        localStorage.setItem('homepage_portfolio', JSON.stringify(sanitizedServices));
         
         // Adicionar timestamp para controle de versão
         localStorage.setItem('homepage_portfolio_updated', Date.now().toString());
@@ -5621,11 +5706,32 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     // Função para limpar e recriar portfólio
-    function resetPortfolio() {
-        localStorage.removeItem('portfolio_services');
-        portfolioServices = [];
-        renderPortfolioServices();
-        showSuccessToast('Portfólio Limpo', 'Todos os serviços foram removidos.');
+    async function resetPortfolio() {
+        try {
+            const response = await fetch('../services/portfolio.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'clear_portfolio'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                portfolioServices = [];
+                renderPortfolioServices();
+                updateHomepagePortfolio();
+                showSuccessToast('Portfólio Limpo', result.message || 'Todos os serviços foram removidos.');
+            } else {
+                showErrorToast('Erro', result.message || 'Não foi possível limpar o portfólio.');
+            }
+        } catch (error) {
+            console.error('Erro ao limpar portfólio:', error);
+            showErrorToast('Erro', 'Não foi possível limpar o portfólio. Verifique a conexão.');
+        }
     }
     
     // Chamar inicialização do portfólio
@@ -6035,7 +6141,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 attachment: attachmentData,
                 decorator_id: userData.id,
                 decorator_name: userData.nome,
-                decorator_email: userData.email || userData.google_email || 'Não informado',
+                decorator_email: userData.email || 'Não informado',
                 status: 'novo',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()

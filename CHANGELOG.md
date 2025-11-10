@@ -1,5 +1,14 @@
 # 📋 Changelog - Limpeza do Projeto
 
+## 2025-11-10 — Autenticação reforçada e portfólio dos decoradores
+
+- 🔐 Login centralizado no `services/login.php` agora suporta tokens "lembrar-me", logs de acesso e recuperação de senha por email
+- ✉️ Fluxo completo de redefinição de senha com página dedicada (`pages/reset-password.html`) e script `js/reset-password.js`
+- 🗂️ Novo serviço `services/portfolio.php` permitindo CRUD do portfólio diretamente pelo painel do decorador
+- 🗄️ Script `database/setup_mysql.sql` atualizado com tabelas `remember_tokens`, `password_reset_tokens`, `access_logs`, `decorator_page_customization` e `decorator_portfolio_items`
+- 🧩 Ajustes no frontend (`js/login.js`, `js/admin.js`, `js/painel-decorador.js`) para consumir os novos endpoints e validar fluxos
+- 📝 Documentação (`README.md`, `INSTALACAO.md`, `RESUMO_ALTERACOES.md`) revisada para refletir as funcionalidades atuais e a configuração de SMTP
+
 ## ✅ Arquivos Removidos
 
 ### Documentação Excessiva
@@ -44,8 +53,6 @@
 - Corrigidas referências de `config.new.php` para `config.php` em:
   - `services/auth_middleware.php`
   - `api/login.php`
-  - `api/google-config.php`
-  - `google-callback.php`
 
 ## 📊 Resultado Final
 
@@ -84,7 +91,6 @@ Up.BaloesV3/
 
 2. **Para Produção:**
    - Configure credenciais reais no `.env`
-   - Configure Google OAuth se necessário
    - Configure backup do banco de dados
    - Configure HTTPS
 
