@@ -1,124 +1,165 @@
-# 🎈 Up.Baloes - Sistema de Gestão
+# 🎈 Up.Baloes V3
 
-Sistema completo de gerenciamento para decorações com balões, incluindo autenticação JWT e gestão de clientes, decoradores e administradores.
+Sistema completo para gestão de projetos de decoração com balões. Permite orçar, organizar agendas de decoradores, acompanhar clientes e administrar o fluxo operacional com autenticação segura baseada em JWT.
 
-## 🚀 Instalação Rápida
+## 🧭 Índice Rápido
 
-### 1. Instalar Dependências
+- Visão Geral
+- Requisitos
+- Instalação
+- Configuração do `.env`
+- Usuário Padrão
+- Estrutura de Pastas
+- Principais Módulos
+- Comandos Úteis
+- Boas Práticas de Segurança
+- Suporte
+
+---
+
+## 🌟 Visão Geral
+
+| Área | Destaques |
+| ---- | --------- |
+| Autenticação | JWT + sessão tradicional com “lembrar-me” e recuperação por e-mail |
+| Operação | Painel administrativo com métricas, agenda do decorador e sistema de orçamentos |
+| Marketing | Página pública personalizável e portfólio com fotos |
+| Experiência | Interface responsiva e otimizada para desktop e mobile |
+
+---
+
+## 🔧 Requisitos
+
+- PHP 7.4 ou superior (extensões `pdo_mysql`, `openssl`, `mbstring`)
+- MySQL 5.7 ou superior
+- Composer
+- Servidor Web (Apache com mod_rewrite ou Nginx)
+- Node.js (opcional, apenas se desejar gerenciar dependências front-end adicionais)
+
+---
+
+## 🚀 Instalação
+
+1. Clonar o repositório:
+   ```bash
+   git clone https://github.com/sua-organizacao/Up.BaloesV3.git
+   cd Up.BaloesV3
+   ```
+2. Instalar dependências PHP:
+   ```bash
+   composer install
+   ```
+3. Criar banco e importar estrutura:
+   ```bash
+   mysql -u root -p -e "CREATE DATABASE up_baloes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+   mysql -u root -p up_baloes < database/setup_mysql.sql
+   ```
+4. Configurar variáveis de ambiente (veja a seção seguinte).
+5. Garantir que o diretório esteja acessível via servidor web (por exemplo: `http://localhost/Up.BaloesV3`).
+
+---
+
+## ⚙️ Configuração do `.env`
+
+Copie o arquivo de exemplo:
 ```bash
-composer install
+cp env.example .env
 ```
 
-### 2. Configurar Banco de Dados
-```bash
-# Criar banco de dados
-mysql -u root -p
-CREATE DATABASE up_baloes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-exit;
-
-# Criar estrutura
-mysql -u root -p up_baloes < database/setup_mysql.sql
-```
-
-### 3. Configurar Ambiente
-Crie um arquivo `.env` na raiz do projeto:
+Edite os valores mínimos:
 ```env
-# Banco de Dados
 DB_HOST=localhost
 DB_NAME=up_baloes
 DB_USER=root
 DB_PASS=
 
-# JWT (Gere com: openssl rand -base64 32)
+# Gere uma nova chave com: openssl rand -base64 32
 JWT_SECRET=sua_chave_jwt_aqui
 JWT_EXPIRATION=28800
 
-# Sistema
 BASE_URL=http://localhost/Up.BaloesV3
 ENVIRONMENT=development
+
+# SMTP (necessário para recuperação de senha e notificações)
+SMTP_HOST=smtp.seuprovedor.com
+SMTP_PORT=587
+SMTP_USER=usuario@dominio.com
+SMTP_PASS=senha_ou_token
+SMTP_FROM=suporte@upbaloes.com
+SMTP_FROM_NAME="Up.Baloes"
 ```
 
-> Configure também as variáveis `SMTP_*` no `.env` para habilitar o envio de emails de recuperação de senha e notificações.
+> Em produção, utilize chaves e segredos únicos, nunca commitados no repositório.
 
-### 4. Acessar o Sistema
-```
-http://localhost/Up.BaloesV3
-```
+---
 
-**Login Admin:** admin@upbaloes.com | **Senha:** admin123
+## 👤 Usuário Padrão
 
-## 📂 Estrutura do Projeto
+- **Login:** `admin@upbaloes.com`
+- **Senha:** `admin123`
+
+Altere a senha após o primeiro acesso pelo painel administrativo.
+
+---
+
+## 📂 Estrutura de Pastas
 
 ```
 Up.BaloesV3/
-├── api/                    # Endpoints REST
-├── services/               # Backend PHP
-├── pages/                  # Frontend HTML
-├── js/                     # Scripts JavaScript
-├── css/                    # Estilos CSS
-├── database/               # Scripts SQL
-├── Images/                 # Imagens do sistema
-└── vendor/                 # Dependências PHP
+├── api/          # Endpoints REST auxiliares
+├── services/     # Lógica de negócio em PHP (MVC simplificado)
+├── pages/        # Páginas HTML do painel e área pública
+├── js/           # Scripts para interação e chamadas AJAX
+├── css/          # Estilos base do painel e páginas públicas
+├── database/     # Scripts SQL e seeds
+├── Images/       # Assets usados no portfólio e branding
+├── components/   # Biblioteca de componentes UI reutilizáveis
+└── vendor/       # Dependências PHP (Composer)
 ```
 
-## 🔧 Tecnologias
+---
 
-- **Backend:** PHP 7.4+, MySQL 5.7+
-- **Frontend:** HTML5, TailwindCSS, JavaScript ES6+
-- **Autenticação:** JWT
-- **Dependências:** Firebase JWT, vlucas/phpdotenv
+## 🧩 Principais Módulos
 
-## 📋 Funcionalidades
+- **Autenticação** (`services/auth_middleware.php`, `services/login.php`): controla sessão, JWT e lembrete “remember me”.
+- **Gestão de Usuários** (`services/admin.php`, `services/decorador.php`): cadastro, aprovação de decoradores e perfis.
+- **Orçamentos** (`services/orcamentos.php`, `services/budget_logs.php`): fluxo completo com histórico de ações.
+- **Disponibilidade** (`services/disponibilidade.php`, `services/datas-bloqueadas.php`): agenda dos decoradores, bloqueios e confirmações.
+- **Página do Decorador** (`pages/painel-decorador.html`, `services/pagina-decorador.php`): personalização e publicação do portfólio.
 
-- ✅ Autenticação com sessões, tokens "lembrar-me" e recuperação de senha por email
-- ✅ Gestão de usuários (Admin, Decorador, Cliente) com aprovação de decoradores
-- ✅ Sistema de orçamentos com registros de atividade
-- ✅ Personalização da página pública do decorador e gestão de portfólio
-- ✅ Painel administrativo com métricas em tempo real
-- ✅ Interface responsiva otimizada para desktop e mobile
+---
 
-## 🛠️ Desenvolvimento
+## 🛠️ Comandos Úteis
 
-### Estrutura de Autenticação
-```php
-// Middleware de proteção
-require_once 'services/auth_middleware.php';
-$userData = requireAuth(); // Qualquer usuário
-$adminData = requireAdminAuth(); // Apenas admin
+```bash
+# Atualizar dependências
+composer update
+
+# Verificar autoload (caso adicione novos serviços)
+composer dump-autoload
+
+# Servir a aplicação localmente (modo simples com PHP embutido)
+php -S localhost:8000 -t .
 ```
 
-### Endpoints da API
-- `POST /api/login.php` - Login com JWT
-- `POST /services/login.php` - Login tradicional, lembrete de sessão e recuperação de senha
-- `POST /services/admin.php` - Gestão administrativa
-- `POST /services/portfolio.php` - CRUD do portfólio do decorador autenticado
+---
 
-### Banco de Dados
-- **usuarios** - Dados dos usuários e perfis
-- **remember_tokens** - Tokens persistentes do "lembrar-me"
-- **password_reset_tokens** - Tokens temporários para redefinição de senha
-- **access_logs** - Histórico de logins, logouts e eventos relevantes
-- **orcamentos** - Solicitações de orçamento
-- **budget_logs** - Log de ações nos orçamentos
-- **decorator_page_customization** - Configurações da página pública do decorador
-- **decorator_portfolio_items** - Serviços exibidos no portfólio público
-- **decorator_availability** - Disponibilidade dos decoradores
-- **decorator_blocked_dates** - Datas bloqueadas
+## 🔒 Boas Práticas de Segurança
 
-## 🔒 Segurança
+- Utilize HTTPS em produção e configure o `BASE_URL` com o domínio seguro.
+- Defina um `JWT_SECRET` forte e rotacione periodicamente.
+- Configure políticas de senha forte para usuários administradores.
+- Restrinja permissões de escrita do diretório `vendor/` e arquivos de configuração.
+- Realize backups periódicos do banco (`up_baloes`) e monitore o log de acessos (`access_logs`).
 
-- Tokens JWT com expiração configurável
-- Senhas hashadas com bcrypt
-- Validação rigorosa de dados
-- Proteção contra SQL Injection (PDO)
-- Headers de segurança configurados
+---
 
-## 📞 Suporte
+## 📞 Suporte e Referências
 
-Para dúvidas sobre desenvolvimento, consulte:
-- Código comentado nos arquivos PHP
-- Estrutura do banco em `database/setup_mysql.sql`
-- Configurações em `services/config.php`
+- Estrutura do banco: `database/setup_mysql.sql`
+- Configurações globais: `services/config.php`
+- Guia detalhado de instalação: `INSTALACAO.md`
+- Dúvidas ou bugs: abra uma issue no repositório ou entre em contato com a equipe responsável.
 
 ---
 
