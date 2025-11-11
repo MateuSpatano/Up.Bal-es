@@ -1973,6 +1973,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- JavaScript -->
+    @include('legacy.partials.routes')
     <script src="{{ asset('js/principal.js') }}"></script>
     <script src="{{ asset('js/painel-decorador.js') }}"></script>
 </body>

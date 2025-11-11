@@ -10,27 +10,32 @@
 
 ### 1. Instalar Dependências PHP
 ```bash
+cd laravel
 composer install
 ```
 
-### 2. Configurar Banco de Dados
+### 2. Configurar Ambiente
 ```bash
-# Criar banco de dados
-mysql -u root -p
-CREATE DATABASE up_baloes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-exit;
+# Entrar no diretório Laravel
+cd laravel
 
-# Importar estrutura
-mysql -u root -p up_baloes < database/setup_mysql.sql
-```
-
-### 3. Configurar Ambiente
-```bash
 # Copiar arquivo de configuração
-cp env.example .env
+cp ../env.example .env
 
 # Editar configurações
 nano .env
+```
+
+### 3. Criar Banco de Dados e Executar Migrações
+```bash
+# Criar banco de dados
+mysql -u root -p -e "CREATE DATABASE up_baloes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# Gerar chave da aplicação
+php artisan key:generate
+
+# Executar migrações (cria todas as tabelas automaticamente)
+php artisan migrate
 ```
 
 **Configurações mínimas necessárias:**
@@ -47,10 +52,17 @@ JWT_SECRET=sua_chave_jwt_aqui
 - O envio de emails é necessário para a recuperação de senha e notificações automáticas
 - Em ambientes de desenvolvimento, utilize senhas de aplicativo ou serviços de sandbox (Mailtrap, Mailhog)
 
-### 5. Testar Instalação
-1. Acesse: `http://localhost/Up.BaloesV3`
+### 5. Iniciar Servidor de Desenvolvimento
+```bash
+php artisan serve
+```
+
+### 6. Testar Instalação
+1. Acesse: `http://localhost:8000`
 2. Faça login com: admin@upbaloes.com / admin123
 3. Verifique se o painel administrativo carrega
+
+> **Nota:** Se precisar criar um usuário admin inicial, você pode usar o tinker do Laravel ou criar manualmente via SQL.
 
 ## Solução de Problemas
 

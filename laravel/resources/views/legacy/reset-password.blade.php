@@ -88,6 +88,7 @@
         <p class="text-center text-xs text-gray-500 mt-6">&copy; 2024 Up.Baloes. Todos os direitos reservados.</p>
     </div>
 
+    @include('legacy.partials.routes')
     <script src="{{ asset('js/reset-password.js') }}"></script>
 </body>
 </html>

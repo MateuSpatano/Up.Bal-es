@@ -72,6 +72,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
     const DECORATOR_API_BASE = window.UpBaloesDecoratorBase || `${window.location.origin}/api/decorator`;
     const PUBLIC_API_BASE = window.UpBaloesPublicApiBase || `${window.location.origin}/api/public`;
+    const ROUTES = Object.assign({
+        home: '/',
+        login: '/login',
+        cadastro: '/cadastro',
+        adminDashboard: '/admin/painel',
+        decoratorDashboard: '/painel-decorador',
+        solicitacaoCliente: '/solicitacao-cliente'
+    }, window.UpBaloesRoutes || {});
     const contactSection = document.getElementById('contact-section');
     const contactSlug = contactSection?.dataset?.decoratorSlug || window.UpBaloesContactSlug || null;
 
@@ -324,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loginLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 // Redirecionar para a tela de login
-                window.location.href = 'pages/login.html';
+                window.location.href = ROUTES.login || '/login';
                 toggleUserDropdown();
             });
         }
@@ -341,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
             accountLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 // Redirecionar para a página de gerenciamento de conta
-                window.location.href = 'pages/login.html';
+                window.location.href = ROUTES.login || '/login';
                 toggleUserDropdown();
             });
         }

@@ -1,6 +1,8 @@
 // Admin.js - Sistema de Administração Up.Baloes
 class AdminSystem {
     constructor() {
+        const defaultPhotoAttr = document.body?.dataset?.defaultAdminPhoto;
+
         this.currentUser = null;
         this.users = [];
         this.currentPage = 1;
@@ -17,8 +19,13 @@ class AdminSystem {
         this.removeAdminProfileImage = false;
         this.adminPhotoFeedbackTimeout = null;
         this.adminSettingsLoaded = false;
-        this.defaultAdminPhoto = '../Images/Logo System.jpeg';
+        this.defaultAdminPhoto = defaultPhotoAttr || `${window.location.origin}/images/Logo%20System.jpeg`;
         this.apiAdminBase = (window.UpBaloesAdminBase) ? window.UpBaloesAdminBase : `${window.location.origin}/api/admin`;
+        this.routes = Object.assign({
+            adminLogin: '/admin/login',
+            adminDashboard: '/admin/painel',
+            login: '/login'
+        }, window.UpBaloesRoutes || {});
         
         this.init();
     }
@@ -46,7 +53,7 @@ class AdminSystem {
         if (!this.currentUser || this.currentUser.role !== 'admin') {
             this.showNotification('Acesso negado. Apenas administradores podem acessar esta área.', 'error');
             setTimeout(() => {
-                window.location.href = 'admin-login.html';
+                window.location.href = this.routes.adminLogin || '/admin/login';
             }, 2000);
             return;
         }
@@ -1372,7 +1379,7 @@ class AdminSystem {
         if (confirm('Tem certeza que deseja sair?')) {
             localStorage.removeItem('userData');
             localStorage.removeItem('userToken');
-            window.location.href = 'admin-login.html';
+            window.location.href = this.routes.adminLogin || '/admin/login';
         }
     }
 

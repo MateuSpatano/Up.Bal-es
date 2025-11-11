@@ -77,6 +77,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const API_BASE = window.UpBaloesDecoratorBase || `${window.location.origin}/api/decorator`;
     const DASHBOARD_API_BASE = `${API_BASE}/dashboard`;
+    const ROUTES = Object.assign({
+        login: '/login',
+        adminDashboard: '/admin/painel',
+        decoratorDashboard: '/painel-decorador'
+    }, window.UpBaloesRoutes || {});
     let cachedUserData = null;
 
     let isSidebarOpen = false;
@@ -1475,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadAccountData() {
         // Redirecionar para a página de gerenciamento de conta do decorador
         console.log('Redirecionando para página de conta...');
-        window.location.href = 'login.html';
+        window.location.href = ROUTES.decoratorDashboard || '/painel-decorador';
     }
     
     // ========== FUNCIONALIDADES DA AGENDA ==========
@@ -4180,7 +4185,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             localStorage.removeItem('userToken');
             
             // Redirecionar para login
-            window.location.href = 'login.html';
+            window.location.href = ROUTES.decoratorDashboard || '/painel-decorador';
         }
     }
 
@@ -4484,7 +4489,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             e.preventDefault();
             closeUserDropdown();
             // Redirecionar para a página de gerenciamento de conta do decorador
-            window.location.href = 'login.html';
+            window.location.href = ROUTES.decoratorDashboard || '/painel-decorador';
         });
     }
     
@@ -4494,7 +4499,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             e.preventDefault();
             closeUserDropdown();
             // Redirecionar para a página de admin
-            window.location.href = 'admin.html';
+            window.location.href = ROUTES.adminDashboard || '/admin/painel';
         });
     }
     

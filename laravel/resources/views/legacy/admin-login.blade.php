@@ -168,6 +168,7 @@
     </div>
     
     <!-- JavaScript -->
+    @include('legacy.partials.routes')
     <script src="{{ asset('js/admin-login.js') }}"></script>
 </body>
 </html>

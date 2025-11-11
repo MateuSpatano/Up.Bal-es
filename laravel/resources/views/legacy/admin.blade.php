@@ -61,7 +61,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50" data-default-admin-photo="{{ asset('images/Logo System.jpeg') }}">
     
     <!-- Verificação de Autenticação Admin -->
     <div id="auth-check" class="hidden">
@@ -1374,6 +1374,7 @@
     </div>
 
     <!-- JavaScript -->
+    @include('legacy.partials.routes')
     <script src="{{ asset('js/admin.js') }}"></script>
 </body>
 </html>

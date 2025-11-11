@@ -1,14 +1,14 @@
 # Resumo das Alterações Recentes
 
 ## 🔐 Autenticação e Segurança
-- Login centralizado no `services/login.php` com tokens "lembrar-me", logs (`access_logs`) e bloqueio por perfil
-- Novo fluxo de recuperação de senha com validação de token (`password_reset_tokens`) e página dedicada (`pages/reset-password.html`)
+- Login centralizado no `App\Http\Controllers\Api\AuthController` com tokens "lembrar-me", logs (`access_logs`) e bloqueio por perfil
+- Novo fluxo de recuperação de senha com validação de token (`password_reset_tokens`) e página dedicada (`resources/views/legacy/reset-password.blade.php`)
 - Configuração de SMTP documentada no `.env` e na instalação para habilitar notificações por email
-- Script SQL `database/setup_mysql.sql` atualizado com criação condicional de colunas (`whatsapp`, `instagram`, `email_comunicacao`) e índices
+- Migrações do Laravel (`laravel/database/migrations/`) gerenciam toda a estrutura do banco de dados, incluindo colunas (`whatsapp`, `instagram`, `email_comunicacao`) e índices
 
 ## 🎨 Portfólio do Decorador
-- Serviço `services/portfolio.php` permite CRUD completo dos itens do portfólio autenticado
-- `js/painel-decorador.js` sincroniza as ações de interface com o backend (listagem, criação, edição e limpeza)
+- API `App\Http\Controllers\Api\PortfolioController` permite CRUD completo dos itens do portfólio autenticado
+- `laravel/public/js/painel-decorador.js` sincroniza as ações de interface com o backend (listagem, criação, edição e limpeza)
 - Dados persistidos na tabela `decorator_portfolio_items`, com suporte a upload de imagens e ordenação
 - Integração com o painel administrativo para gerar links e comunicar atualizações entre abas
 
@@ -34,21 +34,20 @@
 - ✅ Campos para todos os elementos personalizáveis
 
 ### 4. Backend PHP
-- ✅ Endpoints criados em `services/admin.php`:
+- ✅ Endpoints criados em `App\Http\Controllers\Api\AdminController`:
   - `get_page_customization`: Carrega configurações existentes
   - `save_page_customization`: Salva/atualiza configurações
 - ✅ Validação de dados implementada
 - ✅ Log de ações administrativas
 
 ### 5. Frontend - Página Pública
-- ✅ `pagina-decorador.php` atualizado para usar personalizações
+- ✅ `resources/views/legacy/painel-decorador.blade.php` atualizado para usar personalizações
 - ✅ Aplicação de cores via CSS variables
 - ✅ Imagem de capa como background
 - ✅ Redes sociais exibidas na seção de serviços
 - ✅ SEO personalizado aplicado
 
-### 6. Centralização de Variáveis de Ambiente
-- ✅ Todas as variáveis de conexão com banco de dados centralizadas em `services/config.php`
+- ✅ Todas as variáveis de conexão com banco de dados centralizadas em `config/upbaloes.php`
 - ✅ Uso de `vlucas/phpdotenv` para carregar `.env`
 - ✅ Variáveis organizadas por categoria no `env.example`
 - ✅ Valores padrão definidos para desenvolvimento
@@ -95,11 +94,11 @@
 
 ### 📝 Arquivos Modificados
 
-1. **pages/admin.html** - Modal de edição adicionado
-2. **js/admin.js** - Funções de edição e gerenciamento
-3. **services/admin.php** - Endpoints de API
-4. **pagina-decorador.php** - Aplicação de personalizações
-5. **services/config.php** - Centralização de variáveis
+1. **resources/views/legacy/admin.blade.php** - Modal de edição adicionado
+2. **laravel/public/js/admin.js** - Funções de edição e gerenciamento
+3. **App/Http/Controllers/Api/AdminController.php** - Endpoints de API
+4. **resources/views/legacy/painel-decorador.blade.php** - Aplicação de personalizações
+5. **config/upbaloes.php** - Centralização de variáveis
 6. **env.example** - Documentação completa das variáveis
 7. **database/add_page_customization.sql** - Script de criação da tabela
 
@@ -152,7 +151,7 @@ cp env.example .env
 - ✅ Compatível com estrutura atual
 
 **Variáveis de Ambiente:**
-- ✅ Todas centralizadas em `services/config.php`
+- ✅ Todas centralizadas em `config/upbaloes.php`
 - ✅ Uso de dotenv para carregamento
 - ✅ Documentação completa no `env.example`
 - ✅ Valores padrão para desenvolvimento

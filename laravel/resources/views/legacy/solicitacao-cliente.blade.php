@@ -230,6 +230,7 @@
     </footer>
 
     <!-- JavaScript -->
+    @include('legacy.partials.routes')
     <script src="{{ asset('js/principal.js') }}"></script>
     <script src="{{ asset('js/solicitacao-cliente.js') }}"></script>
 </body>
