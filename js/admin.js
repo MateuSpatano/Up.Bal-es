@@ -122,6 +122,13 @@ class AdminSystem {
                 </td>
                 <td class="px-3 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex space-x-2">
+                        ${user.type === 'decorator' && user.url ?
+                            `<button data-url="${user.url}"
+                                    onclick="adminSystem.copyDecoratorLink(this.dataset.url)"
+                                    class="text-emerald-600 hover:text-emerald-900 transition-colors duration-200"
+                                    title="Copiar link público">
+                                <i class="fas fa-share-nodes"></i>
+                            </button>` : ''}
                         <button onclick="adminSystem.editUser(${user.id})" 
                                 class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
                                 title="Editar usuário">
@@ -985,9 +992,12 @@ class AdminSystem {
                 </td>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-1 md:space-x-2">
-                        ${user.type === 'decorator' && user.slug ? `
-                            <button onclick="admin.copyDecoratorLink('${user.url}')" class="text-green-600 hover:text-green-900 p-1" title="Copiar Link">
-                                <i class="fas fa-link text-xs md:text-sm"></i>
+                        ${user.type === 'decorator' && user.url ? `
+                            <button data-url="${user.url}"
+                                    onclick="adminSystem.copyDecoratorLink(this.dataset.url)"
+                                    class="text-emerald-600 hover:text-emerald-900 p-1"
+                                    title="Copiar link público">
+                                <i class="fas fa-share-nodes text-xs md:text-sm"></i>
                             </button>
                             <button onclick="admin.editPageCustomization(${user.id})" class="text-indigo-600 hover:text-indigo-900 p-1" title="Editar Tela Inicial">
                                 <i class="fas fa-palette text-xs md:text-sm"></i>

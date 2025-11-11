@@ -13,6 +13,32 @@ header('X-XSS-Protection: 1; mode=block');
 // Incluir configurações
 require_once __DIR__ . '/config.php';
 
+/**
+ * Helper para obter a URL base configurada
+ */
+function getBaseUrl(): string {
+    $base = $GLOBALS['urls']['base'] ?? '';
+    return rtrim($base ?? '', '/');
+}
+
+/**
+ * Helper para montar a URL pública do decorador
+ */
+function buildDecoratorUrl(?string $slug): ?string {
+    if (empty($slug)) {
+        return null;
+    }
+
+    $base = getBaseUrl();
+    $path = '/pages/painel-decorador.html?decorator=' . urlencode($slug);
+
+    if ($base === '') {
+        return ltrim($path, '/');
+    }
+
+    return $base . $path;
+}
+
 // Verificar se é uma requisição POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     errorResponse('Método não permitido', 405);
@@ -198,7 +224,7 @@ function getUsers($input) {
         // Buscar usuários
         $query = "
             SELECT id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
-                   perfil, ativo, aprovado_por_admin, created_at, cidade, estado
+                   perfil, ativo, aprovado_por_admin, created_at, cidade, estado, slug
             FROM usuarios 
             WHERE {$whereClause}
             ORDER BY created_at DESC
@@ -225,6 +251,14 @@ function getUsers($input) {
             // Status especial para decoradores não aprovados
             if ($user['perfil'] === 'decorator' && !$user['aprovado_por_admin']) {
                 $user['status'] = 'pending_approval';
+            }
+
+            if ($user['type'] === 'decorator') {
+                $user['slug'] = $user['slug'] ?? null;
+                $user['url'] = buildDecoratorUrl($user['slug']);
+            } else {
+                $user['slug'] = null;
+                $user['url'] = null;
             }
             
             unset($user['nome']);
