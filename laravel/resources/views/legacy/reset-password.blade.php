@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redefinir Senha - Up.Baloes</title>
-    <link rel="icon" type="image/x-icon" href="../Images/favicon.ico">
-    <link rel="shortcut icon" type="image/x-icon" href="../Images/favicon.ico">
-    <link rel="apple-touch-icon" href="../Images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="{{ asset('images/favicon.ico') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ asset('images/favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/favicon.ico') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../css/estilos.css">
-    <link rel="stylesheet" href="../css/login.css">
-    <link rel="stylesheet" href="../css/login-fixes.css">
+    <link rel="stylesheet" href="{{ asset('css/estilos.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/login.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/login-fixes.css') }}">
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-indigo-100 to-purple-100 min-h-screen flex items-center justify-center px-4 py-8">
 
@@ -19,7 +19,7 @@
         <div class="bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl p-6 sm:p-8 border border-white/40">
             <div class="text-center mb-6">
                 <div class="mx-auto h-16 w-16 sm:h-20 sm:w-20 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-xl mb-4">
-                    <img src="../Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
+                    <img src="{{ asset('images/Logo System.jpeg') }}" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
                 </div>
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-1">Redefinir Senha</h1>
                 <p class="text-sm text-gray-500" id="reset-description">Digite uma nova senha para sua conta.</p>
@@ -79,7 +79,7 @@
                     <span>Redefinir senha</span>
                 </button>
 
-                <a href="login.html" class="block text-center text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200">
+                <a href="{{ route('login') }}" class="block text-center text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200">
                     <i class="fas fa-arrow-left mr-1"></i>Voltar para o login
                 </a>
             </form>
@@ -88,7 +88,7 @@
         <p class="text-center text-xs text-gray-500 mt-6">&copy; 2024 Up.Baloes. Todos os direitos reservados.</p>
     </div>
 
-    <script src="../js/reset-password.js"></script>
+    <script src="{{ asset('js/reset-password.js') }}"></script>
 </body>
 </html>
 

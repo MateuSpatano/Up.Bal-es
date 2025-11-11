@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordToggles = document.querySelectorAll('.password-toggle');
     
     let isSubmitting = false;
+
+    const API_BASE = window.UpBaloesApiBase || `${window.location.origin}/api/auth`;
+    const ROUTES = window.UpBaloesRoutes || { login: '/login' };
     
     function showStatusMessage(text, type = 'info') {
         const styles = {
@@ -57,15 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function validateToken() {
         try {
-            const response = await fetch('../services/login.php', {
+            const response = await fetch(`${API_BASE}/password/validate-token`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    action: 'validate_reset_token',
-                    token
-                })
+                credentials: 'include',
+                body: JSON.stringify({ token })
             });
             
             const result = await response.json();
@@ -128,13 +129,13 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Redefinindo...</span>';
         
         try {
-            const response = await fetch('../services/login.php', {
+            const response = await fetch(`${API_BASE}/password/set-new`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({
-                    action: 'set_new_password',
                     token,
                     password: newPasswordInput.value.trim(),
                     confirm_password: confirmPasswordInput.value.trim()
@@ -151,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setFormEnabled(false);
             
             setTimeout(() => {
-                window.location.href = 'login.html';
+                window.location.href = ROUTES.login || '/login';
             }, 3000);
         } catch (error) {
             console.error('Erro ao redefinir senha:', error);
