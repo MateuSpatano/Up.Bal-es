@@ -1092,7 +1092,7 @@ class BudgetService {
 
 // Processar requisições
 try {
-    $budgetService = new BudgetService($config);
+    $budgetService = new BudgetService($database_config);
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Verificar se é FormData (upload de arquivo) ou JSON
@@ -1213,7 +1213,7 @@ try {
  */
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'recent') {
     try {
-        $budgetService = new BudgetService($config);
+        $budgetService = new BudgetService($database_config);
         $recentBudgets = $budgetService->getRecentBudgets();
         echo json_encode($recentBudgets);
         exit;

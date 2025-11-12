@@ -21,17 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 try {
-    // Conectar ao banco de dados
-    $pdo = new PDO(
-        "mysql:host={$database_config['host']};dbname={$database_config['dbname']};charset=utf8mb4",
-        $database_config['username'],
-        $database_config['password'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false
-        ]
-    );
+    // Conectar ao banco de dados usando função centralizada
+    $pdo = getDatabaseConnection($database_config);
 
     // Buscar dados de contato do primeiro decorador ativo (ou admin)
     // Por padrão, buscar o primeiro decorador ativo ou admin
@@ -117,6 +108,7 @@ try {
         'message' => 'Erro interno do servidor'
     ]);
 }
+
 
 
 

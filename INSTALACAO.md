@@ -47,9 +47,25 @@ JWT_SECRET=sua_chave_jwt_aqui
 - O envio de emails é necessário para a recuperação de senha e notificações automáticas
 - Em ambientes de desenvolvimento, utilize senhas de aplicativo ou serviços de sandbox (Mailtrap, Mailhog)
 
-### 5. Testar Instalação
+### 5. Criar Usuário Administrador
+```sql
+-- Criar usuário admin no banco de dados
+INSERT INTO usuarios (nome, email, senha, perfil, ativo, aprovado_por_admin, is_active, is_admin) 
+VALUES (
+    'Administrador',
+    'admin@upbaloes.com',
+    '$2y$12$1jyUYLSwquFx8Ynz67aLR.Pgku1p.UxeAljf7w3ksOaBtcNX6c/RS', -- senha: admin123
+    'admin',
+    1,
+    1,
+    1,
+    1
+);
+```
+
+### 6. Testar Instalação
 1. Acesse: `http://localhost/Up.BaloesV3`
-2. Faça login com: admin@upbaloes.com / admin123
+2. Faça login com as credenciais do administrador criado
 3. Verifique se o painel administrativo carrega
 
 ## Solução de Problemas

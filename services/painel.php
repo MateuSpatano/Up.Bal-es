@@ -479,7 +479,7 @@ class DashboardService {
 
 // Processar requisições
 try {
-    $dashboardService = new DashboardService($config);
+    $dashboardService = new DashboardService($database_config);
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);

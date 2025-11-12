@@ -96,7 +96,7 @@ SMTP_FROM_NAME="Up.Baloes"
 ## 👤 Usuário Padrão
 
 - **Login:** `admin@upbaloes.com`
-- **Senha:** `admin123`
+- **Senha:** Configure no banco de dados após instalação
 
 Altere a senha após o primeiro acesso pelo painel administrativo.
 

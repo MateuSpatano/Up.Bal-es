@@ -7,6 +7,9 @@
 // Incluir configuração do banco de dados
 require_once __DIR__ . '/config.php';
 
+// Inicializar conexão com banco de dados
+$pdo = getDatabaseConnection($database_config);
+
 // Configurar cabeçalhos para JSON
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -267,9 +270,16 @@ function validateDate($date, $format = 'Y-m-d') {
  * Obter ID do usuário atual
  */
 function getCurrentUserId() {
-    // Por enquanto, retornar um ID fixo para demonstração
-    // Em produção, implementar autenticação adequada
-    return 1;
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    if (isset($_SESSION['user_id'])) {
+        return (int) $_SESSION['user_id'];
+    }
+    
+    // Se não houver sessão, retornar erro
+    throw new Exception('Usuário não autenticado');
 }
 
 /**
