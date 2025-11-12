@@ -69,13 +69,6 @@ $pagination_config = [
     'max_limit' => 100
 ];
 
-// Configurações de cache
-$cache_config = [
-    'enabled' => true,
-    'default_ttl' => 3600,
-    'path' => '../cache/'
-];
-
 // URLs do sistema - Centralizadas
 $urls = [
     'base' => $_ENV['BASE_URL'] ?? 'http://localhost/Up.BaloesV3/',
@@ -283,7 +276,6 @@ if (php_sapi_name() !== 'cli') {
 // Criar diretórios necessários se não existirem
 $directories = [
     '../logs/',
-    '../cache/',
     '../uploads/',
     '../temp/'
 ];

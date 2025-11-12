@@ -31,16 +31,24 @@ cp env.example .env
 
 # Editar configurações
 nano .env
+# ou no Windows: notepad .env
 ```
+
+**⚠️ IMPORTANTE:** Cada desenvolvedor deve criar seu próprio arquivo `.env` localmente. O arquivo `.env` está no `.gitignore` e NÃO será commitado por segurança.
 
 **Configurações mínimas necessárias:**
 ```env
+ENVIRONMENT=development
 DB_HOST=localhost
 DB_NAME=up_baloes
 DB_USER=root
 DB_PASS=sua_senha_mysql
+DB_PORT=3306
 JWT_SECRET=sua_chave_jwt_aqui
+BASE_URL=http://localhost/Up.BaloesV3
 ```
+
+**📝 Veja o guia completo:** `CONFIGURACAO_BANCO_DADOS.md`
 
 ### 4. Configurar envio de emails (opcional)
 - Edite as variáveis `SMTP_*` no arquivo `.env` com as credenciais do seu provedor (Gmail, Outlook, etc.)
