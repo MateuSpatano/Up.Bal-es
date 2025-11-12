@@ -26,10 +26,14 @@ $database_config = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
         PDO::ATTR_PERSISTENT => false,
     ]
 ];
+
+// Adicionar MYSQL_ATTR_INIT_COMMAND apenas se pdo_mysql estiver disponível
+if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
+    $database_config['options'][PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci";
+}
 
 // Configurações de segurança
 $security_config = [
@@ -253,8 +257,8 @@ function successResponse($data = null, $message = 'Operação realizada com suce
     jsonResponse($response);
 }
 
-// Inicializar configurações globais
-if (session_status() === PHP_SESSION_NONE) {
+// Inicializar configurações globais (apenas se não for CLI)
+if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     ini_set('session.name', $security_config['session_name']);
     ini_set('session.cookie_lifetime', $security_config['session_lifetime']);
     ini_set('session.cookie_secure', ENVIRONMENT === 'production');
@@ -265,14 +269,16 @@ if (session_status() === PHP_SESSION_NONE) {
 // Configurar timezone
 date_default_timezone_set('America/Sao_Paulo');
 
-// Configurar headers básicos
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('X-XSS-Protection: 1; mode=block');
-
-// Configurar CORS
-setupCORS($cors_config);
+// Configurar headers básicos (apenas se não for CLI)
+if (php_sapi_name() !== 'cli') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('X-XSS-Protection: 1; mode=block');
+    
+    // Configurar CORS
+    setupCORS($cors_config);
+}
 
 // Criar diretórios necessários se não existirem
 $directories = [
