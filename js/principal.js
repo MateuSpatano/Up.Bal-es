@@ -184,30 +184,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // Adicionar event listeners para links de navegação
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
-            e.preventDefault();
             const targetId = this.getAttribute('href');
-            smoothScrollTo(targetId);
             
-            // Fechar menu mobile após clicar em um link
-            if (isMobileMenuOpen) {
-                toggleMobileMenu();
+            // Apenas interceptar links que são âncoras (começam com #)
+            // Links para outras páginas devem funcionar normalmente
+            if (targetId && targetId.startsWith('#')) {
+                e.preventDefault();
+                smoothScrollTo(targetId);
+                
+                // Fechar menu mobile após clicar em um link
+                if (isMobileMenuOpen) {
+                    toggleMobileMenu();
+                }
             }
+            // Se não for âncora, deixar o navegador seguir o link normalmente
         });
     });
 
     // Adicionar event listeners para links do menu mobile
     mobileNavLinks.forEach(link => {
         link.addEventListener('click', function(e) {
-            e.preventDefault();
             const targetId = this.getAttribute('href');
-            smoothScrollTo(targetId);
-            toggleMobileMenu(); // Fechar menu mobile
+            
+            // Apenas interceptar links que são âncoras (começam com #)
+            // Links para outras páginas devem funcionar normalmente
+            if (targetId && targetId.startsWith('#')) {
+                e.preventDefault();
+                smoothScrollTo(targetId);
+                toggleMobileMenu(); // Fechar menu mobile
+            }
+            // Se não for âncora, deixar o navegador seguir o link normalmente
         });
     });
 
     // ========== FUNCIONALIDADES DO CARRINHO ==========
 
     const cartBadge = document.querySelector('.cart-badge');
+    // Selecionar apenas links que apontam para #carrinho (não para a página do carrinho)
     const cartLinks = document.querySelectorAll('a[href="#carrinho"]');
 
     function updateCartBadgeUI(shouldAnimate = false) {
@@ -236,10 +249,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Apenas interceptar links que apontam para #carrinho (scroll na mesma página)
+    // Links que apontam para pages/carrinho-cliente.html devem funcionar normalmente
     cartLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             notifyCartStatus();
+        });
+    });
+    
+    // Garantir que links para a página do carrinho funcionem corretamente
+    const cartPageLinks = document.querySelectorAll('a[href*="carrinho-cliente.html"]');
+    cartPageLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Permitir navegação normal - não interceptar
+            // Apenas atualizar badge se necessário
+            updateCartBadgeUI();
         });
     });
 
@@ -312,9 +337,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Adicionar event listeners para as opções do dropdown
     if (userDropdown) {
-        const loginLink = userDropdown.querySelector('a[href="#"]:first-child');
+        const loginLink = userDropdown.querySelector('a[href="pages/login.html"]:first-of-type');
         const logoutLink = userDropdown.querySelector('a[href="#"]:last-child');
-        const accountLink = userDropdown.querySelector('a[href="#"]:nth-child(2)');
+        const accountLink = userDropdown.querySelector('a[href="pages/login.html"]:nth-of-type(2)');
+        const minhasComprasLink = document.getElementById('minhas-compras-menu-item');
+
+        // Mostrar/ocultar opção "Minhas Compras" baseado no login
+        function updateUserMenuVisibility() {
+            try {
+                const userToken = localStorage.getItem('userToken');
+                const userData = localStorage.getItem('userData');
+                
+                if (userToken && userData) {
+                    // Usuário logado - mostrar "Minhas Compras" e ocultar "Login"
+                    if (minhasComprasLink) {
+                        minhasComprasLink.classList.remove('hidden');
+                    }
+                    if (loginLink) {
+                        loginLink.classList.add('hidden');
+                    }
+                } else {
+                    // Usuário não logado - ocultar "Minhas Compras" e mostrar "Login"
+                    if (minhasComprasLink) {
+                        minhasComprasLink.classList.add('hidden');
+                    }
+                    if (loginLink) {
+                        loginLink.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.warn('Erro ao atualizar visibilidade do menu:', error);
+            }
+        }
 
         if (loginLink) {
             loginLink.addEventListener('click', function(e) {
@@ -330,6 +384,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 simulateLogout();
                 toggleUserDropdown();
+                // Atualizar visibilidade do menu após logout
+                setTimeout(updateUserMenuVisibility, 100);
             });
         }
 
@@ -341,6 +397,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 toggleUserDropdown();
             });
         }
+
+        // Atualizar visibilidade do menu ao carregar
+        updateUserMenuVisibility();
+        
+        // Escutar mudanças no localStorage para atualizar menu
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'userToken' || e.key === 'userData') {
+                updateUserMenuVisibility();
+            }
+        });
     }
     
     hydrateUserMenu();

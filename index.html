@@ -45,7 +45,7 @@
                     <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-phone mr-2"></i>Contatos
                     </a>
-                    <a href="#carrinho" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
+                    <a href="pages/carrinho-cliente.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
                         <i class="fas fa-shopping-cart mr-2"></i>Carrinho
                         <span class="cart-badge absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                     </a>
@@ -69,8 +69,11 @@
                     <!-- Dropdown do Usuário -->
                     <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2">
                         <div class="py-2">
-                            <a href="pages/login.html" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                            <a href="pages/login.html" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
                                 <i class="fas fa-sign-in-alt mr-3"></i>Login
+                            </a>
+                            <a href="pages/minhas-compras.html" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                                <i class="fas fa-shopping-bag mr-3"></i>Minhas Compras
                             </a>
                             <a href="pages/login.html" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
                                 <i class="fas fa-user-cog mr-3"></i>Gestão de Conta
@@ -100,7 +103,7 @@
                 <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-phone mr-3"></i>Contatos
                 </a>
-                <a href="#carrinho" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                <a href="pages/carrinho-cliente.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-shopping-cart mr-3"></i>Carrinho
                 </a>
             </div>

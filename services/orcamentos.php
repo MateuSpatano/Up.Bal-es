@@ -87,6 +87,22 @@ class BudgetService {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             
+            // Determinar decorador_id
+            $decoradorId = null;
+            if (isset($data['decorador_id']) && $data['decorador_id']) {
+                // Decorador_id fornecido explicitamente (do carrinho)
+                $decoradorId = (int)$data['decorador_id'];
+            } elseif (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
+                // Decorador criando seu próprio orçamento
+                $decoradorId = $_SESSION['user_id'];
+            } else {
+                // Buscar primeiro decorador ativo como padrão
+                $stmtDefault = $this->pdo->prepare("SELECT id FROM usuarios WHERE perfil = 'decorator' AND ativo = 1 AND aprovado_por_admin = 1 LIMIT 1");
+                $stmtDefault->execute();
+                $defaultDecorator = $stmtDefault->fetch();
+                $decoradorId = $defaultDecorator ? (int)$defaultDecorator['id'] : 1;
+            }
+            
             $stmt->execute([
                 $data['client'],
                 $data['email'],
@@ -99,7 +115,7 @@ class BudgetService {
                 $data['estimated_value'] ?? 0,
                 $data['notes'] ?? null,
                 'pendente',
-                $_SESSION['user_id'] ?? 1, // ID do decorador logado
+                $decoradorId,
                 $data['created_via'] ?? 'decorator', // Origem da criação
                 $imagePath, // Caminho da imagem
                 $data['tamanho_arco_m'] ?? null // Tamanho do arco
@@ -453,6 +469,114 @@ class BudgetService {
         }
     }
 
+    /**
+     * Listar orçamentos de um cliente específico
+     */
+    public function listClientBudgets($email, $status = '') {
+        try {
+            $where = ['email = ?'];
+            $params = [$email];
+            
+            if (!empty($status)) {
+                $where[] = 'status = ?';
+                $params[] = $status;
+            }
+            
+            $sql = "
+                SELECT 
+                    id, cliente, email, telefone, data_evento, hora_evento,
+                    local_evento, tipo_servico, descricao, valor_estimado,
+                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
+                FROM orcamentos 
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY created_at DESC
+            ";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $budgets = $stmt->fetchAll();
+            
+            // Formatar dados
+            foreach ($budgets as &$budget) {
+                $budget['event_date'] = $budget['data_evento'];
+                $budget['event_time'] = $budget['hora_evento'];
+                $budget['event_location'] = $budget['local_evento'];
+                $budget['service_type'] = $budget['tipo_servico'];
+                $budget['estimated_value'] = (float) $budget['valor_estimado'];
+                $budget['client'] = $budget['cliente'];
+                $budget['phone'] = $budget['telefone'];
+                $budget['description'] = $budget['descricao'];
+                $budget['notes'] = $budget['observacoes'];
+                $budget['image'] = $budget['imagem'];
+                $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
+                $budget['created_at'] = $budget['created_at'];
+            }
+            
+            return [
+                'success' => true,
+                'requests' => $budgets
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao listar orçamentos do cliente: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor.'
+            ];
+        }
+    }
+    
+    /**
+     * Obter orçamento de um cliente por ID
+     */
+    public function getClientBudget($id) {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    id, cliente, email, telefone, data_evento, hora_evento,
+                    local_evento, tipo_servico, descricao, valor_estimado,
+                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
+                FROM orcamentos 
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([$id]);
+            $budget = $stmt->fetch();
+            
+            if (!$budget) {
+                return [
+                    'success' => false,
+                    'message' => 'Solicitação não encontrada.'
+                ];
+            }
+            
+            // Formatar dados
+            $budget['event_date'] = $budget['data_evento'];
+            $budget['event_time'] = $budget['hora_evento'];
+            $budget['event_location'] = $budget['local_evento'];
+            $budget['service_type'] = $budget['tipo_servico'];
+            $budget['estimated_value'] = (float) $budget['valor_estimado'];
+            $budget['client'] = $budget['cliente'];
+            $budget['phone'] = $budget['telefone'];
+            $budget['description'] = $budget['descricao'];
+            $budget['notes'] = $budget['observacoes'];
+            $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
+            
+            return [
+                'success' => true,
+                'request' => $budget,
+                'budget' => $budget // Compatibilidade
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao obter orçamento do cliente: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor.'
+            ];
+        }
+    }
+    
     /**
      * Deletar orçamento
      */
@@ -1188,6 +1312,23 @@ try {
                     throw new Exception('ID do orçamento é obrigatório.');
                 }
                 $result = $budgetService->sendBudgetByEmail($budgetId, $customMessage);
+                break;
+                
+            case 'list_client':
+                $email = $input['email'] ?? '';
+                $status = $input['status'] ?? '';
+                if (empty($email)) {
+                    throw new Exception('Email do cliente é obrigatório.');
+                }
+                $result = $budgetService->listClientBudgets($email, $status);
+                break;
+                
+            case 'get_client':
+                $id = $input['id'] ?? '';
+                if (empty($id)) {
+                    throw new Exception('ID do orçamento é obrigatório.');
+                }
+                $result = $budgetService->getClientBudget($id);
                 break;
                 
             default:
