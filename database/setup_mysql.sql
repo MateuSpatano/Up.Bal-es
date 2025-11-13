@@ -196,6 +196,30 @@ COMMENT='Datas bloqueadas pelos decoradores';
 -- Nota: Datas bloqueadas devem ser configuradas pelo decorador através da interface administrativa
 
 -- =====================================================
+-- CRIAR USUÁRIO ADMINISTRADOR PADRÃO
+-- =====================================================
+-- Usuário admin criado automaticamente para primeiro acesso
+-- ⚠️ IMPORTANTE: Altere a senha após o primeiro login por segurança!
+-- Email: admin@upbaloes.com
+-- Senha padrão: admin123
+
+INSERT INTO usuarios (nome, email, senha, perfil, ativo, aprovado_por_admin, is_active, is_admin, slug, created_at) 
+SELECT 
+    'Administrador',
+    'admin@upbaloes.com',
+    '$2y$12$1jyUYLSwquFx8Ynz67aLR.Pgku1p.UxeAljf7w3ksOaBtcNX6c/RS', -- senha: admin123
+    'admin',
+    1,
+    1,
+    1,
+    1,
+    'administrador',
+    NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM usuarios WHERE email = 'admin@upbaloes.com' OR perfil = 'admin'
+);
+
+-- =====================================================
 -- ADICIONAR CAMPOS DE CONTATO NA TABELA USUARIOS
 -- =====================================================
 
