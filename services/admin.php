@@ -129,7 +129,7 @@ function getUser($input) {
         $stmt = $pdo->prepare("
             SELECT 
                 id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
-                perfil, ativo, aprovado_por_admin, created_at
+                perfil, ativo, aprovado_por_admin, termos_condicoes, created_at
             FROM usuarios 
             WHERE id = ?
         ");
@@ -152,6 +152,7 @@ function getUser($input) {
             'type' => $user['perfil'] === 'decorator' ? 'decorator' : 'client',
             'status' => $user['ativo'] ? 'active' : 'inactive',
             'approved' => $user['aprovado_por_admin'] ? true : false,
+            'termos_condicoes' => $user['termos_condicoes'] ?? '',
             'created_at' => $user['created_at']
         ];
         
@@ -224,7 +225,7 @@ function getUsers($input) {
         // Buscar usuários
         $query = "
             SELECT id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
-                   perfil, ativo, aprovado_por_admin, created_at, cidade, estado, slug
+                   perfil, ativo, aprovado_por_admin, termos_condicoes, created_at, cidade, estado, slug
             FROM usuarios 
             WHERE {$whereClause}
             ORDER BY created_at DESC
@@ -238,7 +239,7 @@ function getUsers($input) {
         $stmt->execute($params);
         $users = $stmt->fetchAll();
         
-        // Processar dados
+            // Processar dados
         foreach ($users as &$user) {
             $user['name'] = $user['nome'];
             $user['phone'] = $user['telefone'] ?? '';
@@ -247,6 +248,7 @@ function getUsers($input) {
             $user['email_comunicacao'] = $user['email_comunicacao'] ?? '';
             $user['type'] = $user['perfil'] === 'decorator' ? 'decorator' : 'client';
             $user['status'] = $user['ativo'] ? 'active' : 'inactive';
+            $user['termos_condicoes'] = $user['termos_condicoes'] ?? '';
             
             // Status especial para decoradores não aprovados
             if ($user['perfil'] === 'decorator' && !$user['aprovado_por_admin']) {
@@ -440,6 +442,11 @@ function updateUser($input) {
             $approved = $input['aprovado_por_admin'] ? 1 : 0;
             $updateFields[] = "aprovado_por_admin = ?";
             $params[] = $approved;
+        }
+        
+        if (isset($input['termos_condicoes']) && $user['perfil'] === 'decorator') {
+            $updateFields[] = "termos_condicoes = ?";
+            $params[] = !empty($input['termos_condicoes']) ? sanitizeInput($input['termos_condicoes']) : null;
         }
         
         if (empty($updateFields)) {

@@ -338,8 +338,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Adicionar event listeners para as opções do dropdown
     if (userDropdown) {
         const loginLink = userDropdown.querySelector('a[href="pages/login.html"]:first-of-type');
-        const logoutLink = userDropdown.querySelector('a[href="#"]:last-child');
-        const accountLink = userDropdown.querySelector('a[href="pages/login.html"]:nth-of-type(2)');
+        const logoutLink = Array.from(userDropdown.querySelectorAll('a')).find(a => a.querySelector('.fa-sign-out-alt'));
+        const accountLink = document.getElementById('account-management-link');
         const minhasComprasLink = document.getElementById('minhas-compras-menu-item');
 
         // Mostrar/ocultar opção "Minhas Compras" baseado no login
@@ -392,9 +392,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (accountLink) {
             accountLink.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Redirecionar para a página de gerenciamento de conta
-                window.location.href = 'pages/login.html';
                 toggleUserDropdown();
+                
+                // Verificar se o usuário está logado
+                const userToken = localStorage.getItem('userToken');
+                const userData = localStorage.getItem('userData');
+                
+                if (!userToken || !userData) {
+                    // Usuário não logado - redirecionar para login
+                    showNotification('Por favor, faça login para acessar a gestão de conta.', 'warning');
+                    setTimeout(() => {
+                        window.location.href = 'pages/login.html';
+                    }, 1500);
+                    return;
+                }
+                
+                // Usuário logado - abrir modal
+                openAccountModal();
             });
         }
 
@@ -550,6 +564,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Abrir modal de gerenciamento de conta
     function openAccountModal() {
+        // Verificar novamente se está logado antes de abrir
+        const userToken = localStorage.getItem('userToken');
+        const userData = localStorage.getItem('userData');
+        
+        if (!userToken || !userData) {
+            showNotification('Por favor, faça login para acessar a gestão de conta.', 'warning');
+            return;
+        }
+        
         if (accountModal) {
             accountModal.classList.remove('hidden');
             accountModal.classList.add('show');
@@ -558,11 +581,102 @@ document.addEventListener('DOMContentLoaded', function() {
             // Carregar dados do usuário
             loadUserData();
             
+            // Carregar foto de perfil se existir
+            loadProfilePhoto();
+            
             // Focar no primeiro campo
             setTimeout(() => {
                 const firstInput = accountForm.querySelector('input');
                 if (firstInput) firstInput.focus();
             }, 300);
+        }
+    }
+    
+    // Carregar foto de perfil
+    function loadProfilePhoto() {
+        try {
+            const storedPhoto = localStorage.getItem('userProfilePhoto');
+            const photoElement = document.getElementById('account-profile-photo');
+            if (storedPhoto && photoElement) {
+                photoElement.src = storedPhoto;
+            }
+        } catch (e) {
+            console.warn('Erro ao carregar foto de perfil:', e);
+        }
+    }
+    
+    // Configurar upload de foto
+    function setupProfilePhotoUpload() {
+        const photoInput = document.getElementById('account-photo-input');
+        const photoElement = document.getElementById('account-profile-photo');
+        const removePhotoBtn = document.getElementById('remove-profile-photo');
+        const photoFeedback = document.getElementById('account-photo-feedback');
+        
+        if (photoInput) {
+            photoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Validar tipo de arquivo
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    if (photoFeedback) {
+                        photoFeedback.textContent = 'Tipo de arquivo não permitido. Use apenas JPG, PNG, GIF ou WebP.';
+                        photoFeedback.className = 'text-xs text-red-500';
+                        photoFeedback.classList.remove('hidden');
+                    }
+                    return;
+                }
+                
+                // Validar tamanho (máximo 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    if (photoFeedback) {
+                        photoFeedback.textContent = 'Arquivo muito grande. Tamanho máximo: 5MB';
+                        photoFeedback.className = 'text-xs text-red-500';
+                        photoFeedback.classList.remove('hidden');
+                    }
+                    return;
+                }
+                
+                // Ler e exibir preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (photoElement) {
+                        photoElement.src = e.target.result;
+                        // Salvar no localStorage temporariamente
+                        localStorage.setItem('userProfilePhoto', e.target.result);
+                    }
+                    if (photoFeedback) {
+                        photoFeedback.textContent = 'Foto carregada com sucesso!';
+                        photoFeedback.className = 'text-xs text-green-500';
+                        photoFeedback.classList.remove('hidden');
+                        setTimeout(() => {
+                            photoFeedback.classList.add('hidden');
+                        }, 3000);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        if (removePhotoBtn) {
+            removePhotoBtn.addEventListener('click', function() {
+                if (photoElement) {
+                    photoElement.src = '../Images/Logo System.jpeg'; // Foto padrão
+                    localStorage.removeItem('userProfilePhoto');
+                }
+                if (photoInput) {
+                    photoInput.value = '';
+                }
+                if (photoFeedback) {
+                    photoFeedback.textContent = 'Foto removida';
+                    photoFeedback.className = 'text-xs text-gray-500';
+                    photoFeedback.classList.remove('hidden');
+                    setTimeout(() => {
+                        photoFeedback.classList.add('hidden');
+                    }, 2000);
+                }
+            });
         }
     }
 
@@ -1017,6 +1131,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configurar submissão do formulário
     setupFormSubmission();
+    setupProfilePhotoUpload();
 
     console.log('Up.Baloes - Sistema carregado com sucesso!');
 });

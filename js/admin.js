@@ -262,14 +262,28 @@ class AdminSystem {
                 document.getElementById('edit-user-status').value = user.status || 'active';
             }
             
-            // Mostrar seção de aprovação se for decorador
+            // Mostrar seção de aprovação e termos se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
+            const termsSection = document.getElementById('decorator-terms-section');
             const user = this.users.find(u => u.id === userId) || result.data;
-            if (user && user.type === 'decorator' && approvalSection) {
-                approvalSection.classList.remove('hidden');
-                document.getElementById('edit-user-approved').value = user.status === 'active' ? '1' : '0';
-            } else if (approvalSection) {
-                approvalSection.classList.add('hidden');
+            if (user && user.type === 'decorator') {
+                if (approvalSection) {
+                    approvalSection.classList.remove('hidden');
+                    document.getElementById('edit-user-approved').value = user.status === 'active' ? '1' : '0';
+                }
+                if (termsSection) {
+                    termsSection.classList.remove('hidden');
+                    // Carregar termos e condições do decorador
+                    const termsValue = user.termos_condicoes || user.termosCondicoes || '';
+                    document.getElementById('edit-user-terms').value = termsValue;
+                }
+            } else {
+                if (approvalSection) {
+                    approvalSection.classList.add('hidden');
+                }
+                if (termsSection) {
+                    termsSection.classList.add('hidden');
+                }
             }
             
             // Mostrar modal
@@ -295,10 +309,14 @@ class AdminSystem {
                 status: document.getElementById('edit-user-status').value
             };
             
-            // Adicionar aprovação se for decorador
+            // Adicionar aprovação e termos se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
+            const termsSection = document.getElementById('decorator-terms-section');
             if (approvalSection && !approvalSection.classList.contains('hidden')) {
                 formData.aprovado_por_admin = document.getElementById('edit-user-approved').value === '1';
+            }
+            if (termsSection && !termsSection.classList.contains('hidden')) {
+                formData.termos_condicoes = document.getElementById('edit-user-terms').value;
             }
             
             const response = await fetch('../services/admin.php', {
@@ -998,6 +1016,9 @@ class AdminSystem {
                                     class="text-emerald-600 hover:text-emerald-900 p-1"
                                     title="Copiar link público">
                                 <i class="fas fa-share-nodes text-xs md:text-sm"></i>
+                            </button>
+                            <button onclick="adminSystem.editTermsAndConditions(${user.id})" class="text-orange-600 hover:text-orange-900 p-1" title="Editar Termos e Condições">
+                                <i class="fas fa-file-contract text-xs md:text-sm"></i>
                             </button>
                             <button onclick="admin.editPageCustomization(${user.id})" class="text-indigo-600 hover:text-indigo-900 p-1" title="Editar Tela Inicial">
                                 <i class="fas fa-palette text-xs md:text-sm"></i>
@@ -2216,6 +2237,70 @@ class AdminSystem {
             window.open(`../${user.slug}`, '_blank');
         } else {
             this.showNotification('Slug do decorador não encontrado', 'error');
+        }
+    }
+
+    // Editar termos e condições do decorador
+    async editTermsAndConditions(userId) {
+        // Abrir modal de edição e focar na seção de termos
+        await this.editUser(userId);
+        
+        // Scroll para a seção de termos após um pequeno delay para garantir que o modal está aberto
+        setTimeout(() => {
+            const termsSection = document.getElementById('decorator-terms-section');
+            if (termsSection) {
+                termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const termsTextarea = document.getElementById('edit-user-terms');
+                if (termsTextarea) {
+                    termsTextarea.focus();
+                }
+            }
+        }, 300);
+    }
+
+    // Carregar termos padrão do sistema
+    async loadDefaultTerms() {
+        try {
+            // Buscar termos padrão do arquivo termos-e-condicoes.html
+            const response = await fetch('../pages/termos-e-condicoes.html');
+            const html = await response.text();
+            
+            // Extrair apenas o conteúdo dos termos (remover HTML)
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const sections = doc.querySelectorAll('.prose section');
+            
+            let defaultTerms = '';
+            sections.forEach((section, index) => {
+                const title = section.querySelector('h2');
+                const content = section.querySelectorAll('p, ul');
+                
+                if (title) {
+                    defaultTerms += title.textContent.trim() + '\n\n';
+                }
+                
+                content.forEach(el => {
+                    if (el.tagName === 'P') {
+                        defaultTerms += el.textContent.trim() + '\n\n';
+                    } else if (el.tagName === 'UL') {
+                        const items = el.querySelectorAll('li');
+                        items.forEach(li => {
+                            defaultTerms += '• ' + li.textContent.trim() + '\n';
+                        });
+                        defaultTerms += '\n';
+                    }
+                });
+            });
+            
+            // Preencher o campo de termos
+            const termsTextarea = document.getElementById('edit-user-terms');
+            if (termsTextarea) {
+                termsTextarea.value = defaultTerms.trim();
+                this.showNotification('Termos padrão carregados com sucesso!', 'success');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar termos padrão:', error);
+            this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
         }
     }
 }
