@@ -53,6 +53,18 @@ try {
             validateAvailability($input);
             break;
             
+        case 'get_public_availability':
+            getPublicAvailability($input);
+            break;
+            
+        case 'get_available_dates':
+            getAvailableDates($input);
+            break;
+            
+        case 'get_available_times':
+            getAvailableTimes($input);
+            break;
+            
         default:
             throw new Exception('Ação não reconhecida');
     }
@@ -335,9 +347,9 @@ function validateAvailability($data) {
     // Verificar limite de serviços por dia
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as count 
-        FROM budgets 
-        WHERE user_id = ? 
-        AND event_date = ? 
+        FROM orcamentos 
+        WHERE decorador_id = ? 
+        AND data_evento = ? 
         AND status IN ('aprovado', 'pendente')
     ");
     
@@ -361,12 +373,12 @@ function validateAvailability($data) {
         $intervalMinutes = $dayInterval['unit'] === 'hours' ? $dayInterval['interval'] * 60 : $dayInterval['interval'];
         
         $stmt = $pdo->prepare("
-            SELECT event_time 
-            FROM budgets 
-            WHERE user_id = ? 
-            AND event_date = ? 
+            SELECT hora_evento 
+            FROM orcamentos 
+            WHERE decorador_id = ? 
+            AND data_evento = ? 
             AND status IN ('aprovado', 'pendente')
-            ORDER BY event_time
+            ORDER BY hora_evento
         ");
         
         $stmt->execute([$userId, $eventDate]);
@@ -450,6 +462,327 @@ function createAvailabilityTable() {
     ";
     
     $pdo->exec($sql);
+}
+
+/**
+ * Obter disponibilidade pública de um decorador específico (para clientes)
+ */
+function getPublicAvailability($data) {
+    global $pdo;
+    
+    $decoratorId = $data['decorator_id'] ?? null;
+    if (!$decoratorId) {
+        throw new Exception('ID do decorador é obrigatório');
+    }
+    
+    // Buscar configurações de disponibilidade do decorador
+    $stmt = $pdo->prepare("
+        SELECT available_days, time_schedules, service_intervals, max_daily_services 
+        FROM decorator_availability 
+        WHERE user_id = ? 
+        ORDER BY updated_at DESC 
+        LIMIT 1
+    ");
+    
+    $stmt->execute([$decoratorId]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$result) {
+        // Retornar configurações padrão se não houver configurações
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'available_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                'time_schedules' => [
+                    ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+                ],
+                'service_intervals' => [],
+                'max_daily_services' => 3
+            ]
+        ]);
+        return;
+    }
+    
+    $availableDays = json_decode($result['available_days'], true);
+    $timeSchedules = json_decode($result['time_schedules'], true);
+    $serviceIntervals = json_decode($result['service_intervals'], true);
+    
+    // Buscar datas bloqueadas
+    $stmt = $pdo->prepare("
+        SELECT blocked_date, is_recurring 
+        FROM decorator_blocked_dates 
+        WHERE user_id = ?
+    ");
+    $stmt->execute([$decoratorId]);
+    $blockedDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Buscar orçamentos já agendados
+    $stmt = $pdo->prepare("
+        SELECT data_evento, hora_evento 
+        FROM orcamentos 
+        WHERE decorador_id = ? 
+        AND status IN ('aprovado', 'pendente')
+        AND data_evento >= CURDATE()
+    ");
+    $stmt->execute([$decoratorId]);
+    $scheduledServices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'available_days' => $availableDays ?: [],
+            'time_schedules' => $timeSchedules ?: [],
+            'service_intervals' => $serviceIntervals ?: [],
+            'max_daily_services' => intval($result['max_daily_services']),
+            'blocked_dates' => $blockedDates ?: [],
+            'scheduled_services' => $scheduledServices ?: []
+        ]
+    ]);
+}
+
+/**
+ * Obter datas disponíveis para um decorador
+ */
+function getAvailableDates($data) {
+    global $pdo;
+    
+    $decoratorId = $data['decorator_id'] ?? null;
+    $startDate = $data['start_date'] ?? date('Y-m-d');
+    $endDate = $data['end_date'] ?? date('Y-m-d', strtotime('+3 months'));
+    
+    if (!$decoratorId) {
+        throw new Exception('ID do decorador é obrigatório');
+    }
+    
+    // Buscar configurações de disponibilidade
+    $stmt = $pdo->prepare("
+        SELECT available_days, max_daily_services 
+        FROM decorator_availability 
+        WHERE user_id = ? 
+        ORDER BY updated_at DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$decoratorId]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $availableDays = $result ? json_decode($result['available_days'], true) : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    $maxDailyServices = $result ? intval($result['max_daily_services']) : 3;
+    
+    // Buscar datas bloqueadas
+    $stmt = $pdo->prepare("
+        SELECT blocked_date, is_recurring 
+        FROM decorator_blocked_dates 
+        WHERE user_id = ?
+    ");
+    $stmt->execute([$decoratorId]);
+    $blockedDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Buscar serviços agendados por data
+    $stmt = $pdo->prepare("
+        SELECT data_evento, COUNT(*) as count 
+        FROM orcamentos 
+        WHERE decorador_id = ? 
+        AND status IN ('aprovado', 'pendente')
+        AND data_evento >= ? AND data_evento <= ?
+        GROUP BY data_evento
+    ");
+    $stmt->execute([$decoratorId, $startDate, $endDate]);
+    $scheduledCounts = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $scheduledCounts[$row['data_evento']] = intval($row['count']);
+    }
+    
+    // Gerar lista de datas disponíveis
+    $availableDates = [];
+    $currentDate = new DateTime($startDate);
+    $endDateTime = new DateTime($endDate);
+    
+    $dayMapping = [
+        'Monday' => 'monday',
+        'Tuesday' => 'tuesday',
+        'Wednesday' => 'wednesday',
+        'Thursday' => 'thursday',
+        'Friday' => 'friday',
+        'Saturday' => 'saturday',
+        'Sunday' => 'sunday'
+    ];
+    
+    while ($currentDate <= $endDateTime) {
+        $dateStr = $currentDate->format('Y-m-d');
+        $dayName = $currentDate->format('l');
+        $dayKey = $dayMapping[$dayName] ?? strtolower($dayName);
+        
+        // Verificar se o dia da semana está disponível
+        if (!in_array($dayKey, $availableDays)) {
+            $currentDate->modify('+1 day');
+            continue;
+        }
+        
+        // Verificar se a data está bloqueada
+        $isBlocked = false;
+        foreach ($blockedDates as $blocked) {
+            if ($blocked['is_recurring']) {
+                $blockedDate = new DateTime($blocked['blocked_date']);
+                if ($currentDate->format('m-d') === $blockedDate->format('m-d')) {
+                    $isBlocked = true;
+                    break;
+                }
+            } else {
+                if ($dateStr === $blocked['blocked_date']) {
+                    $isBlocked = true;
+                    break;
+                }
+            }
+        }
+        
+        if ($isBlocked) {
+            $currentDate->modify('+1 day');
+            continue;
+        }
+        
+        // Verificar se atingiu o limite de serviços por dia
+        $scheduledCount = $scheduledCounts[$dateStr] ?? 0;
+        if ($scheduledCount >= $maxDailyServices) {
+            $currentDate->modify('+1 day');
+            continue;
+        }
+        
+        $availableDates[] = $dateStr;
+        $currentDate->modify('+1 day');
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'available_dates' => $availableDates
+    ]);
+}
+
+/**
+ * Obter horários disponíveis para uma data específica
+ */
+function getAvailableTimes($data) {
+    global $pdo;
+    
+    $decoratorId = $data['decorator_id'] ?? null;
+    $date = $data['date'] ?? null;
+    
+    if (!$decoratorId || !$date) {
+        throw new Exception('ID do decorador e data são obrigatórios');
+    }
+    
+    // Buscar configurações de disponibilidade
+    $stmt = $pdo->prepare("
+        SELECT time_schedules, service_intervals 
+        FROM decorator_availability 
+        WHERE user_id = ? 
+        ORDER BY updated_at DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$decoratorId]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$result) {
+        // Horários padrão
+        $timeSchedules = [
+            ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
+            ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+            ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+            ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
+            ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+        ];
+        $serviceIntervals = [];
+    } else {
+        $timeSchedules = json_decode($result['time_schedules'], true) ?: [];
+        $serviceIntervals = json_decode($result['service_intervals'], true) ?: [];
+    }
+    
+    // Obter dia da semana
+    $dayOfWeek = strtolower(date('l', strtotime($date)));
+    $dayMapping = [
+        'monday' => 'monday',
+        'tuesday' => 'tuesday',
+        'wednesday' => 'wednesday',
+        'thursday' => 'thursday',
+        'friday' => 'friday',
+        'saturday' => 'saturday',
+        'sunday' => 'sunday'
+    ];
+    $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
+    
+    // Encontrar horário do dia
+    $daySchedule = null;
+    foreach ($timeSchedules as $schedule) {
+        if ($schedule['day'] === $dayKey) {
+            $daySchedule = $schedule;
+            break;
+        }
+    }
+    
+    if (!$daySchedule) {
+        echo json_encode([
+            'success' => true,
+            'available_times' => []
+        ]);
+        return;
+    }
+    
+    // Buscar serviços já agendados neste dia
+    $stmt = $pdo->prepare("
+        SELECT hora_evento 
+        FROM orcamentos 
+        WHERE decorador_id = ? 
+        AND data_evento = ? 
+        AND status IN ('aprovado', 'pendente')
+        ORDER BY hora_evento
+    ");
+    $stmt->execute([$decoratorId, $date]);
+    $scheduledTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Obter intervalo mínimo
+    $intervalMinutes = 60; // padrão 1 hora
+    foreach ($serviceIntervals as $interval) {
+        if ($interval['day'] === $dayKey) {
+            $intervalMinutes = $interval['unit'] === 'hours' ? $interval['interval'] * 60 : $interval['interval'];
+            break;
+        }
+    }
+    
+    // Gerar horários disponíveis
+    $startTime = new DateTime($date . ' ' . $daySchedule['start_time']);
+    $endTime = new DateTime($date . ' ' . $daySchedule['end_time']);
+    $availableTimes = [];
+    
+    $currentTime = clone $startTime;
+    while ($currentTime < $endTime) {
+        $timeStr = $currentTime->format('H:i');
+        $isAvailable = true;
+        
+        // Verificar se há conflito com serviços agendados
+        foreach ($scheduledTimes as $scheduledTime) {
+            $scheduledDateTime = new DateTime($date . ' ' . $scheduledTime);
+            $diffMinutes = abs($currentTime->getTimestamp() - $scheduledDateTime->getTimestamp()) / 60;
+            
+            if ($diffMinutes < $intervalMinutes) {
+                $isAvailable = false;
+                break;
+            }
+        }
+        
+        if ($isAvailable) {
+            $availableTimes[] = $timeStr;
+        }
+        
+        $currentTime->modify('+' . $intervalMinutes . ' minutes');
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'available_times' => $availableTimes
+    ]);
 }
 
 // Criar tabela se não existir

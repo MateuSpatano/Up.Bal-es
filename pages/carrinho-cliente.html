@@ -197,25 +197,63 @@
                         Dados do Evento
                     </h3>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <div class="space-y-4">
+                        <!-- Calendário de Disponibilidade -->
                         <div>
-                            <label for="modal-event-date" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                                Data do Evento *
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Selecione uma Data Disponível *
                             </label>
-                            <input type="date" id="modal-event-date" name="event_date" required
-                                   min="<?php echo date('Y-m-d'); ?>"
-                                   class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <div id="availability-calendar" class="bg-gray-50 rounded-lg p-4 border border-gray-300">
+                                <div class="flex items-center justify-between mb-4">
+                                    <button type="button" id="prev-month" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h4 id="calendar-month-year" class="text-base font-semibold text-gray-800"></h4>
+                                    <button type="button" id="next-month" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                                    <!-- Dias da semana -->
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Dom</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Seg</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Ter</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Qua</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Qui</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Sex</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Sáb</div>
+                                    <!-- Dias do mês serão inseridos aqui dinamicamente -->
+                                </div>
+                                <input type="hidden" id="modal-event-date" name="event_date" required>
+                                <div id="calendar-loading" class="text-center py-4 text-gray-500 text-sm hidden">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Carregando disponibilidade...
+                                </div>
+                                <div id="calendar-error" class="text-center py-4 text-red-500 text-sm hidden"></div>
+                            </div>
                         </div>
 
-                        <div>
-                            <label for="modal-event-time" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                                Horário do Evento *
+                        <!-- Horários Disponíveis -->
+                        <div id="available-times-container" class="hidden">
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Selecione um Horário Disponível *
                             </label>
-                            <input type="time" id="modal-event-time" name="event_time" required
-                                   class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <div id="available-times-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                <!-- Horários serão inseridos aqui dinamicamente -->
+                            </div>
+                            <input type="hidden" id="modal-event-time" name="event_time" required>
+                            <div id="times-loading" class="text-center py-4 text-gray-500 text-sm hidden">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Carregando horários...
+                            </div>
+                            <div id="times-error" class="text-center py-4 text-red-500 text-sm hidden"></div>
                         </div>
 
-                        <div class="md:col-span-2">
+                        <!-- Campo de data oculto para compatibilidade -->
+                        <div class="hidden">
+                            <input type="date" id="modal-event-date-hidden" name="event_date_hidden">
+                        </div>
+
+                        <!-- Local do Evento -->
+                        <div>
                             <label for="modal-event-location" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                                 Local do Evento *
                             </label>

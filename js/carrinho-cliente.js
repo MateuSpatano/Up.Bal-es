@@ -269,6 +269,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== MODAL DE CONFIRMAÇÃO ==========
     
+    // Variáveis do calendário
+    let currentCalendarDate = new Date();
+    let availableDates = [];
+    let currentDecoratorId = null;
+    
     function openConfirmModal() {
         // Carregar dados do usuário se estiver logado
         loadUserData();
@@ -284,6 +289,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (firstItem.tamanho_arco_m) {
                 document.getElementById('modal-arc-size').value = firstItem.tamanho_arco_m;
             }
+            
+            // Obter decorador_id
+            currentDecoratorId = firstItem.decorador_id || firstItem.decorator_id;
+        }
+        
+        // Se não houver decorador_id, tentar buscar
+        if (!currentDecoratorId) {
+            getDefaultDecoratorId().then(id => {
+                currentDecoratorId = id;
+                initializeCalendar();
+            });
+        } else {
+            initializeCalendar();
         }
         
         confirmModal.classList.remove('hidden');
@@ -291,11 +309,249 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.overflow = 'hidden';
     }
     
+    function initializeCalendar() {
+        if (!currentDecoratorId) {
+            showCalendarError('Não foi possível identificar o decorador');
+            return;
+        }
+        
+        currentCalendarDate = new Date();
+        renderCalendar();
+        loadAvailableDates();
+    }
+    
+    async function loadAvailableDates() {
+        const loadingEl = document.getElementById('calendar-loading');
+        const errorEl = document.getElementById('calendar-error');
+        
+        loadingEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        
+        try {
+            const startDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+            const endDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 3, 0);
+            
+            const response = await fetch('../services/disponibilidade.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_available_dates',
+                    decorator_id: currentDecoratorId,
+                    start_date: startDate.toISOString().split('T')[0],
+                    end_date: endDate.toISOString().split('T')[0]
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                availableDates = result.available_dates || [];
+                renderCalendar();
+            } else {
+                throw new Error(result.message || 'Erro ao carregar datas disponíveis');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar datas disponíveis:', error);
+            showCalendarError('Erro ao carregar disponibilidade. Tente novamente.');
+        } finally {
+            loadingEl.classList.add('hidden');
+        }
+    }
+    
+    function showCalendarError(message) {
+        const errorEl = document.getElementById('calendar-error');
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
+    
+    function renderCalendar() {
+        const calendarGrid = document.getElementById('calendar-grid');
+        const monthYearEl = document.getElementById('calendar-month-year');
+        
+        // Limpar dias do mês e células vazias (mantendo cabeçalho)
+        const days = calendarGrid.querySelectorAll('.calendar-day, .calendar-day-empty');
+        days.forEach(day => day.remove());
+        
+        // Atualizar título do mês
+        const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        monthYearEl.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
+        
+        // Obter primeiro dia do mês e quantos dias tem o mês
+        const firstDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+        const lastDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay();
+        
+        // Adicionar células vazias para os dias antes do primeiro dia do mês
+        for (let i = 0; i < startingDayOfWeek; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'calendar-day-empty';
+            calendarGrid.appendChild(emptyCell);
+        }
+        
+        // Adicionar dias do mês
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day);
+            const dateStr = date.toISOString().split('T')[0];
+            
+            const dayCell = document.createElement('button');
+            dayCell.type = 'button';
+            dayCell.className = 'calendar-day p-2 rounded-lg text-sm transition-all';
+            
+            // Verificar se a data está disponível
+            const isAvailable = availableDates.includes(dateStr);
+            const isPast = date < today;
+            const isToday = dateStr === today.toISOString().split('T')[0];
+            
+            if (isPast || !isAvailable) {
+                dayCell.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+                dayCell.disabled = true;
+            } else {
+                dayCell.classList.add('bg-white', 'text-gray-700', 'hover:bg-blue-100', 'hover:text-blue-700', 'border', 'border-gray-300');
+                dayCell.addEventListener('click', () => selectDate(dateStr, dayCell));
+            }
+            
+            if (isToday) {
+                dayCell.classList.add('ring-2', 'ring-blue-500');
+            }
+            
+            dayCell.textContent = day;
+            calendarGrid.appendChild(dayCell);
+        }
+    }
+    
+    async function selectDate(dateStr, dayElement) {
+        // Remover seleção anterior
+        document.querySelectorAll('.calendar-day').forEach(el => {
+            if (!el.disabled) {
+                el.classList.remove('bg-blue-600', 'text-white');
+                el.classList.add('bg-white', 'text-gray-700');
+            }
+        });
+        
+        // Marcar como selecionado
+        dayElement.classList.remove('bg-white', 'text-gray-700', 'hover:bg-blue-100');
+        dayElement.classList.add('bg-blue-600', 'text-white');
+        
+        // Atualizar campo oculto
+        document.getElementById('modal-event-date').value = dateStr;
+        document.getElementById('modal-event-date-hidden').value = dateStr;
+        
+        // Carregar horários disponíveis
+        await loadAvailableTimes(dateStr);
+    }
+    
+    async function loadAvailableTimes(dateStr) {
+        const container = document.getElementById('available-times-container');
+        const grid = document.getElementById('available-times-grid');
+        const loadingEl = document.getElementById('times-loading');
+        const errorEl = document.getElementById('times-error');
+        
+        container.classList.remove('hidden');
+        grid.innerHTML = '';
+        loadingEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        
+        // Limpar seleção anterior
+        document.getElementById('modal-event-time').value = '';
+        
+        try {
+            const response = await fetch('../services/disponibilidade.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_available_times',
+                    decorator_id: currentDecoratorId,
+                    date: dateStr
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.available_times && result.available_times.length > 0) {
+                result.available_times.forEach(time => {
+                    const timeBtn = document.createElement('button');
+                    timeBtn.type = 'button';
+                    timeBtn.className = 'px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-blue-100 hover:text-blue-700 hover:border-blue-500 transition-all';
+                    timeBtn.textContent = formatTime(time);
+                    timeBtn.addEventListener('click', () => selectTime(time, timeBtn));
+                    grid.appendChild(timeBtn);
+                });
+            } else {
+                errorEl.textContent = 'Nenhum horário disponível para esta data';
+                errorEl.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar horários:', error);
+            errorEl.textContent = 'Erro ao carregar horários disponíveis';
+            errorEl.classList.remove('hidden');
+        } finally {
+            loadingEl.classList.add('hidden');
+        }
+    }
+    
+    function selectTime(timeStr, timeElement) {
+        // Remover seleção anterior
+        document.querySelectorAll('#available-times-grid button').forEach(btn => {
+            btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+            btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+        });
+        
+        // Marcar como selecionado
+        timeElement.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+        timeElement.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+        
+        // Atualizar campo oculto
+        document.getElementById('modal-event-time').value = timeStr;
+    }
+    
+    function formatTime(timeStr) {
+        const [hours, minutes] = timeStr.split(':');
+        return `${hours}:${minutes}`;
+    }
+    
+    // Configurar event listeners do calendário quando o DOM estiver pronto
+    function setupCalendarListeners() {
+        const prevBtn = document.getElementById('prev-month');
+        const nextBtn = document.getElementById('next-month');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                renderCalendar();
+                loadAvailableDates();
+            });
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                renderCalendar();
+                loadAvailableDates();
+            });
+        }
+    }
+    
     function closeConfirmModal() {
         confirmModal.classList.add('hidden');
         confirmModal.classList.remove('flex');
         document.body.style.overflow = 'auto';
         requestForm.reset();
+        
+        // Resetar calendário
+        currentCalendarDate = new Date();
+        availableDates = [];
+        currentDecoratorId = null;
+        document.getElementById('available-times-container').classList.add('hidden');
+        document.getElementById('calendar-error').classList.add('hidden');
     }
     
     function loadUserData() {
@@ -464,8 +720,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const requiredFields = [
             'modal-client-name',
             'modal-client-email',
-            'modal-event-date',
-            'modal-event-time',
             'modal-event-location',
             'modal-service-type'
         ];
@@ -479,12 +733,27 @@ document.addEventListener('DOMContentLoaded', function() {
             field.classList.remove('border-red-500');
         }
         
+        // Validar data selecionada
+        const eventDate = document.getElementById('modal-event-date').value;
+        if (!eventDate) {
+            showNotification('Por favor, selecione uma data disponível', 'error');
+            return false;
+        }
+        
+        // Validar horário selecionado
+        const eventTime = document.getElementById('modal-event-time').value;
+        if (!eventTime) {
+            showNotification('Por favor, selecione um horário disponível', 'error');
+            return false;
+        }
+        
         // Validar tamanho do arco se o tipo de serviço requerer
         const serviceType = document.getElementById('modal-service-type').value;
         const arcSize = document.getElementById('modal-arc-size').value;
         
         if ((serviceType === 'arco-tradicional' || serviceType === 'arco-desconstruido') && !arcSize) {
             document.getElementById('modal-arc-size').classList.add('border-red-500');
+            showNotification('Por favor, informe o tamanho do arco', 'error');
             return false;
         }
         
@@ -560,6 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renderCustomQuotes();
         updateSummary();
         setupFormSubmission();
+        setupCalendarListeners();
         
         console.log('Carrinho do Cliente - Sistema carregado com sucesso!');
     }
