@@ -275,23 +275,54 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDecoratorId = null;
     
     function openConfirmModal() {
-        // Carregar dados do usuário se estiver logado
+        // Primeiro, restaurar dados previamente preenchidos (se houver)
+        restoreFormData();
+        
+        // Depois, carregar dados do usuário se estiver logado (sem sobrescrever campos já preenchidos)
         loadUserData();
         
-        // Preencher dados dos itens do carrinho se houver
+        // Preencher dados dos itens do carrinho se houver (sem sobrescrever campos já preenchidos)
         const items = getStoredCartItems();
         if (items.length > 0) {
-            // Preencher tipo de serviço baseado no primeiro item
+            // Preencher tipo de serviço baseado no primeiro item (apenas se não estiver preenchido)
             const firstItem = items[0];
-            if (firstItem.service_type) {
-                document.getElementById('modal-service-type').value = firstItem.service_type;
+            const serviceTypeField = document.getElementById('modal-service-type');
+            if (firstItem.service_type && !serviceTypeField.value) {
+                serviceTypeField.value = firstItem.service_type;
             }
-            if (firstItem.tamanho_arco_m) {
-                document.getElementById('modal-arc-size').value = firstItem.tamanho_arco_m;
+            const arcSizeField = document.getElementById('modal-arc-size');
+            if (firstItem.tamanho_arco_m && !arcSizeField.value) {
+                arcSizeField.value = firstItem.tamanho_arco_m;
             }
             
             // Obter decorador_id
             currentDecoratorId = firstItem.decorador_id || firstItem.decorator_id;
+        }
+        
+        // Preencher dados dos orçamentos personalizados se houver (sem sobrescrever campos já preenchidos)
+        const quotes = getStoredQuotes();
+        if (quotes.length > 0) {
+            const firstQuote = quotes[0];
+            const serviceTypeField = document.getElementById('modal-service-type');
+            if (firstQuote.service_type && !serviceTypeField.value) {
+                serviceTypeField.value = firstQuote.service_type;
+            }
+            const arcSizeField = document.getElementById('modal-arc-size');
+            if (firstQuote.tamanho_arco_m && !arcSizeField.value) {
+                arcSizeField.value = firstQuote.tamanho_arco_m;
+            }
+            const descriptionField = document.getElementById('modal-description');
+            if (firstQuote.description && !descriptionField.value) {
+                descriptionField.value = firstQuote.description;
+            }
+            const notesField = document.getElementById('modal-notes');
+            if (firstQuote.notes && !notesField.value) {
+                notesField.value = firstQuote.notes;
+            }
+            const locationField = document.getElementById('modal-event-location');
+            if (firstQuote.event_location && !locationField.value) {
+                locationField.value = firstQuote.event_location;
+            }
         }
         
         // Se não houver decorador_id, tentar buscar
@@ -303,6 +334,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             initializeCalendar();
         }
+        
+        // Configurar salvamento automático dos dados do formulário
+        setupFormAutoSave();
         
         confirmModal.classList.remove('hidden');
         confirmModal.classList.add('flex');
@@ -541,10 +575,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function closeConfirmModal() {
+        // Salvar dados antes de fechar (para preservar na próxima abertura)
+        saveFormData();
+        
         confirmModal.classList.add('hidden');
         confirmModal.classList.remove('flex');
         document.body.style.overflow = 'auto';
-        requestForm.reset();
+        
+        // Não resetar o formulário completamente - apenas limpar campos sensíveis
+        // requestForm.reset(); // Comentado para preservar dados
+        
+        // Resetar apenas calendário e campos de data/hora
+        document.getElementById('modal-event-date').value = '';
+        document.getElementById('modal-event-date-hidden').value = '';
+        document.getElementById('modal-event-time').value = '';
         
         // Resetar calendário
         currentCalendarDate = new Date();
@@ -557,18 +601,113 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadUserData() {
         try {
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.name) {
-                document.getElementById('modal-client-name').value = userData.name;
+            const nameField = document.getElementById('modal-client-name');
+            const emailField = document.getElementById('modal-client-email');
+            const phoneField = document.getElementById('modal-client-phone');
+            
+            // Preencher apenas se o campo estiver vazio (preservar dados já preenchidos)
+            if (userData.name && !nameField.value.trim()) {
+                nameField.value = userData.name;
             }
-            if (userData.email) {
-                document.getElementById('modal-client-email').value = userData.email;
+            if (userData.email && !emailField.value.trim()) {
+                emailField.value = userData.email;
             }
-            if (userData.phone) {
-                document.getElementById('modal-client-phone').value = userData.phone;
+            if (userData.phone && !phoneField.value.trim()) {
+                phoneField.value = userData.phone;
             }
         } catch (error) {
             console.warn('Erro ao carregar dados do usuário:', error);
         }
+    }
+    
+    // Função para salvar dados do formulário no localStorage
+    function saveFormData() {
+        try {
+            const formData = {
+                client_name: document.getElementById('modal-client-name').value,
+                client_email: document.getElementById('modal-client-email').value,
+                client_phone: document.getElementById('modal-client-phone').value,
+                event_location: document.getElementById('modal-event-location').value,
+                service_type: document.getElementById('modal-service-type').value,
+                tamanho_arco_m: document.getElementById('modal-arc-size').value,
+                description: document.getElementById('modal-description').value,
+                notes: document.getElementById('modal-notes').value,
+                event_date: document.getElementById('modal-event-date').value,
+                event_time: document.getElementById('modal-event-time').value
+            };
+            
+            localStorage.setItem('upbaloes_confirm_form_data', JSON.stringify(formData));
+        } catch (error) {
+            console.warn('Erro ao salvar dados do formulário:', error);
+        }
+    }
+    
+    // Função para restaurar dados do formulário do localStorage
+    function restoreFormData() {
+        try {
+            const savedData = localStorage.getItem('upbaloes_confirm_form_data');
+            if (!savedData) return;
+            
+            const formData = JSON.parse(savedData);
+            
+            // Restaurar apenas campos que têm valor
+            if (formData.client_name) {
+                document.getElementById('modal-client-name').value = formData.client_name;
+            }
+            if (formData.client_email) {
+                document.getElementById('modal-client-email').value = formData.client_email;
+            }
+            if (formData.client_phone) {
+                document.getElementById('modal-client-phone').value = formData.client_phone;
+            }
+            if (formData.event_location) {
+                document.getElementById('modal-event-location').value = formData.event_location;
+            }
+            if (formData.service_type) {
+                document.getElementById('modal-service-type').value = formData.service_type;
+            }
+            if (formData.tamanho_arco_m) {
+                document.getElementById('modal-arc-size').value = formData.tamanho_arco_m;
+            }
+            if (formData.description) {
+                document.getElementById('modal-description').value = formData.description;
+            }
+            if (formData.notes) {
+                document.getElementById('modal-notes').value = formData.notes;
+            }
+            // Data e hora serão restauradas quando o calendário for inicializado
+        } catch (error) {
+            console.warn('Erro ao restaurar dados do formulário:', error);
+        }
+    }
+    
+    // Configurar salvamento automático quando o usuário preencher os campos
+    function setupFormAutoSave() {
+        const fieldsToSave = [
+            'modal-client-name',
+            'modal-client-email',
+            'modal-client-phone',
+            'modal-event-location',
+            'modal-service-type',
+            'modal-arc-size',
+            'modal-description',
+            'modal-notes'
+        ];
+        
+        fieldsToSave.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                // Remover listeners anteriores se existirem (usando uma flag)
+                if (field.dataset.hasListener === 'true') {
+                    return; // Já tem listener configurado
+                }
+                
+                // Adicionar listeners
+                field.addEventListener('input', saveFormData);
+                field.addEventListener('change', saveFormData);
+                field.dataset.hasListener = 'true';
+            }
+        });
     }
     
     // ========== SUBMISSÃO DO FORMULÁRIO ==========
@@ -591,9 +730,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 await submitRequest();
                 showNotification('Solicitação enviada com sucesso!', 'success');
                 
-                // Limpar carrinho
+                // Limpar carrinho e dados do formulário
                 localStorage.removeItem(CART_STORAGE_KEY);
                 localStorage.removeItem(QUOTES_STORAGE_KEY);
+                localStorage.removeItem('upbaloes_confirm_form_data'); // Limpar dados salvos após envio bem-sucedido
                 
                 // Fechar modal e redirecionar
                 closeConfirmModal();

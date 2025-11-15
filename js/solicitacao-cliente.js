@@ -296,6 +296,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== SUBMISSÃO DO FORMULÁRIO ==========
     
+    // Chave para armazenar orçamentos personalizados no localStorage
+    const QUOTES_STORAGE_KEY = 'upbaloes_custom_quotes';
+    
+    // Função para obter orçamentos armazenados
+    function getStoredQuotes() {
+        try {
+            const storedQuotes = localStorage.getItem(QUOTES_STORAGE_KEY);
+            if (!storedQuotes) return [];
+            const parsedQuotes = JSON.parse(storedQuotes);
+            return Array.isArray(parsedQuotes) ? parsedQuotes : [];
+        } catch (error) {
+            console.warn('Erro ao carregar orçamentos:', error);
+            return [];
+        }
+    }
+    
+    // Função para adicionar orçamento ao carrinho
+    function addQuoteToCart(quoteData) {
+        const quotes = getStoredQuotes();
+        
+        // Criar objeto de orçamento personalizado
+        // Usando tanto os campos do banco quanto os campos esperados pelo carrinho
+        const quote = {
+            id: Date.now(), // ID temporário baseado em timestamp
+            cliente: quoteData.client_name,
+            email: quoteData.client_email,
+            telefone: quoteData.client_phone || null,
+            data_evento: quoteData.event_date,
+            event_date: quoteData.event_date, // Para compatibilidade com o carrinho
+            hora_evento: quoteData.event_time || '10:00',
+            event_time: quoteData.event_time || '10:00', // Para compatibilidade com o carrinho
+            local_evento: quoteData.event_location,
+            event_location: quoteData.event_location, // Para compatibilidade com o carrinho
+            tipo_servico: quoteData.service_type,
+            service_type: quoteData.service_type, // Para compatibilidade com o carrinho
+            descricao: quoteData.description || null,
+            description: quoteData.description || null, // Para compatibilidade com o carrinho
+            tamanho_arco_m: quoteData.tamanho_arco_m || null,
+            observacoes: quoteData.notes || null,
+            notes: quoteData.notes || null, // Para compatibilidade com o carrinho
+            valor_estimado: 0, // O decorador definirá o valor
+            estimated_value: 0, // Para compatibilidade com o carrinho
+            status: 'pendente',
+            created_via: 'client',
+            imagem: quoteData.imagePath || null,
+            imagePath: quoteData.imagePath || null, // Para compatibilidade com o carrinho
+            created_at: new Date().toISOString()
+        };
+        
+        // Adicionar à lista
+        quotes.push(quote);
+        
+        // Salvar no localStorage
+        localStorage.setItem(QUOTES_STORAGE_KEY, JSON.stringify(quotes));
+        
+        return quote;
+    }
+    
     // Configurar submissão do formulário
     function setupFormSubmission() {
         if (form) {
@@ -311,24 +369,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Mostrar loading
                 submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adicionando ao carrinho...';
                 
                 try {
-                    // Preparar dados
+                    // Coletar dados do formulário
                     const formData = new FormData(form);
                     
-                    // Enviar solicitação
-                    await submitServiceRequest(formData);
+                    // Preparar dados do orçamento
+                    const quoteData = {
+                        client_name: formData.get('client_name'),
+                        client_email: formData.get('client_email'),
+                        client_phone: formData.get('client_phone'),
+                        event_date: formData.get('event_date'),
+                        event_time: '10:00', // Hora padrão
+                        event_location: formData.get('event_location'),
+                        service_type: formData.get('service_type'),
+                        description: formData.get('description'),
+                        tamanho_arco_m: formData.get('tamanho_arco_m'),
+                        notes: formData.get('notes')
+                    };
                     
-                    showNotification('Solicitação enviada com sucesso! Entraremos em contato em breve.', 'success');
-                    form.reset();
-                    clearAllValidations();
+                    // Processar imagem se houver
+                    const imageFile = formData.get('inspiration_image');
+                    if (imageFile && imageFile.size > 0) {
+                        // Converter imagem para base64 para armazenar no localStorage
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            quoteData.imagePath = e.target.result;
+                            // Adicionar ao carrinho após processar a imagem
+                            addQuoteToCart(quoteData);
+                            
+                            // Mostrar notificação de sucesso
+                            showNotification('Orçamento adicionado ao carrinho com sucesso!', 'success');
+                            
+                            // Redirecionar para o carrinho após um breve delay
+                            setTimeout(() => {
+                                window.location.href = 'carrinho-cliente.html';
+                            }, 1000);
+                        };
+                        reader.onerror = function() {
+                            // Se houver erro ao processar imagem, adicionar sem imagem
+                            addQuoteToCart(quoteData);
+                            showNotification('Orçamento adicionado ao carrinho! (Imagem não pôde ser processada)', 'success');
+                            setTimeout(() => {
+                                window.location.href = 'carrinho-cliente.html';
+                            }, 1000);
+                        };
+                        reader.readAsDataURL(imageFile);
+                    } else {
+                        // Adicionar ao carrinho sem imagem
+                        addQuoteToCart(quoteData);
+                        
+                        // Mostrar notificação de sucesso
+                        showNotification('Orçamento adicionado ao carrinho com sucesso!', 'success');
+                        
+                        // Redirecionar para o carrinho após um breve delay
+                        setTimeout(() => {
+                            window.location.href = 'carrinho-cliente.html';
+                        }, 1000);
+                    }
                     
                 } catch (error) {
-                    showNotification('Erro ao enviar solicitação. Tente novamente.', 'error');
-                    console.error('Erro ao enviar solicitação:', error);
-                } finally {
-                    // Remover loading
+                    showNotification('Erro ao adicionar orçamento ao carrinho. Tente novamente.', 'error');
+                    console.error('Erro ao adicionar orçamento:', error);
+                    
+                    // Remover loading em caso de erro
                     submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar Solicitação';
@@ -438,6 +543,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ========== CARREGAR DADOS DO USUÁRIO LOGADO ==========
+    
+    // Função para carregar dados do usuário se estiver logado
+    function loadUserDataIfLoggedIn() {
+        try {
+            // Verificar se o usuário está logado
+            const userToken = localStorage.getItem('userToken');
+            if (!userToken) {
+                return; // Usuário não está logado
+            }
+            
+            // Carregar dados do usuário
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            
+            // Preencher campos com dados do usuário
+            const nameField = document.getElementById('client-name');
+            const emailField = document.getElementById('client-email');
+            const phoneField = document.getElementById('client-phone');
+            
+            if (nameField && userData.name) {
+                nameField.value = userData.name;
+            }
+            if (emailField && userData.email) {
+                emailField.value = userData.email;
+            }
+            if (phoneField && userData.phone) {
+                phoneField.value = userData.phone;
+            }
+        } catch (error) {
+            console.warn('Erro ao carregar dados do usuário:', error);
+        }
+    }
+
     // ========== INICIALIZAÇÃO ==========
     
     // Configurar todas as funcionalidades
@@ -446,6 +584,9 @@ document.addEventListener('DOMContentLoaded', function() {
         setupFormSubmission();
         setupCancelButton();
         setupImageUpload();
+        
+        // Carregar dados do usuário se estiver logado
+        loadUserDataIfLoggedIn();
         
         console.log('Client Request - Sistema carregado com sucesso!');
     }
