@@ -205,11 +205,15 @@ function handleAdminLogin($input) {
         $admin = $stmt->fetch();
         
         if (!$admin) {
+            // Log para debug
+            error_log("Admin login failed - Email: $email - Admin not found or inactive");
             errorResponse('Credenciais administrativas incorretas', 401);
         }
         
         // Verificar senha
         if (!password_verify($password, $admin['senha'])) {
+            // Log para debug
+            error_log("Admin login failed - Email: $email - Password mismatch");
             errorResponse('Credenciais administrativas incorretas', 401);
         }
         
@@ -248,7 +252,15 @@ function handleAdminLogin($input) {
             'role' => 'admin'
         ];
         
-        successResponse($adminData, 'Login administrativo realizado com sucesso!');
+        // Retornar resposta no formato esperado pelo JavaScript
+        $response = [
+            'success' => true,
+            'message' => 'Login administrativo realizado com sucesso!',
+            'user' => $adminData,
+            'token' => 'admin_logged_in'
+        ];
+        
+        jsonResponse($response, 200);
         
     } catch (PDOException $e) {
         error_log("Erro no login administrativo: " . $e->getMessage());
