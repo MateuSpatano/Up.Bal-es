@@ -2368,6 +2368,331 @@ class AdminSystem {
             this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
         }
     }
+
+    // ========== MÓDULO DE CONFIGURAÇÕES ==========
+    
+    // Inicializar módulo de configurações
+    initializeSettingsModule() {
+        // Configurar formulário de perfil do admin
+        const adminAccountForm = document.getElementById('admin-account-form');
+        if (adminAccountForm) {
+            adminAccountForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveAdminProfile();
+            });
+        }
+
+        // Configurar formulário de senha do admin
+        const adminPasswordForm = document.getElementById('admin-password-form');
+        if (adminPasswordForm) {
+            adminPasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.changeAdminPassword();
+            });
+        }
+
+        // Configurar botão de reset do perfil
+        const resetAdminProfile = document.getElementById('reset-admin-profile');
+        if (resetAdminProfile) {
+            resetAdminProfile.addEventListener('click', () => {
+                this.loadAdminProfile(true);
+            });
+        }
+
+        // Configurar upload de foto do admin
+        const adminPhotoInput = document.getElementById('admin-profile-photo-input');
+        if (adminPhotoInput) {
+            adminPhotoInput.addEventListener('change', (e) => {
+                this.handleAdminPhotoUpload(e);
+            });
+        }
+
+        // Configurar remoção de foto do admin
+        const removeAdminPhoto = document.getElementById('remove-admin-photo');
+        if (removeAdminPhoto) {
+            removeAdminPhoto.addEventListener('click', () => {
+                this.removeAdminPhoto();
+            });
+        }
+
+        // Configurar contador de caracteres da bio
+        const adminBio = document.getElementById('admin-bio');
+        if (adminBio) {
+            adminBio.addEventListener('input', () => {
+                const count = adminBio.value.length;
+                const counter = document.getElementById('admin-bio-count');
+                if (counter) {
+                    counter.textContent = count;
+                    if (count > 500) {
+                        counter.classList.add('text-red-500');
+                    } else {
+                        counter.classList.remove('text-red-500');
+                    }
+                }
+            });
+        }
+
+        // Configurar toggles de senha
+        document.querySelectorAll('.password-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                const targetId = toggle.getAttribute('data-target');
+                const targetInput = document.getElementById(targetId);
+                if (targetInput) {
+                    const type = targetInput.type === 'password' ? 'text' : 'password';
+                    targetInput.type = type;
+                    toggle.querySelector('i').classList.toggle('fa-eye');
+                    toggle.querySelector('i').classList.toggle('fa-eye-slash');
+                }
+            });
+        });
+    }
+
+    // Carregar perfil do admin
+    async loadAdminProfile(forceReload = false) {
+        if (this.adminProfile && !forceReload) {
+            this.populateAdminProfileForm();
+            return;
+        }
+
+        try {
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_admin_profile'
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                this.adminProfile = result.data;
+                this.populateAdminProfileForm();
+                this.adminSettingsLoaded = true;
+            } else {
+                this.showNotification('Erro ao carregar perfil: ' + (result.message || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar perfil do admin:', error);
+            this.showNotification('Erro ao carregar perfil do administrador', 'error');
+        }
+    }
+
+    // Preencher formulário de perfil do admin
+    populateAdminProfileForm() {
+        if (!this.adminProfile) return;
+
+        const fields = {
+            'admin-name': this.adminProfile.name || '',
+            'admin-email': this.adminProfile.email || '',
+            'admin-phone': this.adminProfile.phone || '',
+            'admin-whatsapp': this.adminProfile.whatsapp || '',
+            'admin-instagram': this.adminProfile.instagram || '',
+            'admin-communication-email': this.adminProfile.communication_email || '',
+            'admin-bio': this.adminProfile.bio || ''
+        };
+
+        Object.keys(fields).forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.value = fields[id];
+            }
+        });
+
+        // Atualizar foto de perfil
+        const adminProfilePhoto = document.getElementById('admin-profile-photo');
+        if (adminProfilePhoto) {
+            if (this.adminProfile.profile_photo) {
+                adminProfilePhoto.src = '../' + this.adminProfile.profile_photo;
+            } else {
+                adminProfilePhoto.src = this.defaultAdminPhoto;
+            }
+        }
+
+        // Atualizar nome e email exibidos
+        const adminProfileName = document.getElementById('admin-profile-name');
+        const adminProfileEmail = document.getElementById('admin-profile-email');
+        if (adminProfileName) adminProfileName.textContent = this.adminProfile.name || 'Administrador';
+        if (adminProfileEmail) adminProfileEmail.textContent = this.adminProfile.email || 'admin@upbaloes.com';
+
+        // Atualizar contador de bio
+        const adminBio = document.getElementById('admin-bio');
+        const bioCount = document.getElementById('admin-bio-count');
+        if (adminBio && bioCount) {
+            bioCount.textContent = adminBio.value.length;
+        }
+    }
+
+    // Salvar perfil do admin
+    async saveAdminProfile() {
+        try {
+            const formData = {
+                name: document.getElementById('admin-name')?.value || '',
+                email: document.getElementById('admin-email')?.value || '',
+                phone: document.getElementById('admin-phone')?.value || '',
+                whatsapp: document.getElementById('admin-whatsapp')?.value || '',
+                instagram: document.getElementById('admin-instagram')?.value || '',
+                communication_email: document.getElementById('admin-communication-email')?.value || '',
+                bio: document.getElementById('admin-bio')?.value || '',
+                profile_image: this.pendingAdminProfileImage || null,
+                remove_profile_image: this.removeAdminProfileImage || false
+            };
+
+            const submitBtn = document.getElementById('save-admin-profile');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                submitBtn.disabled = true;
+
+                const response = await fetch('../services/admin.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'update_admin_profile',
+                        ...formData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    this.showNotification('Perfil atualizado com sucesso!', 'success');
+                    this.adminProfile = result.data;
+                    this.pendingAdminProfileImage = null;
+                    this.removeAdminProfileImage = false;
+                    this.populateAdminProfileForm();
+                    
+                    // Mostrar feedback de atualização
+                    const updatedFeedback = document.getElementById('admin-profile-updated');
+                    if (updatedFeedback) {
+                        updatedFeedback.classList.remove('hidden');
+                        setTimeout(() => {
+                            updatedFeedback.classList.add('hidden');
+                        }, 3000);
+                    }
+                } else {
+                    this.showNotification('Erro: ' + (result.message || 'Erro ao salvar perfil'), 'error');
+                }
+
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Erro ao salvar perfil do admin:', error);
+            this.showNotification('Erro ao salvar perfil', 'error');
+        }
+    }
+
+    // Alterar senha do admin
+    async changeAdminPassword() {
+        try {
+            const currentPassword = document.getElementById('admin-current-password')?.value || '';
+            const newPassword = document.getElementById('admin-new-password')?.value || '';
+            const confirmPassword = document.getElementById('admin-confirm-password')?.value || '';
+
+            if (newPassword !== confirmPassword) {
+                this.showNotification('As senhas não coincidem', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('save-admin-password');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Alterando...';
+                submitBtn.disabled = true;
+
+                const response = await fetch('../services/admin.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'change_admin_password',
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    this.showNotification('Senha alterada com sucesso!', 'success');
+                    document.getElementById('admin-password-form')?.reset();
+                } else {
+                    this.showNotification('Erro: ' + (result.message || 'Erro ao alterar senha'), 'error');
+                }
+
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Erro ao alterar senha do admin:', error);
+            this.showNotification('Erro ao alterar senha', 'error');
+        }
+    }
+
+    // Manipular upload de foto do admin
+    handleAdminPhotoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Por favor, selecione uma imagem válida', 'error');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+            this.showNotification('A imagem deve ter no máximo 5MB', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.pendingAdminProfileImage = e.target.result;
+            const adminProfilePhoto = document.getElementById('admin-profile-photo');
+            if (adminProfilePhoto) {
+                adminProfilePhoto.src = e.target.result;
+            }
+            this.showAdminPhotoFeedback('Foto carregada. Clique em "Salvar Alterações" para confirmar.', 'success');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Remover foto do admin
+    removeAdminPhoto() {
+        this.removeAdminProfileImage = true;
+        this.pendingAdminProfileImage = null;
+        const adminProfilePhoto = document.getElementById('admin-profile-photo');
+        if (adminProfilePhoto) {
+            adminProfilePhoto.src = this.defaultAdminPhoto;
+        }
+        this.showAdminPhotoFeedback('Foto removida. Clique em "Salvar Alterações" para confirmar.', 'info');
+    }
+
+    // Mostrar feedback de foto do admin
+    showAdminPhotoFeedback(message, type) {
+        const feedback = document.getElementById('admin-photo-feedback');
+        if (!feedback) return;
+
+        feedback.textContent = message;
+        feedback.classList.remove('hidden', 'text-green-600', 'text-blue-600', 'text-red-600');
+        
+        const colorClass = type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-blue-600';
+        feedback.classList.add(colorClass);
+
+        if (this.adminPhotoFeedbackTimeout) {
+            clearTimeout(this.adminPhotoFeedbackTimeout);
+        }
+
+        this.adminPhotoFeedbackTimeout = setTimeout(() => {
+            feedback.classList.add('hidden');
+        }, 5000);
+    }
 }
 
 // Função global para copiar URL do decorador
