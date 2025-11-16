@@ -639,13 +639,20 @@ class AdminSystem {
                 body: JSON.stringify({ action: 'get_dashboard_data' })
             });
 
+            if (!response.ok) {
+                console.error('Erro ao carregar dashboard:', response.status, response.statusText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const result = await response.json();
 
-            if (response.ok && result.success && result.data) {
+            if (result.success && result.data) {
                 this.dashboardData = result.data;
                 this.updateDashboardMetrics(result.data);
                 this.loadRecentActivities(result.data.activities || []);
                 return;
+            } else {
+                console.warn('Resposta do dashboard não teve sucesso:', result);
             }
 
             console.warn('Não foi possível carregar dados atualizados do dashboard.', result);

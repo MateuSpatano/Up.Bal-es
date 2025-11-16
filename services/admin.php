@@ -45,8 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Verificar se o usuário está logado como admin
-session_start();
-if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
+// A sessão já é iniciada no config.php, então apenas verificamos o status
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['admin_id']) || ($_SESSION['admin_role'] ?? '') !== 'admin') {
+    error_log("Tentativa de acesso não autorizado. Session admin_id: " . ($_SESSION['admin_id'] ?? 'não definido') . ", admin_role: " . ($_SESSION['admin_role'] ?? 'não definido'));
     errorResponse('Acesso negado. Apenas administradores podem acessar esta área.', 403);
 }
 
@@ -110,7 +115,9 @@ try {
     }
     
 } catch (Exception $e) {
-    errorResponse($e->getMessage(), 500);
+    error_log("Erro no serviço admin.php: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    errorResponse('Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Erro ao processar requisição'), 500);
 }
 
 /**
@@ -846,7 +853,6 @@ function getAdminProfile() {
                 instagram,
                 email_comunicacao,
                 bio,
-                foto_perfil,
                 created_at,
                 updated_at
             FROM usuarios
@@ -864,12 +870,12 @@ function getAdminProfile() {
             'id' => (int)$admin['id'],
             'name' => $admin['nome'],
             'email' => $admin['email'],
-            'phone' => $admin['telefone'],
-            'whatsapp' => $admin['whatsapp'],
-            'instagram' => $admin['instagram'],
-            'communication_email' => $admin['email_comunicacao'],
-            'bio' => $admin['bio'],
-            'profile_photo' => $admin['foto_perfil'],
+            'phone' => $admin['telefone'] ?? null,
+            'whatsapp' => $admin['whatsapp'] ?? null,
+            'instagram' => $admin['instagram'] ?? null,
+            'communication_email' => $admin['email_comunicacao'] ?? null,
+            'bio' => $admin['bio'] ?? null,
+            'profile_photo' => null, // Campo foto_perfil não existe ainda na tabela
             'created_at' => $admin['created_at'],
             'updated_at' => $admin['updated_at']
         ];
@@ -922,11 +928,20 @@ function updateAdminProfile($input) {
             errorResponse('Este email já está em uso por outro usuário', 400);
         }
         
+        // Verificar se o campo foto_perfil existe na tabela
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM usuarios LIKE 'foto_perfil'");
+        $stmt->execute();
+        $hasFotoPerfil = $stmt->fetch() !== false;
+        
         // Buscar dados atuais para manipular arquivo de imagem
-        $stmt = $pdo->prepare("SELECT foto_perfil FROM usuarios WHERE id = ?");
-        $stmt->execute([$adminId]);
-        $currentData = $stmt->fetch();
-        $currentPhoto = $currentData['foto_perfil'] ?? null;
+        $currentPhoto = null;
+        if ($hasFotoPerfil) {
+            $stmt = $pdo->prepare("SELECT foto_perfil FROM usuarios WHERE id = ?");
+            $stmt->execute([$adminId]);
+            $currentData = $stmt->fetch();
+            $currentPhoto = $currentData['foto_perfil'] ?? null;
+        }
+        
         $newPhotoPath = $currentPhoto;
         
         if ($profileImage) {
@@ -944,9 +959,13 @@ function updateAdminProfile($input) {
             'instagram' => !empty($instagram) ? sanitizeInput($instagram) : null,
             'email_comunicacao' => !empty($communicationEmail) ? sanitizeInput($communicationEmail) : null,
             'bio' => !empty($bio) ? $bio : null,
-            'foto_perfil' => $newPhotoPath,
             'updated_at' => date('Y-m-d H:i:s')
         ];
+        
+        // Adicionar foto_perfil apenas se o campo existir
+        if ($hasFotoPerfil) {
+            $updateFields['foto_perfil'] = $newPhotoPath;
+        }
         
         $setClause = [];
         $params = [];
@@ -972,7 +991,7 @@ function updateAdminProfile($input) {
             'instagram' => $updateFields['instagram'],
             'communication_email' => $updateFields['email_comunicacao'],
             'bio' => $updateFields['bio'],
-            'profile_photo' => $updateFields['foto_perfil']
+            'profile_photo' => $hasFotoPerfil ? ($updateFields['foto_perfil'] ?? null) : null
         ];
         
         successResponse($response, 'Perfil atualizado com sucesso!');
