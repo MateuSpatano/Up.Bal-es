@@ -1,18 +1,14 @@
 RewriteEngine On
+RewriteBase /Up.BaloesV3/
 
 # Redirecionar requisições para /{slug} para decorator-page.php
 # Excluir arquivos e diretórios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/(pages|services|css|js|Images|utils|database|docs|components)/
+RewriteCond %{REQUEST_URI} !^/Up.BaloesV3/(pages|services|css|js|Images|utils|database|docs|components)/
 
-# Capturar slug e redirecionar para services/pagina-decorador.php
+# Capturar slug (com ou sem barra no final) e redirecionar para services/pagina-decorador.php
 RewriteRule ^([a-z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
-
-# Redirecionar requisições para /{slug}/ para /{slug}
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^([a-z0-9-]+)/$ /$1 [R=301,L]
 
 # Configurações de segurança
 <Files "*.sql">
