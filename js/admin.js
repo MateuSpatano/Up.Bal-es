@@ -2091,14 +2091,20 @@ class AdminSystem {
                 return;
             }
             
-            // Preencher nome no modal
-            document.getElementById('page-customization-decorator-name').textContent = user.name;
-            document.getElementById('page-customization-decorator-id').value = decoratorId;
+            // Mostrar modal primeiro para garantir que os elementos estejam no DOM
+            const modal = document.getElementById('page-customization-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
             
-            // Carregar configurações existentes
-            await this.loadPageCustomization(decoratorId);
+            // Preencher nome no modal (com verificação de null)
+            const decoratorNameEl = document.getElementById('page-customization-decorator-name');
+            const decoratorIdEl = document.getElementById('page-customization-decorator-id');
             
-            // Configurar tabs
+            if (decoratorNameEl) decoratorNameEl.textContent = user.name;
+            if (decoratorIdEl) decoratorIdEl.value = decoratorId;
+            
+            // Configurar tabs antes de carregar dados
             this.setupPageCustomizationTabs();
             
             // Configurar cores
@@ -2107,8 +2113,8 @@ class AdminSystem {
             // Configurar contadores de caracteres
             this.setupCharCounters();
             
-            // Mostrar modal
-            document.getElementById('page-customization-modal').classList.remove('hidden');
+            // Carregar configurações existentes após mostrar o modal
+            await this.loadPageCustomization(decoratorId);
             
         } catch (error) {
             console.error('Erro ao abrir edição de página:', error);
@@ -2149,42 +2155,64 @@ class AdminSystem {
                 // Verificar se há dados salvos
                 const hasData = config.page_title && config.page_description;
                 
-                // Preencher campos de conteúdo
-                document.getElementById('page-title').value = config.page_title || '';
-                document.getElementById('page-description').value = config.page_description || '';
-                document.getElementById('welcome-text').value = config.welcome_text || '';
+                // Preencher campos de conteúdo (com verificação de null)
+                const pageTitleEl = document.getElementById('page-title');
+                const pageDescEl = document.getElementById('page-description');
+                const welcomeTextEl = document.getElementById('welcome-text');
                 
-                // Preencher campos visuais
-                document.getElementById('cover-image-url').value = config.cover_image_url || '';
+                if (pageTitleEl) pageTitleEl.value = config.page_title || '';
+                if (pageDescEl) pageDescEl.value = config.page_description || '';
+                if (welcomeTextEl) welcomeTextEl.value = config.welcome_text || '';
+                
+                // Preencher campos visuais (com verificação de null)
+                const coverImageEl = document.getElementById('cover-image-url');
+                if (coverImageEl) coverImageEl.value = config.cover_image_url || '';
+                
                 const primaryColor = config.primary_color || '#667eea';
                 const secondaryColor = config.secondary_color || '#764ba2';
                 const accentColor = config.accent_color || '#f59e0b';
                 
-                document.getElementById('primary-color').value = primaryColor;
-                document.getElementById('primary-color-hex').value = primaryColor;
-                document.getElementById('secondary-color').value = secondaryColor;
-                document.getElementById('secondary-color-hex').value = secondaryColor;
-                document.getElementById('accent-color').value = accentColor;
-                document.getElementById('accent-color-hex').value = accentColor;
+                const primaryColorEl = document.getElementById('primary-color');
+                const primaryColorHexEl = document.getElementById('primary-color-hex');
+                const secondaryColorEl = document.getElementById('secondary-color');
+                const secondaryColorHexEl = document.getElementById('secondary-color-hex');
+                const accentColorEl = document.getElementById('accent-color');
+                const accentColorHexEl = document.getElementById('accent-color-hex');
                 
-                // Preencher redes sociais
+                if (primaryColorEl) primaryColorEl.value = primaryColor;
+                if (primaryColorHexEl) primaryColorHexEl.value = primaryColor;
+                if (secondaryColorEl) secondaryColorEl.value = secondaryColor;
+                if (secondaryColorHexEl) secondaryColorHexEl.value = secondaryColor;
+                if (accentColorEl) accentColorEl.value = accentColor;
+                if (accentColorHexEl) accentColorHexEl.value = accentColor;
+                
+                // Preencher redes sociais (com verificação de null)
+                const socialFacebookEl = document.getElementById('social-facebook');
+                const socialInstagramEl = document.getElementById('social-instagram');
+                const socialWhatsappEl = document.getElementById('social-whatsapp');
+                const socialYoutubeEl = document.getElementById('social-youtube');
+                
                 if (config.social_media) {
                     const social = typeof config.social_media === 'string' ? JSON.parse(config.social_media) : config.social_media;
-                    document.getElementById('social-facebook').value = social.facebook || '';
-                    document.getElementById('social-instagram').value = social.instagram || '';
-                    document.getElementById('social-whatsapp').value = social.whatsapp || '';
-                    document.getElementById('social-youtube').value = social.youtube || '';
+                    if (socialFacebookEl) socialFacebookEl.value = social.facebook || '';
+                    if (socialInstagramEl) socialInstagramEl.value = social.instagram || '';
+                    if (socialWhatsappEl) socialWhatsappEl.value = social.whatsapp || '';
+                    if (socialYoutubeEl) socialYoutubeEl.value = social.youtube || '';
                 } else {
-                    document.getElementById('social-facebook').value = '';
-                    document.getElementById('social-instagram').value = '';
-                    document.getElementById('social-whatsapp').value = '';
-                    document.getElementById('social-youtube').value = '';
+                    if (socialFacebookEl) socialFacebookEl.value = '';
+                    if (socialInstagramEl) socialInstagramEl.value = '';
+                    if (socialWhatsappEl) socialWhatsappEl.value = '';
+                    if (socialYoutubeEl) socialYoutubeEl.value = '';
                 }
                 
-                // Preencher SEO
-                document.getElementById('meta-title').value = config.meta_title || '';
-                document.getElementById('meta-description').value = config.meta_description || '';
-                document.getElementById('meta-keywords').value = config.meta_keywords || '';
+                // Preencher SEO (com verificação de null)
+                const metaTitleEl = document.getElementById('meta-title');
+                const metaDescEl = document.getElementById('meta-description');
+                const metaKeywordsEl = document.getElementById('meta-keywords');
+                
+                if (metaTitleEl) metaTitleEl.value = config.meta_title || '';
+                if (metaDescEl) metaDescEl.value = config.meta_description || '';
+                if (metaKeywordsEl) metaKeywordsEl.value = config.meta_keywords || '';
                 
                 // Atualizar contadores
                 this.updateCharCounters();
