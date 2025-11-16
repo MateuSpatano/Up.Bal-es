@@ -153,12 +153,12 @@ function handleLogin($input) {
         // Log de acesso
         logAccess($user['id'], 'login', $pdo);
         
-        // Preparar resposta
+        // Preparar resposta no formato esperado pelo JavaScript
         $userData = [
             'id' => $user['id'],
             'name' => $user['nome'],
             'email' => $user['email'],
-            'role' => $user['perfil'],
+            'role' => $user['perfil'], // 'decorator', 'user' ou 'admin'
             'phone' => $user['telefone'],
             'address' => $user['endereco'],
             'city' => $user['cidade'],
@@ -167,7 +167,16 @@ function handleLogin($input) {
             'slug' => $user['slug']
         ];
         
-        successResponse($userData, 'Login realizado com sucesso!');
+        // Retornar resposta no formato esperado pelo JavaScript (com campo 'user')
+        $response = [
+            'success' => true,
+            'message' => 'Login realizado com sucesso!',
+            'user' => $userData,
+            'token' => 'logged_in',
+            'data' => $userData // Manter compatibilidade
+        ];
+        
+        jsonResponse($response, 200);
         
     } catch (PDOException $e) {
         error_log("Erro no login: " . $e->getMessage());

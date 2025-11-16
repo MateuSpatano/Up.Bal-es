@@ -132,9 +132,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 showMessage('Login realizado com sucesso! Redirecionando...', 'success');
                 
-                // Salvar dados do usuário
+                // Salvar dados do usuário (usar response.user ou response.data como fallback)
+                const userData = response.user || response.data || {};
                 localStorage.setItem('userToken', response.token || 'logged_in');
-                localStorage.setItem('userData', JSON.stringify(response.user));
+                localStorage.setItem('userData', JSON.stringify(userData));
                 
                 // Salvar dados se "lembrar" estiver marcado
                 if (formData.remember) {
@@ -145,11 +146,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Redirecionamento baseado no role do usuário
                 setTimeout(() => {
-                    if (response.user && response.user.role === 'admin') {
+                    const userRole = (response.user && response.user.role) || (response.data && response.data.role);
+                    
+                    if (userRole === 'admin') {
                         window.location.href = 'admin.html';
-                    } else if (response.user && response.user.role === 'decorator') {
+                    } else if (userRole === 'decorator') {
                         window.location.href = 'painel-decorador.html';
                     } else {
+                        // Cliente ou qualquer outro perfil vai para a página inicial
                         window.location.href = '../index.html';
                     }
                 }, 2000);

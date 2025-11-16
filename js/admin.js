@@ -1185,21 +1185,6 @@ class AdminSystem {
         document.getElementById('next-page').disabled = this.currentPage === totalPages;
     }
 
-    // Editar usuário
-    editUser(userId) {
-        const user = this.users.find(u => u.id === userId);
-        if (!user) return;
-
-        // Preencher formulário
-        document.getElementById('edit-user-id').value = user.id;
-        document.getElementById('edit-user-name').value = user.name;
-        document.getElementById('edit-user-email').value = user.email;
-        document.getElementById('edit-user-phone').value = user.phone;
-        document.getElementById('edit-user-status').value = user.status;
-
-        // Mostrar modal
-        this.showModal('edit-user-modal');
-    }
 
 
     // Alternar status do usuário
