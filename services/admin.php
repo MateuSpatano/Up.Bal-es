@@ -110,6 +110,10 @@ try {
         case 'change_admin_password':
             changeAdminPassword($input);
             break;
+        
+        case 'delete_user':
+            deleteUser($input);
+            break;
             
         default:
             errorResponse('Ação não reconhecida', 400);
@@ -556,6 +560,73 @@ function updateUser($input) {
         
     } catch (PDOException $e) {
         error_log("Erro ao atualizar usuário: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    }
+}
+
+/**
+ * Excluir usuário
+ */
+function deleteUser($input) {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $userId = $input['id'] ?? 0;
+        if (!$userId) {
+            errorResponse('ID do usuário é obrigatório', 400);
+        }
+        
+        // Verificar se usuário existe
+        $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            errorResponse('Usuário não encontrado', 404);
+        }
+        
+        // Não permitir excluir administradores
+        if ($user['perfil'] === 'admin') {
+            errorResponse('Não é permitido excluir contas de administrador', 403);
+        }
+        
+        // Log da exclusão (antes de excluir o usuário)
+        logAdminAction($_SESSION['admin_id'], 'delete_user', $userId, $pdo);
+        
+        // Iniciar transação
+        $pdo->beginTransaction();
+        
+        try {
+            // Excluir personalização da página se for decorador
+            if ($user['perfil'] === 'decorator') {
+                $stmt = $pdo->prepare("DELETE FROM decorator_page_customization WHERE decorator_id = ?");
+                $stmt->execute([$userId]);
+            }
+            
+            // Excluir logs relacionados
+            $stmt = $pdo->prepare("DELETE FROM access_logs WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Excluir usuário
+            $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id = ?");
+            $stmt->execute([$userId]);
+            
+            // Confirmar transação
+            $pdo->commit();
+            
+            successResponse(null, 'Usuário excluído com sucesso!');
+            
+        } catch (Exception $e) {
+            // Reverter transação em caso de erro
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao excluir usuário: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    } catch (Exception $e) {
+        error_log("Erro ao excluir usuário: " . $e->getMessage());
         errorResponse('Erro interno do servidor', 500);
     }
 }

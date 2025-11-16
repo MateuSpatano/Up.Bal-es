@@ -455,7 +455,7 @@ class AdminSystem {
         if (editUserForm) {
             editUserForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.updateUser();
+                this.saveUserEdit();
             });
         }
 
@@ -1201,58 +1201,88 @@ class AdminSystem {
         this.showModal('edit-user-modal');
     }
 
-    // Atualizar usuário
-    updateUser() {
-        const form = document.getElementById('edit-user-form');
-        const formData = new FormData(form);
-        
-        const userId = parseInt(formData.get('id'));
-        const userIndex = this.users.findIndex(u => u.id === userId);
-        
-        if (userIndex === -1) return;
-
-        // Atualizar dados
-        this.users[userIndex] = {
-            ...this.users[userIndex],
-            name: formData.get('name'),
-            email: formData.get('email'),
-            phone: formData.get('phone'),
-            status: formData.get('status')
-        };
-
-        this.filteredUsers = [...this.users];
-        this.renderUsersTable();
-        this.closeModal('edit-user-modal');
-        this.showNotification('Usuário atualizado com sucesso!', 'success');
-    }
 
     // Alternar status do usuário
-    toggleUserStatus(userId) {
-        const user = this.users.find(u => u.id === userId);
-        if (!user) return;
+    async toggleUserStatus(userId) {
+        try {
+            const user = this.users.find(u => u.id === userId);
+            if (!user) {
+                this.showNotification('Usuário não encontrado', 'error');
+                return;
+            }
 
-        user.status = user.status === 'active' ? 'inactive' : 'active';
-        this.filteredUsers = [...this.users];
-        this.renderUsersTable();
-        
-        const statusText = user.status === 'active' ? 'ativado' : 'desativado';
-        this.showNotification(`Usuário ${statusText} com sucesso!`, 'success');
+            const newStatus = user.status === 'active' ? 'inactive' : 'active';
+            
+            // Chamar backend para atualizar o status
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'update_user',
+                    id: userId,
+                    status: newStatus
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Atualizar status local após sucesso no backend
+                user.status = newStatus;
+                this.filteredUsers = [...this.users];
+                this.renderUsersTable();
+                
+                const statusText = newStatus === 'active' ? 'ativado' : 'desativado';
+                this.showNotification(`Usuário ${statusText} com sucesso!`, 'success');
+            } else {
+                this.showNotification('Erro: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao alterar status do usuário:', error);
+            this.showNotification('Erro de conexão ao alterar status', 'error');
+        }
     }
 
     // Excluir usuário
-    deleteUser(userId) {
-        if (!confirm('Tem certeza que deseja excluir este usuário?')) {
+    async deleteUser(userId) {
+        if (!confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
             return;
         }
 
-        const userIndex = this.users.findIndex(u => u.id === userId);
-        if (userIndex === -1) return;
-
-        this.users.splice(userIndex, 1);
-        this.filteredUsers = [...this.users];
-        this.refreshUsersChart();
-        this.renderUsersTable();
-        this.showNotification('Usuário excluído com sucesso!', 'success');
+        try {
+            // Chamar backend para excluir o usuário
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'delete_user',
+                    id: userId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Remover usuário da lista local após sucesso no backend
+                const userIndex = this.users.findIndex(u => u.id === userId);
+                if (userIndex !== -1) {
+                    this.users.splice(userIndex, 1);
+                    this.filteredUsers = [...this.users];
+                    this.refreshUsersChart();
+                    this.renderUsersTable();
+                }
+                this.showNotification('Usuário excluído com sucesso!', 'success');
+            } else {
+                this.showNotification('Erro: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao excluir usuário:', error);
+            this.showNotification('Erro de conexão ao excluir usuário', 'error');
+        }
     }
 
     // Mostrar modal
