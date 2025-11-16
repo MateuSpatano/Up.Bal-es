@@ -14,17 +14,22 @@ USE up_baloes;
 -- Alterar delimitador para permitir criação de stored procedure
 DELIMITER //
 
+-- Remover procedure se já existir (antes de criar)
+DROP PROCEDURE IF EXISTS add_index_if_not_exists //
+
 -- Criar stored procedure temporária para adicionar índices
-CREATE PROCEDURE IF NOT EXISTS add_index_if_not_exists()
+CREATE PROCEDURE add_index_if_not_exists()
 BEGIN
+    DECLARE idx_count INT DEFAULT 0;
+    
     -- Índice para busca de solicitações por email do cliente
     -- (usado na funcionalidade "Minhas Compras")
-    SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS 
+    SELECT COUNT(*) INTO idx_count FROM information_schema.STATISTICS 
         WHERE TABLE_SCHEMA = 'up_baloes' 
         AND TABLE_NAME = 'orcamentos' 
-        AND INDEX_NAME = 'idx_email');
+        AND INDEX_NAME = 'idx_email';
         
-    IF @idx_exists = 0 THEN
+    IF idx_count = 0 THEN
         SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_email (email) COMMENT "Índice para busca de solicitações por email do cliente"';
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
@@ -35,12 +40,13 @@ BEGIN
     END IF;
 
     -- Índice para ordenação por data de criação
-    SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS 
+    SET idx_count = 0;
+    SELECT COUNT(*) INTO idx_count FROM information_schema.STATISTICS 
         WHERE TABLE_SCHEMA = 'up_baloes' 
         AND TABLE_NAME = 'orcamentos' 
-        AND INDEX_NAME = 'idx_created_at');
+        AND INDEX_NAME = 'idx_created_at';
         
-    IF @idx_exists = 0 THEN
+    IF idx_count = 0 THEN
         SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_created_at (created_at) COMMENT "Índice para ordenação por data de criação"';
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
