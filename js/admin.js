@@ -382,50 +382,83 @@ class AdminSystem {
         });
 
         // Formulário de criação de decorador
-        document.getElementById('create-decorator-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.createDecorator();
-        });
+        const createDecoratorForm = document.getElementById('create-decorator-form');
+        if (createDecoratorForm) {
+            createDecoratorForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.createDecorator();
+            });
+        }
+
+        // Botão de cancelar criação de decorador
+        const cancelDecoratorBtn = document.getElementById('cancel-decorator-creation');
+        if (cancelDecoratorBtn) {
+            cancelDecoratorBtn.addEventListener('click', () => {
+                document.getElementById('create-decorator-form').reset();
+                this.showPage('dashboard');
+            });
+        }
 
         // Formulário de edição de usuário
-        document.getElementById('edit-user-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updateUser();
-        });
+        const editUserForm = document.getElementById('edit-user-form');
+        if (editUserForm) {
+            editUserForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.updateUser();
+            });
+        }
 
         // Busca e filtros
-        document.getElementById('user-search').addEventListener('input', () => {
-            this.filterUsers();
-        });
+        const userSearch = document.getElementById('user-search');
+        if (userSearch) {
+            userSearch.addEventListener('input', () => {
+                this.filterUsers();
+            });
+        }
 
-        document.getElementById('user-type-filter').addEventListener('change', () => {
-            this.filterUsers();
-        });
+        const userTypeFilter = document.getElementById('user-type-filter');
+        if (userTypeFilter) {
+            userTypeFilter.addEventListener('change', () => {
+                this.filterUsers();
+            });
+        }
 
-        document.getElementById('user-status-filter').addEventListener('change', () => {
-            this.filterUsers();
-        });
+        const userStatusFilter = document.getElementById('user-status-filter');
+        if (userStatusFilter) {
+            userStatusFilter.addEventListener('change', () => {
+                this.filterUsers();
+            });
+        }
 
         // Paginação
-        document.getElementById('prev-page').addEventListener('click', () => {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.renderUsersTable();
-            }
-        });
+        const prevPageBtn = document.getElementById('prev-page');
+        if (prevPageBtn) {
+            prevPageBtn.addEventListener('click', () => {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.renderUsersTable();
+                }
+            });
+        }
 
-        document.getElementById('next-page').addEventListener('click', () => {
-            const totalPages = Math.ceil(this.filteredUsers.length / this.itemsPerPage);
-            if (this.currentPage < totalPages) {
-                this.currentPage++;
-                this.renderUsersTable();
-            }
-        });
+        const nextPageBtn = document.getElementById('next-page');
+        if (nextPageBtn) {
+            nextPageBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(this.filteredUsers.length / this.itemsPerPage);
+                if (this.currentPage < totalPages) {
+                    this.currentPage++;
+                    this.renderUsersTable();
+                }
+            });
+        }
 
         // Logout
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            this.logout();
-        });
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+            });
+        }
 
         // Modais
         this.setupModalListeners();
@@ -486,30 +519,41 @@ class AdminSystem {
     // Configurar listeners dos modais
     setupModalListeners() {
         // Modal de edição de usuário
-        document.getElementById('close-edit-user-modal').addEventListener('click', () => {
-            this.closeModal('edit-user-modal');
-        });
+        const closeEditUserModal = document.getElementById('close-edit-user-modal');
+        if (closeEditUserModal) {
+            closeEditUserModal.addEventListener('click', () => {
+                this.closeModal('edit-user-modal');
+            });
+        }
 
-        document.getElementById('edit-user-modal-overlay').addEventListener('click', () => {
-            this.closeModal('edit-user-modal');
-        });
+        const editUserModalOverlay = document.getElementById('edit-user-modal-overlay');
+        if (editUserModalOverlay) {
+            editUserModalOverlay.addEventListener('click', () => {
+                this.closeModal('edit-user-modal');
+            });
+        }
 
-        document.getElementById('cancel-edit-user').addEventListener('click', () => {
-            this.closeModal('edit-user-modal');
-        });
+        const cancelEditUser = document.getElementById('cancel-edit-user');
+        if (cancelEditUser) {
+            cancelEditUser.addEventListener('click', () => {
+                this.closeModal('edit-user-modal');
+            });
+        }
     }
 
     // Configurar máscaras de input
     setupInputMasks() {
         // CPF
         const cpfInput = document.getElementById('decorator-cpf');
-        cpfInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, '');
-            value = value.replace(/(\d{3})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-            e.target.value = value;
-        });
+        if (cpfInput) {
+            cpfInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                e.target.value = value;
+            });
+        }
 
         // Telefone
         const phoneInputs = document.querySelectorAll('input[type="tel"]');
@@ -531,7 +575,10 @@ class AdminSystem {
         });
 
         // Adicionar classe active ao item clicado
-        document.querySelector(`a[href="#${pageId}"]`).classList.add('active');
+        const activeNavItem = document.querySelector(`a[href="#${pageId}"]`);
+        if (activeNavItem) {
+            activeNavItem.classList.add('active');
+        }
 
         // Esconder todos os conteúdos
         document.querySelectorAll('.admin-content').forEach(content => {
@@ -539,7 +586,10 @@ class AdminSystem {
         });
 
         // Mostrar conteúdo da página selecionada
-        document.getElementById(`${pageId}-content`).classList.remove('hidden');
+        const pageContent = document.getElementById(`${pageId}-content`);
+        if (pageContent) {
+            pageContent.classList.remove('hidden');
+        }
 
         // Atualizar título da página
         const titles = {
@@ -552,8 +602,10 @@ class AdminSystem {
 
         const pageInfo = titles[pageId];
         if (pageInfo) {
-            document.getElementById('page-title').textContent = pageInfo.title;
-            document.getElementById('page-subtitle').textContent = pageInfo.subtitle;
+            const pageTitle = document.getElementById('page-title');
+            const pageSubtitle = document.getElementById('page-subtitle');
+            if (pageTitle) pageTitle.textContent = pageInfo.title;
+            if (pageSubtitle) pageSubtitle.textContent = pageInfo.subtitle;
         }
 
         // Carregar dados específicos da página
@@ -721,7 +773,10 @@ class AdminSystem {
         });
 
         // Gráfico de usuários por tipo
-        const usersCtx = document.getElementById('users-chart').getContext('2d');
+        const usersChartEl = document.getElementById('users-chart');
+        if (!usersChartEl) return;
+        
+        const usersCtx = usersChartEl.getContext('2d');
         this.charts.users = new Chart(usersCtx, {
             type: 'doughnut',
             data: {
@@ -805,12 +860,22 @@ class AdminSystem {
             submitBtn.disabled = true;
 
             // Enviar para o servidor
-            const response = await fetch('../services/decorador.php', {
+            const response = await fetch('../services/admin.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(decoratorData)
+                body: JSON.stringify({
+                    action: 'create_decorator',
+                    name: decoratorData.nome,
+                    email: decoratorData.email,
+                    password: decoratorData.senha,
+                    cpf: decoratorData.cpf,
+                    phone: decoratorData.telefone,
+                    whatsapp: decoratorData.whatsapp,
+                    communication_email: decoratorData.communication_email,
+                    address: decoratorData.endereco
+                })
             });
 
             const result = await response.json();
@@ -2352,8 +2417,18 @@ function copyDecoratorUrl() {
 
 // Inicializar sistema quando a página carregar
 document.addEventListener('DOMContentLoaded', () => {
-    window.admin = new AdminSystem();
-    window.adminSystem = window.admin; // Alias para compatibilidade
+    try {
+        window.admin = new AdminSystem();
+        window.adminSystem = window.admin; // Alias para compatibilidade
+        
+        // Garantir que ambos estão disponíveis globalmente
+        if (!window.admin || !window.adminSystem) {
+            console.error('Erro ao inicializar AdminSystem');
+        }
+    } catch (error) {
+        console.error('Erro ao inicializar sistema administrativo:', error);
+        alert('Erro ao carregar a área administrativa. Por favor, recarregue a página.');
+    }
 });
 
 // Funções globais para uso no HTML
