@@ -21,10 +21,11 @@ Sistema completo para gestão de projetos de decoração com balões. Permite or
 
 | Área | Destaques |
 | ---- | --------- |
-| Autenticação | JWT + sessão tradicional com “lembrar-me” e recuperação por e-mail |
+| Autenticação | JWT + sessão tradicional com "lembrar-me" e recuperação por e-mail |
 | Operação | Painel administrativo com métricas, agenda do decorador e sistema de orçamentos |
 | Marketing | Página pública personalizável e portfólio com fotos |
 | Experiência | Interface responsiva e otimizada para desktop e mobile |
+| UX Avançada | Preservação automática de dados do formulário, preenchimento inteligente para usuários logados e sincronização entre telas |
 
 ---
 
@@ -121,11 +122,12 @@ Up.BaloesV3/
 
 ## 🧩 Principais Módulos
 
-- **Autenticação** (`services/auth_middleware.php`, `services/login.php`): controla sessão, JWT e lembrete “remember me”.
+- **Autenticação** (`services/auth_middleware.php`, `services/login.php`): controla sessão, JWT e lembrete "remember me".
 - **Gestão de Usuários** (`services/admin.php`, `services/decorador.php`): cadastro, aprovação de decoradores e perfis.
 - **Orçamentos** (`services/orcamentos.php`, `services/budget_logs.php`): fluxo completo com histórico de ações.
 - **Disponibilidade** (`services/disponibilidade.php`, `services/datas-bloqueadas.php`): agenda dos decoradores, bloqueios e confirmações.
 - **Página do Decorador** (`pages/painel-decorador.html`, `services/pagina-decorador.php`): personalização e publicação do portfólio.
+- **Carrinho e Solicitações** (`pages/carrinho-cliente.html`, `pages/solicitacao-cliente.html`): sistema de carrinho com preservação de dados e preenchimento automático para usuários logados.
 
 ---
 
@@ -154,11 +156,31 @@ php -S localhost:8000 -t .
 
 ---
 
+## ✨ Funcionalidades de UX
+
+### Preservação de Dados do Formulário
+- **Modal de Confirmação**: Os dados preenchidos no modal de confirmação de orçamento são automaticamente salvos no `localStorage` e restaurados quando o modal é reaberto.
+- **Campos Preservados**: Nome, email, telefone, local do evento, tipo de serviço, tamanho do arco, descrição e observações.
+- **Limpeza Automática**: Dados são limpos automaticamente após envio bem-sucedido da solicitação.
+
+### Preenchimento Automático para Usuários Logados
+- **Tela de Solicitação**: Quando um usuário logado acessa a página de solicitação de serviço personalizado (`solicitacao-cliente.html`), os campos de nome, email e telefone são preenchidos automaticamente com os dados da conta.
+- **Modal de Confirmação**: No modal de confirmação do carrinho, os dados do usuário são carregados automaticamente, mas não sobrescrevem campos já preenchidos.
+- **Priorização Inteligente**: Dados já preenchidos têm prioridade sobre dados do usuário logado, garantindo que informações específicas do formulário não sejam perdidas.
+
+### Sincronização de Dados
+- **Carrinho → Modal**: Dados dos itens do carrinho e orçamentos personalizados são utilizados para preencher campos vazios no modal de confirmação.
+- **Orçamentos Personalizados**: Informações de orçamentos personalizados (descrição, observações, local) são preservadas e sincronizadas.
+
+---
+
 ## 📞 Suporte e Referências
 
 - Estrutura do banco: `database/setup_mysql.sql`
 - Configurações globais: `services/config.php`
 - Guia detalhado de instalação: `INSTALACAO.md`
+- Changelog completo: `CHANGELOG.md`
+- Resumo de alterações: `RESUMO_ALTERACOES.md`
 - Dúvidas ou bugs: abra uma issue no repositório ou entre em contato com a equipe responsável.
 
 ---

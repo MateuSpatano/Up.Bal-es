@@ -1,4 +1,47 @@
-# 📋 Changelog - Limpeza do Projeto
+# 📋 Changelog - Up.Baloes V3
+
+## 2025-01-XX — Melhorias de UX: Preservação de Dados e Preenchimento Automático
+
+### ✨ Novas Funcionalidades
+
+- **Preservação Automática de Dados do Formulário**
+  - Implementado salvamento automático dos campos preenchidos no modal de confirmação de orçamento
+  - Dados são salvos no `localStorage` e restaurados automaticamente ao reabrir o modal
+  - Campos preservados: nome, email, telefone, local do evento, tipo de serviço, tamanho do arco, descrição e observações
+  - Limpeza automática dos dados após envio bem-sucedido da solicitação
+
+- **Preenchimento Automático para Usuários Logados**
+  - Tela de solicitação de serviço personalizado (`solicitacao-cliente.html`) agora preenche automaticamente os campos quando o usuário está logado
+  - Modal de confirmação do carrinho carrega dados do usuário logado automaticamente
+  - Sistema inteligente de priorização: dados já preenchidos não são sobrescritos
+
+- **Sincronização de Dados entre Telas**
+  - Dados dos itens do carrinho são utilizados para preencher campos vazios no modal de confirmação
+  - Informações de orçamentos personalizados são preservadas e sincronizadas
+  - Integração entre carrinho, modal de confirmação e tela de solicitação
+
+### 🔧 Arquivos Modificados
+
+- `js/carrinho-cliente.js`
+  - Adicionada função `saveFormData()` para salvar dados do formulário
+  - Adicionada função `restoreFormData()` para restaurar dados salvos
+  - Adicionada função `setupFormAutoSave()` para configurar salvamento automático
+  - Modificada função `loadUserData()` para não sobrescrever campos já preenchidos
+  - Modificada função `openConfirmModal()` para restaurar dados e carregar informações do usuário
+  - Modificada função `closeConfirmModal()` para salvar dados antes de fechar
+
+- `js/solicitacao-cliente.js`
+  - Adicionada função `loadUserDataIfLoggedIn()` para preencher campos automaticamente
+  - Integrada chamada na inicialização da página
+
+### 📝 Melhorias Técnicas
+
+- Uso de `localStorage` para persistência de dados do formulário
+- Sistema de flags (`dataset.hasListener`) para evitar duplicação de event listeners
+- Validação e tratamento de erros em todas as funções de manipulação de dados
+- Compatibilidade com usuários não logados (funcionalidade opcional)
+
+---
 
 ## 2025-11-10 — Autenticação reforçada e portfólio dos decoradores
 

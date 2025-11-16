@@ -158,6 +158,91 @@ cp env.example .env
 - ✅ Valores padrão para desenvolvimento
 - ✅ Fácil configuração para deploy
 
+---
+
+## 🎯 Melhorias de UX: Preservação de Dados e Preenchimento Automático
+
+### ✅ Funcionalidades Implementadas
+
+### 1. Preservação Automática de Dados do Formulário
+- ✅ Sistema de salvamento automático implementado no modal de confirmação de orçamento
+- ✅ Dados são salvos no `localStorage` com a chave `upbaloes_confirm_form_data`
+- ✅ Restauração automática ao reabrir o modal
+- ✅ Campos preservados:
+  - Nome completo do cliente
+  - Email do cliente
+  - Telefone do cliente
+  - Local do evento
+  - Tipo de serviço
+  - Tamanho do arco (metros)
+  - Descrição do evento
+  - Observações adicionais
+- ✅ Limpeza automática após envio bem-sucedido
+
+### 2. Preenchimento Automático para Usuários Logados
+- ✅ Tela de solicitação de serviço personalizado (`solicitacao-cliente.html`)
+  - Verifica se o usuário está logado ao carregar a página
+  - Preenche automaticamente: nome, email e telefone
+  - Funciona apenas se o usuário tiver token de autenticação válido
+
+- ✅ Modal de confirmação do carrinho (`carrinho-cliente.html`)
+  - Carrega dados do usuário logado automaticamente
+  - Não sobrescreve campos já preenchidos
+  - Prioriza dados específicos do formulário sobre dados da conta
+
+### 3. Sincronização de Dados entre Telas
+- ✅ Dados dos itens do carrinho são utilizados para preencher campos vazios
+- ✅ Informações de orçamentos personalizados são preservadas
+- ✅ Integração entre carrinho, modal e tela de solicitação
+
+### 📝 Arquivos Modificados
+
+1. **js/carrinho-cliente.js**
+   - Função `saveFormData()`: Salva dados do formulário no localStorage
+   - Função `restoreFormData()`: Restaura dados salvos ao abrir o modal
+   - Função `setupFormAutoSave()`: Configura salvamento automático em tempo real
+   - Função `loadUserData()`: Melhorada para não sobrescrever campos preenchidos
+   - Função `openConfirmModal()`: Restaura dados e carrega informações do usuário
+   - Função `closeConfirmModal()`: Salva dados antes de fechar
+
+2. **js/solicitacao-cliente.js**
+   - Função `loadUserDataIfLoggedIn()`: Verifica login e preenche campos automaticamente
+   - Integrada na função `init()` para execução ao carregar a página
+
+### 🔧 Detalhes Técnicos
+
+**Armazenamento:**
+- Chave do localStorage: `upbaloes_confirm_form_data`
+- Formato: JSON com todos os campos do formulário
+- Persistência: Mantida até envio bem-sucedido ou limpeza manual
+
+**Priorização de Dados:**
+1. Dados já preenchidos no formulário (maior prioridade)
+2. Dados salvos no localStorage
+3. Dados do usuário logado
+4. Dados dos itens do carrinho/orçamentos
+
+**Event Listeners:**
+- Configurados para campos: `input` e `change`
+- Sistema de flags para evitar duplicação
+- Remoção automática após envio bem-sucedido
+
+### ✨ Benefícios
+
+- ✅ Melhor experiência do usuário: dados não são perdidos ao fechar o modal
+- ✅ Redução de retrabalho: usuários não precisam preencher novamente
+- ✅ Preenchimento inteligente: dados da conta são utilizados automaticamente
+- ✅ Compatibilidade: funciona com usuários logados e não logados
+- ✅ Performance: uso eficiente do localStorage
+
+### ⚠️ Observações Importantes
+
+1. **Compatibilidade**: Funciona com todos os navegadores modernos que suportam localStorage
+2. **Limpeza**: Dados são limpos automaticamente após envio bem-sucedido
+3. **Segurança**: Dados são armazenados localmente no navegador (não enviados ao servidor até o envio)
+4. **Validação**: Mantida a validação existente do formulário
+5. **Performance**: Salvamento ocorre apenas quando há mudanças nos campos
+
 
 
 
