@@ -27,6 +27,25 @@
     
     <!-- Verificação de Autenticação Decorador -->
     <script>
+        // Verificar se o usuário é decorador
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData.role !== 'decorator') {
+            window.location.replace('login.html');
+        }
+    </script>
+    
+    <!-- Script de Proteção de Autenticação -->
+    <script src="../js/auth-protection.js"></script>
+    <script>
+        // Proteger página de decorador contra navegação não autorizada
+        (async function() {
+            if (window.authProtection) {
+                const isProtected = await window.authProtection.protectDecoratorPage();
+                if (isProtected) {
+                    window.authProtection.protectBrowserNavigation('decorator');
+                }
+            }
+        })();
     </script>
     
     <!-- Sidebar Fixo -->
@@ -1975,5 +1994,13 @@
     <!-- JavaScript -->
     <script src="../js/principal.js"></script>
     <script src="../js/painel-decorador.js"></script>
+    <script>
+        // Garantir que a proteção está ativa após carregar painel-decorador.js
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.authProtection) {
+                window.authProtection.protectBrowserNavigation('decorator');
+            }
+        });
+    </script>
 </body>
 </html>

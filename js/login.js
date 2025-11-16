@@ -454,7 +454,14 @@ async function logout() {
         localStorage.removeItem('rememberedEmail');
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
-        window.location.href = 'pages/login.html';
+        
+        // Limpar proteção de navegação
+        if (window.authProtection) {
+            window.authProtection.clearProtection();
+        }
+        
+        // Redirecionar para login
+        window.location.replace('pages/login.html');
     }
 }
 

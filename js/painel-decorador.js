@@ -88,11 +88,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== INICIALIZAÇÃO ==========
     
-    // Carregar dados do usuário
-    loadUserData();
-    
-    // Configurar event listeners
-    setupEventListeners();
+    // Verificar autenticação antes de continuar
+    (async function() {
+        // Verificar se é decorador
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData.role !== 'decorator') {
+            window.location.replace('login.html');
+            return;
+        }
+        
+        // Verificar autenticação no backend se a proteção estiver disponível
+        if (window.authProtection) {
+            const isProtected = await window.authProtection.protectDecoratorPage();
+            if (!isProtected) {
+                return;
+            }
+            window.authProtection.protectBrowserNavigation('decorator');
+        }
+        
+        // Carregar dados do usuário
+        loadUserData();
+        
+        // Configurar event listeners
+        setupEventListeners();
+    })();
     
     // Configurar navegação
     setupNavigation();
@@ -4199,15 +4218,35 @@ Qualquer dúvida, estou à disposição! 😊`;
 
     // ========== LOGOUT ==========
     
-    function handleLogout() {
+    async function handleLogout() {
         // Confirmar logout
         if (confirm('Tem certeza que deseja sair?')) {
-            // Limpar dados locais
-            localStorage.removeItem('userData');
-            localStorage.removeItem('userToken');
-            
-            // Redirecionar para login
-            window.location.href = 'login.html';
+            try {
+                // Chamar logout no backend
+                await fetch('../services/login.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'logout'
+                    })
+                });
+            } catch (error) {
+                console.error('Erro no logout:', error);
+            } finally {
+                // Limpar dados locais
+                localStorage.removeItem('userData');
+                localStorage.removeItem('userToken');
+                
+                // Limpar proteção de navegação
+                if (window.authProtection) {
+                    window.authProtection.clearProtection();
+                }
+                
+                // Redirecionar para login
+                window.location.replace('login.html');
+            }
         }
     }
 

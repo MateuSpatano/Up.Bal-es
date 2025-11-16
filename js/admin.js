@@ -21,8 +21,18 @@ class AdminSystem {
         this.init();
     }
 
-    init() {
-        this.checkAuthentication();
+    async init() {
+        // Verificar autenticação antes de continuar
+        const isAuthenticated = await this.checkAuthentication();
+        if (!isAuthenticated) {
+            return; // Não continuar se não estiver autenticado
+        }
+        
+        // Ativar proteção contra navegação com botões do navegador
+        if (window.authProtection) {
+            window.authProtection.protectBrowserNavigation('admin');
+        }
+        
         this.loadUsers();
         this.setupEventListeners();
         this.setupNotificationModalListeners();
@@ -38,16 +48,34 @@ class AdminSystem {
     }
 
     // Verificação de Autenticação
-    checkAuthentication() {
+    async checkAuthentication() {
         this.currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
         
         if (!this.currentUser || this.currentUser.role !== 'admin') {
             this.showNotification('Acesso negado. Apenas administradores podem acessar esta área.', 'error');
             setTimeout(() => {
-                window.location.href = 'admin-login.html';
+                if (window.authProtection) {
+                    window.authProtection.redirectToAdminLogin();
+                } else {
+                    window.location.replace('admin-login.html');
+                }
             }, 2000);
-            return;
+            return false;
         }
+        
+        // Verificar autenticação no backend
+        if (window.authProtection) {
+            const backendAuth = await window.authProtection.verifyBackendAdminAuth();
+            if (!backendAuth) {
+                this.showNotification('Sessão expirada. Faça login novamente.', 'error');
+                setTimeout(() => {
+                    window.authProtection.redirectToAdminLogin();
+                }, 2000);
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     // Carregar dados dos usuários
@@ -1420,11 +1448,34 @@ class AdminSystem {
     }
 
     // Logout
-    logout() {
+    async logout() {
         if (confirm('Tem certeza que deseja sair?')) {
-            localStorage.removeItem('userData');
-            localStorage.removeItem('userToken');
-            window.location.href = 'admin-login.html';
+            try {
+                // Chamar logout no backend
+                await fetch('../services/login.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'admin_logout'
+                    })
+                });
+            } catch (error) {
+                console.error('Erro no logout:', error);
+            } finally {
+                // Limpar dados locais
+                localStorage.removeItem('userData');
+                localStorage.removeItem('userToken');
+                
+                // Limpar proteção de navegação
+                if (window.authProtection) {
+                    window.authProtection.clearProtection();
+                }
+                
+                // Redirecionar para login admin
+                window.location.replace('admin-login.html');
+            }
         }
     }
 

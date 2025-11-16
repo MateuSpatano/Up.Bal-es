@@ -223,7 +223,8 @@ function getUsers($input) {
         $offset = ($page - 1) * $limit;
         
         // Construir query
-        $whereConditions = ['1=1'];
+        // IMPORTANTE: Excluir administradores da lista de usuários gerenciáveis
+        $whereConditions = ["perfil != 'admin'"];
         $params = [];
         
         // Filtro de busca
@@ -303,7 +304,16 @@ function getUsers($input) {
             $user['whatsapp'] = $user['whatsapp'] ?? '';
             $user['instagram'] = ($hasInstagram && isset($user['instagram'])) ? $user['instagram'] : '';
             $user['email_comunicacao'] = $user['email_comunicacao'] ?? '';
-            $user['type'] = $user['perfil'] === 'decorator' ? 'decorator' : 'client';
+            
+            // Identificar tipo: decorator ou client (user)
+            // Garantir que qualquer perfil que não seja 'decorator' seja tratado como 'client'
+            if ($user['perfil'] === 'decorator') {
+                $user['type'] = 'decorator';
+            } else {
+                // Inclui 'user' e qualquer outro perfil que não seja admin ou decorator
+                $user['type'] = 'client';
+            }
+            
             $user['status'] = $user['ativo'] ? 'active' : 'inactive';
             $user['termos_condicoes'] = ($hasTermosCondicoes && isset($user['termos_condicoes'])) ? $user['termos_condicoes'] : '';
             
@@ -326,6 +336,13 @@ function getUsers($input) {
             unset($user['ativo']);
         }
         
+        // Log para debug (apenas em desenvolvimento)
+        if (ENVIRONMENT === 'development') {
+            $clientsCount = count(array_filter($users, fn($u) => $u['type'] === 'client'));
+            $decoratorsCount = count(array_filter($users, fn($u) => $u['type'] === 'decorator'));
+            error_log("getUsers: Total={$total}, Clientes={$clientsCount}, Decoradores={$decoratorsCount}, Filtro tipo={$typeFilter}, Filtro status={$statusFilter}");
+        }
+        
         $result = [
             'users' => $users,
             'pagination' => [
@@ -336,7 +353,8 @@ function getUsers($input) {
             ]
         ];
         
-        successResponse($result, 'Usuários carregados com sucesso');
+        $message = "Usuários carregados com sucesso. Total: {$total}";
+        successResponse($result, $message);
         
     } catch (PDOException $e) {
         error_log("Erro ao carregar usuários: " . $e->getMessage());
@@ -412,6 +430,9 @@ function createDecorator($input) {
         $stmt->execute($params);
         
         $decoratorId = $pdo->lastInsertId();
+        
+        // Criar personalização padrão da página para o novo decorador
+        createDefaultPageCustomization($pdo, $decoratorId, $input['name'], $input['communication_email'], $input['whatsapp']);
         
         // Log da criação
         logAdminAction($_SESSION['admin_id'], 'create_decorator', $decoratorId, $pdo);
@@ -1186,6 +1207,129 @@ function removeStoredFile($relativePath) {
     $filePath = realpath(__DIR__ . '/../' . ltrim($relativePath, '/'));
     if ($filePath && file_exists($filePath) && strpos($filePath, realpath(__DIR__ . '/..')) === 0) {
         @unlink($filePath);
+    }
+}
+
+/**
+ * Criar personalização padrão da página para um novo decorador
+ */
+function createDefaultPageCustomization($pdo, $decoratorId, $decoratorName, $email, $whatsapp) {
+    try {
+        // Verificar se já existe personalização para este decorador
+        $stmt = $pdo->prepare("SELECT id FROM decorator_page_customization WHERE decorator_id = ?");
+        $stmt->execute([$decoratorId]);
+        if ($stmt->fetch()) {
+            // Já existe personalização, não criar novamente
+            return;
+        }
+        
+        // Criar personalização padrão baseada no index.html
+        $defaultTitle = "Bem-vindo à {$decoratorName}!";
+        $defaultDescription = "Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
+        $defaultWelcomeText = "Olá! Somos a {$decoratorName} e estamos prontos para tornar seu evento único e especial. Oferecemos serviços de decoração com balões personalizados para todos os tipos de celebrações.";
+        
+        // Configuração padrão de redes sociais
+        $defaultSocialMedia = json_encode([
+            'whatsapp' => $whatsapp ?? '',
+            'instagram' => '',
+            'facebook' => '',
+            'youtube' => ''
+        ]);
+        
+        // Configuração padrão de serviços (baseada no padrão do sistema)
+        $defaultServices = json_encode([
+            [
+                'id' => 1,
+                'title' => 'Arco Tradicional',
+                'description' => 'Arcos de balões tradicionais para decoração de eventos',
+                'icon' => 'fas fa-archway',
+                'price' => null,
+                'highlight' => false
+            ],
+            [
+                'id' => 2,
+                'title' => 'Arco Desconstruído',
+                'description' => 'Arcos modernos com design desconstruído',
+                'icon' => 'fas fa-palette',
+                'price' => null,
+                'highlight' => false
+            ],
+            [
+                'id' => 3,
+                'title' => 'Escultura de Balão',
+                'description' => 'Esculturas personalizadas com balões',
+                'icon' => 'fas fa-sculpture',
+                'price' => null,
+                'highlight' => false
+            ]
+        ]);
+        
+        // Inserir personalização padrão
+        $stmt = $pdo->prepare("
+            INSERT INTO decorator_page_customization (
+                decorator_id,
+                page_title,
+                page_description,
+                welcome_text,
+                cover_image_url,
+                primary_color,
+                secondary_color,
+                accent_color,
+                services_config,
+                social_media,
+                meta_title,
+                meta_description,
+                meta_keywords,
+                show_contact_section,
+                show_services_section,
+                show_portfolio_section,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                NULL,
+                '#667eea',
+                '#764ba2',
+                '#f59e0b',
+                ?,
+                ?,
+                ?,
+                ?,
+                'decorador, festas, balões, eventos, decoração',
+                1,
+                1,
+                1,
+                1,
+                NOW(),
+                NOW()
+            )
+        ");
+        
+        $metaTitle = "{$decoratorName} - Decoração com Balões | Up.Baloes";
+        $metaDescription = "Conheça {$decoratorName}. Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
+        
+        $stmt->execute([
+            $decoratorId,
+            $defaultTitle,
+            $defaultDescription,
+            $defaultWelcomeText,
+            $defaultServices,
+            $defaultSocialMedia,
+            $metaTitle,
+            $metaDescription
+        ]);
+        
+        error_log("Personalização padrão criada para decorador ID: {$decoratorId}");
+        
+    } catch (PDOException $e) {
+        // Log do erro mas não interrompe a criação do decorador
+        error_log("Erro ao criar personalização padrão para decorador {$decoratorId}: " . $e->getMessage());
+    } catch (Exception $e) {
+        error_log("Erro ao criar personalização padrão para decorador {$decoratorId}: " . $e->getMessage());
     }
 }
 ?>

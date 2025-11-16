@@ -119,27 +119,99 @@ class DecoratorService {
                 return;
             }
             
-            $pageTitle = trim("Portfólio de {$decoratorName}");
-            $welcomeText = trim("Conheça os trabalhos de {$decoratorName}.");
+            // Buscar dados do decorador para personalização completa
+            $stmt = $this->pdo->prepare("
+                SELECT email_comunicacao, whatsapp 
+                FROM usuarios 
+                WHERE id = ?
+            ");
+            $stmt->execute([$decoratorId]);
+            $decoratorData = $stmt->fetch();
+            
+            $email = $decoratorData['email_comunicacao'] ?? '';
+            $whatsapp = $decoratorData['whatsapp'] ?? '';
+            
+            // Criar personalização padrão completa
+            $pageTitle = "Bem-vindo à {$decoratorName}!";
+            $pageDescription = "Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
+            $welcomeText = "Olá! Somos a {$decoratorName} e estamos prontos para tornar seu evento único e especial. Oferecemos serviços de decoração com balões personalizados para todos os tipos de celebrações.";
+            
+            // Configuração padrão de redes sociais
+            $socialMedia = json_encode([
+                'whatsapp' => $whatsapp,
+                'instagram' => '',
+                'facebook' => '',
+                'youtube' => ''
+            ]);
+            
+            // Configuração padrão de serviços
+            $servicesConfig = json_encode([
+                [
+                    'id' => 1,
+                    'title' => 'Arco Tradicional',
+                    'description' => 'Arcos de balões tradicionais para decoração de eventos',
+                    'icon' => 'fas fa-archway',
+                    'price' => null,
+                    'highlight' => false
+                ],
+                [
+                    'id' => 2,
+                    'title' => 'Arco Desconstruído',
+                    'description' => 'Arcos modernos com design desconstruído',
+                    'icon' => 'fas fa-palette',
+                    'price' => null,
+                    'highlight' => false
+                ],
+                [
+                    'id' => 3,
+                    'title' => 'Escultura de Balão',
+                    'description' => 'Esculturas personalizadas com balões',
+                    'icon' => 'fas fa-sculpture',
+                    'price' => null,
+                    'highlight' => false
+                ]
+            ]);
+            
+            $metaTitle = "{$decoratorName} - Decoração com Balões | Up.Baloes";
+            $metaDescription = "Conheça {$decoratorName}. Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
             
             $insert = $this->pdo->prepare("
                 INSERT INTO decorator_page_customization (
                     decorator_id,
                     page_title,
+                    page_description,
                     welcome_text,
+                    cover_image_url,
+                    primary_color,
+                    secondary_color,
+                    accent_color,
+                    services_config,
+                    social_media,
+                    meta_title,
+                    meta_description,
+                    meta_keywords,
                     show_contact_section,
                     show_services_section,
                     show_portfolio_section,
+                    is_active,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, 1, 1, 1, NOW(), NOW())
+                ) VALUES (?, ?, ?, NULL, '#667eea', '#764ba2', '#f59e0b', ?, ?, ?, ?, 'decorador, festas, balões, eventos, decoração', 1, 1, 1, 1, NOW(), NOW())
             ");
             
             $insert->execute([
                 $decoratorId,
                 $pageTitle,
-                $welcomeText
+                $pageDescription,
+                $welcomeText,
+                $servicesConfig,
+                $socialMedia,
+                $metaTitle,
+                $metaDescription
             ]);
+            
+            error_log("Personalização padrão criada automaticamente para decorador ID: {$decoratorId}");
+            
         } catch (Exception $e) {
             error_log('Erro ao criar personalização padrão do decorador: ' . $e->getMessage());
         }
@@ -176,7 +248,10 @@ class DecoratorService {
                     created_at,
                     updated_at
                 FROM usuarios 
-                WHERE slug = ? AND is_active = 1
+                WHERE slug = ? 
+                AND perfil = 'decorator' 
+                AND ativo = 1 
+                AND aprovado_por_admin = 1
                 LIMIT 1
             ");
             $stmt->execute([$slug]);
@@ -190,6 +265,10 @@ class DecoratorService {
             }
             
             $decoratorId = (int) $decorator['id'];
+            
+            // Garantir que existe personalização padrão (criar se não existir)
+            $this->ensureDefaultCustomization($decoratorId, $decorator['nome']);
+            
             $customization = $this->getPageCustomization($decoratorId);
             $services = $this->getDecoratorServices($decoratorId, $customization);
             $portfolio = $this->getDecoratorPortfolio($decoratorId);

@@ -21,6 +21,20 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     
+    <!-- Script de Proteção de Autenticação -->
+    <script src="../js/auth-protection.js"></script>
+    <script>
+        // Proteger página de cliente contra navegação não autorizada
+        (async function() {
+            if (window.authProtection) {
+                const isProtected = await window.authProtection.protectClientPage();
+                if (isProtected) {
+                    window.authProtection.protectBrowserNavigation('client');
+                }
+            }
+        })();
+    </script>
+    
     <!-- Navbar -->
     <nav class="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -127,6 +141,14 @@
     <!-- JavaScript -->
     <script src="../js/principal.js"></script>
     <script src="../js/minhas-compras.js"></script>
+    <script>
+        // Garantir que a proteção está ativa após carregar scripts
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.authProtection) {
+                window.authProtection.protectBrowserNavigation('client');
+            }
+        });
+    </script>
 </body>
 </html>
 

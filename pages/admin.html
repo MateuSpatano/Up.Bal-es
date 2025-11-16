@@ -69,10 +69,24 @@
             // Verificar se o usuário é admin
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
             if (userData.role !== 'admin') {
-                window.location.href = 'admin-login.html';
+                window.location.replace('admin-login.html');
             }
         </script>
     </div>
+    
+    <!-- Script de Proteção de Autenticação -->
+    <script src="../js/auth-protection.js"></script>
+    <script>
+        // Proteger página admin contra navegação não autorizada
+        (async function() {
+            if (window.authProtection) {
+                const isProtected = await window.authProtection.protectAdminPage();
+                if (isProtected) {
+                    window.authProtection.protectBrowserNavigation('admin');
+                }
+            }
+        })();
+    </script>
 
     <!-- Layout Principal -->
     <div class="flex h-screen">
@@ -1397,5 +1411,13 @@
 
     <!-- JavaScript -->
     <script src="../js/admin.js"></script>
+    <script>
+        // Garantir que a proteção está ativa após carregar admin.js
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.authProtection) {
+                window.authProtection.protectBrowserNavigation('admin');
+            }
+        });
+    </script>
 </body>
 </html>
