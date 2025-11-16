@@ -25,7 +25,7 @@ function getBaseUrl(): string {
  * Helper para montar a URL pública do decorador
  */
 function buildDecoratorUrl(?string $slug): ?string {
-    if (empty($slug)) {
+    if (empty($slug) || $slug === null) {
         return null;
     }
 
@@ -33,7 +33,7 @@ function buildDecoratorUrl(?string $slug): ?string {
     // URL pública do decorador: /{slug}
     $path = '/' . urlencode($slug);
 
-    if ($base === '') {
+    if ($base === '' || $base === null) {
         return ltrim($path, '/');
     }
 
@@ -328,7 +328,24 @@ function getUsers($input) {
             }
 
             if ($user['type'] === 'decorator') {
-                $user['slug'] = $user['slug'] ?? null;
+                // Se não tem slug, gerar um baseado no nome
+                if (empty($user['slug'])) {
+                    $userName = $user['name'] ?? '';
+                    if (!empty($userName)) {
+                        $newSlug = generateSlug($userName);
+                        // Atualizar slug no banco de dados
+                        try {
+                            $updateStmt = $pdo->prepare("UPDATE usuarios SET slug = ? WHERE id = ?");
+                            $updateStmt->execute([$newSlug, $user['id']]);
+                            $user['slug'] = $newSlug;
+                        } catch (Exception $e) {
+                            error_log("Erro ao gerar slug para decorador ID {$user['id']}: " . $e->getMessage());
+                            $user['slug'] = null;
+                        }
+                    } else {
+                        $user['slug'] = null;
+                    }
+                }
                 $user['url'] = buildDecoratorUrl($user['slug']);
             } else {
                 $user['slug'] = null;
@@ -439,10 +456,22 @@ function createDecorator($input) {
         // Criar personalização padrão da página para o novo decorador
         createDefaultPageCustomization($pdo, $decoratorId, $input['name'], $input['communication_email'], $input['whatsapp']);
         
+        // Buscar dados do decorador criado incluindo slug
+        $stmt = $pdo->prepare("SELECT slug FROM usuarios WHERE id = ?");
+        $stmt->execute([$decoratorId]);
+        $decoratorData = $stmt->fetch();
+        
+        // Construir URL do decorador
+        $decoratorUrl = buildDecoratorUrl($decoratorData['slug'] ?? $slug);
+        
         // Log da criação
         logAdminAction($_SESSION['admin_id'], 'create_decorator', $decoratorId, $pdo);
         
-        successResponse(['id' => $decoratorId], 'Decorador criado com sucesso!');
+        successResponse([
+            'id' => $decoratorId,
+            'slug' => $decoratorData['slug'] ?? $slug,
+            'url' => $decoratorUrl
+        ], 'Decorador criado com sucesso!');
         
     } catch (PDOException $e) {
         error_log("Erro ao criar decorador: " . $e->getMessage());

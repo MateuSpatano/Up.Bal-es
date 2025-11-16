@@ -950,8 +950,8 @@ class AdminSystem {
                     type: 'decorator',
                     status: 'active',
                     createdAt: new Date().toISOString().split('T')[0],
-                    slug: result.data.slug,
-                    url: result.data.url
+                    slug: result.data.slug || null,
+                    url: result.data.url || null
                 };
 
                 this.users.push(newDecorator);
@@ -1407,13 +1407,14 @@ class AdminSystem {
                             </label>
                             <div class="flex">
                                 <input type="text" 
-                                       value="${data.url}" 
+                                       value="${data.url || 'Gerando URL...'}" 
                                        readonly 
                                        class="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg bg-white text-gray-800 font-mono text-sm"
                                        id="decorator-url">
                                 <button onclick="copyDecoratorUrl()" 
                                         class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-r-lg transition-colors duration-200"
-                                        title="Copiar link">
+                                        title="Copiar link"
+                                        ${!data.url ? 'disabled' : ''}>
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
@@ -1425,7 +1426,7 @@ class AdminSystem {
                                 <h5 class="font-semibold text-blue-800 mb-2">
                                     <i class="fas fa-info-circle mr-2"></i>Slug Gerado
                                 </h5>
-                                <p class="text-blue-600 font-mono">${data.slug}</p>
+                                <p class="text-blue-600 font-mono">${data.slug || 'N/A'}</p>
                             </div>
                             <div class="bg-purple-50 rounded-lg p-4">
                                 <h5 class="font-semibold text-purple-800 mb-2">
@@ -1443,11 +1444,17 @@ class AdminSystem {
                             <button onclick="notifyDecorator(${data.id}, 'approved')" class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 close-modal-and-notify">
                                 <i class="fas fa-bell mr-2"></i>Enviar Notificação
                             </button>
+                            ${data.url ? `
                             <a href="${data.url}" 
                                target="_blank"
                                class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 text-center">
                                 <i class="fas fa-external-link-alt mr-2"></i>Ver Página
                             </a>
+                            ` : `
+                            <button disabled class="flex-1 px-6 py-3 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed text-center">
+                                <i class="fas fa-external-link-alt mr-2"></i>URL não disponível
+                            </button>
+                            `}
                         </div>
                     </div>
                 </div>
