@@ -330,6 +330,8 @@ window.authProtection = {
     isAdmin,
     isDecorator,
     redirectToLogin,
-    redirectToAdminLogin
+    redirectToAdminLogin,
+    verifyBackendAuth,
+    verifyBackendAdminAuth
 };
 

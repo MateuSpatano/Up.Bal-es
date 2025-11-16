@@ -384,11 +384,16 @@ function checkAuthentication() {
  * Verificar autenticação administrativa
  */
 function checkAdminAuthentication() {
+    // Iniciar sessão se não estiver iniciada
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
     if (isset($_SESSION['admin_id']) && isset($_SESSION['admin_role'])) {
         $adminData = [
             'id' => $_SESSION['admin_id'],
-            'email' => $_SESSION['admin_email'],
-            'name' => $_SESSION['admin_name'],
+            'email' => $_SESSION['admin_email'] ?? '',
+            'name' => $_SESSION['admin_name'] ?? '',
             'role' => $_SESSION['admin_role']
         ];
         successResponse($adminData, 'Administrador autenticado');
