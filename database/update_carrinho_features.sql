@@ -30,7 +30,7 @@ BEGIN
         AND INDEX_NAME = 'idx_email';
         
     IF idx_count = 0 THEN
-        SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_email (email) COMMENT "Índice para busca de solicitações por email do cliente"';
+        SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_email (email) COMMENT ''Índice para busca de solicitações por email do cliente''';
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
@@ -47,7 +47,7 @@ BEGIN
         AND INDEX_NAME = 'idx_created_at';
         
     IF idx_count = 0 THEN
-        SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_created_at (created_at) COMMENT "Índice para ordenação por data de criação"';
+        SET @sql = 'ALTER TABLE orcamentos ADD INDEX idx_created_at (created_at) COMMENT ''Índice para ordenação por data de criação''';
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
