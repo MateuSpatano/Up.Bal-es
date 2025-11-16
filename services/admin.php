@@ -132,14 +132,24 @@ function getUser($input) {
             errorResponse('ID do usuário é obrigatório', 400);
         }
         
+        // Verificar quais colunas existem antes de construir a query
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        $hasTermosCondicoes = columnExists($pdo, 'usuarios', 'termos_condicoes');
+        
+        // Construir SELECT com apenas colunas que existem
+        $selectFields = ['id', 'nome', 'email', 'telefone', 'whatsapp', 'email_comunicacao',
+                         'perfil', 'ativo', 'aprovado_por_admin', 'created_at'];
+        
+        if ($hasInstagram) {
+            $selectFields[] = 'instagram';
+        }
+        if ($hasTermosCondicoes) {
+            $selectFields[] = 'termos_condicoes';
+        }
+        
         // Buscar dados completos do usuário
-        $stmt = $pdo->prepare("
-            SELECT 
-                id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
-                perfil, ativo, aprovado_por_admin, termos_condicoes, created_at
-            FROM usuarios 
-            WHERE id = ?
-        ");
+        $query = "SELECT " . implode(', ', $selectFields) . " FROM usuarios WHERE id = ?";
+        $stmt = $pdo->prepare($query);
         $stmt->execute([$userId]);
         $user = $stmt->fetch();
         
@@ -152,14 +162,14 @@ function getUser($input) {
             'id' => $user['id'],
             'name' => $user['nome'],
             'email' => $user['email'],
-            'phone' => $user['telefone'],
-            'whatsapp' => $user['whatsapp'],
-            'instagram' => $user['instagram'],
-            'email_comunicacao' => $user['email_comunicacao'],
+            'phone' => $user['telefone'] ?? '',
+            'whatsapp' => $user['whatsapp'] ?? '',
+            'instagram' => ($hasInstagram && isset($user['instagram'])) ? $user['instagram'] : '',
+            'email_comunicacao' => $user['email_comunicacao'] ?? '',
             'type' => $user['perfil'] === 'decorator' ? 'decorator' : 'client',
             'status' => $user['ativo'] ? 'active' : 'inactive',
             'approved' => $user['aprovado_por_admin'] ? true : false,
-            'termos_condicoes' => $user['termos_condicoes'] ?? '',
+            'termos_condicoes' => ($hasTermosCondicoes && isset($user['termos_condicoes'])) ? $user['termos_condicoes'] : '',
             'created_at' => $user['created_at']
         ];
         
@@ -167,7 +177,33 @@ function getUser($input) {
         
     } catch (PDOException $e) {
         error_log("Erro ao buscar usuário: " . $e->getMessage());
-        errorResponse('Erro interno do servidor', 500);
+        error_log("Stack trace: " . $e->getTraceAsString());
+        errorResponse('Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Erro ao buscar usuário'), 500);
+    } catch (Exception $e) {
+        error_log("Erro ao buscar usuário: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        errorResponse('Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Erro ao buscar usuário'), 500);
+    }
+}
+
+/**
+ * Verificar se uma coluna existe na tabela
+ */
+function columnExists($pdo, $table, $column) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as count 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = ? 
+            AND COLUMN_NAME = ?
+        ");
+        $stmt->execute([$table, $column]);
+        $result = $stmt->fetch();
+        return ($result['count'] > 0);
+    } catch (Exception $e) {
+        error_log("Erro ao verificar coluna: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -229,10 +265,24 @@ function getUsers($input) {
         $stmt->execute($params);
         $total = $stmt->fetch()['total'];
         
+        // Verificar quais colunas existem antes de construir a query
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        $hasTermosCondicoes = columnExists($pdo, 'usuarios', 'termos_condicoes');
+        
+        // Construir SELECT com apenas colunas que existem
+        $selectFields = ['id', 'nome', 'email', 'telefone', 'whatsapp', 'email_comunicacao',
+                         'perfil', 'ativo', 'aprovado_por_admin', 'created_at', 'cidade', 'estado', 'slug'];
+        
+        if ($hasInstagram) {
+            $selectFields[] = 'instagram';
+        }
+        if ($hasTermosCondicoes) {
+            $selectFields[] = 'termos_condicoes';
+        }
+        
         // Buscar usuários
         $query = "
-            SELECT id, nome, email, telefone, whatsapp, instagram, email_comunicacao,
-                   perfil, ativo, aprovado_por_admin, termos_condicoes, created_at, cidade, estado, slug
+            SELECT " . implode(', ', $selectFields) . "
             FROM usuarios 
             WHERE {$whereClause}
             ORDER BY created_at DESC
@@ -246,16 +296,16 @@ function getUsers($input) {
         $stmt->execute($params);
         $users = $stmt->fetchAll();
         
-            // Processar dados
+        // Processar dados
         foreach ($users as &$user) {
             $user['name'] = $user['nome'];
             $user['phone'] = $user['telefone'] ?? '';
             $user['whatsapp'] = $user['whatsapp'] ?? '';
-            $user['instagram'] = $user['instagram'] ?? '';
+            $user['instagram'] = ($hasInstagram && isset($user['instagram'])) ? $user['instagram'] : '';
             $user['email_comunicacao'] = $user['email_comunicacao'] ?? '';
             $user['type'] = $user['perfil'] === 'decorator' ? 'decorator' : 'client';
             $user['status'] = $user['ativo'] ? 'active' : 'inactive';
-            $user['termos_condicoes'] = $user['termos_condicoes'] ?? '';
+            $user['termos_condicoes'] = ($hasTermosCondicoes && isset($user['termos_condicoes'])) ? $user['termos_condicoes'] : '';
             
             // Status especial para decoradores não aprovados
             if ($user['perfil'] === 'decorator' && !$user['aprovado_por_admin']) {
@@ -290,7 +340,12 @@ function getUsers($input) {
         
     } catch (PDOException $e) {
         error_log("Erro ao carregar usuários: " . $e->getMessage());
-        errorResponse('Erro interno do servidor', 500);
+        error_log("Stack trace: " . $e->getTraceAsString());
+        errorResponse('Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Erro ao carregar usuários'), 500);
+    } catch (Exception $e) {
+        error_log("Erro ao carregar usuários: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        errorResponse('Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Erro ao carregar usuários'), 500);
     }
 }
 
@@ -390,6 +445,10 @@ function updateUser($input) {
             errorResponse('Usuário não encontrado', 404);
         }
         
+        // Verificar quais colunas existem antes de tentar atualizar
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        $hasTermosCondicoes = columnExists($pdo, 'usuarios', 'termos_condicoes');
+        
         // Preparar campos para atualização
         $updateFields = [];
         $params = [];
@@ -425,7 +484,7 @@ function updateUser($input) {
             $params[] = sanitizeInput($input['whatsapp']);
         }
         
-        if (isset($input['instagram'])) {
+        if (isset($input['instagram']) && $hasInstagram) {
             $updateFields[] = "instagram = ?";
             $params[] = sanitizeInput($input['instagram']);
         }
@@ -451,7 +510,7 @@ function updateUser($input) {
             $params[] = $approved;
         }
         
-        if (isset($input['termos_condicoes']) && $user['perfil'] === 'decorator') {
+        if (isset($input['termos_condicoes']) && $user['perfil'] === 'decorator' && $hasTermosCondicoes) {
             $updateFields[] = "termos_condicoes = ?";
             $params[] = !empty($input['termos_condicoes']) ? sanitizeInput($input['termos_condicoes']) : null;
         }
@@ -631,12 +690,17 @@ function getPageCustomization($input) {
         $stmt->execute([$decoratorId]);
         $customization = $stmt->fetch();
         
+        // Verificar se coluna instagram existe
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        
         // Buscar dados de contato do decorador
-        $stmt = $pdo->prepare("
-            SELECT email_comunicacao, whatsapp, instagram 
-            FROM usuarios 
-            WHERE id = ?
-        ");
+        $contactFields = ['email_comunicacao', 'whatsapp'];
+        if ($hasInstagram) {
+            $contactFields[] = 'instagram';
+        }
+        
+        $contactQuery = "SELECT " . implode(', ', $contactFields) . " FROM usuarios WHERE id = ?";
+        $stmt = $pdo->prepare($contactQuery);
         $stmt->execute([$decoratorId]);
         $contactData = $stmt->fetch();
         
@@ -707,6 +771,9 @@ function savePageCustomization($input) {
         $stmt->execute([$decoratorId]);
         $exists = $stmt->fetch();
         
+        // Verificar se coluna instagram existe
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        
         // Atualizar campos de contato na tabela usuarios se fornecidos
         if (isset($input['contact_email']) || isset($input['contact_whatsapp']) || isset($input['contact_instagram'])) {
             $updateUserFields = [];
@@ -725,7 +792,7 @@ function savePageCustomization($input) {
                 $updateUserParams[] = sanitizeInput($input['contact_whatsapp']);
             }
             
-            if (isset($input['contact_instagram']) && !empty($input['contact_instagram'])) {
+            if (isset($input['contact_instagram']) && !empty($input['contact_instagram']) && $hasInstagram) {
                 $updateUserFields[] = "instagram = ?";
                 $updateUserParams[] = sanitizeInput($input['contact_instagram']);
             }
@@ -843,22 +910,23 @@ function getAdminProfile() {
             errorResponse('Administrador não autenticado', 401);
         }
         
-        $stmt = $pdo->prepare("
-            SELECT 
-                id,
-                nome,
-                email,
-                telefone,
-                whatsapp,
-                instagram,
-                email_comunicacao,
-                bio,
-                created_at,
-                updated_at
-            FROM usuarios
-            WHERE id = ? AND perfil = 'admin'
-            LIMIT 1
-        ");
+        // Verificar quais colunas existem antes de construir a query
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        $hasFotoPerfil = columnExists($pdo, 'usuarios', 'foto_perfil');
+        
+        // Construir SELECT com apenas colunas que existem
+        $selectFields = ['id', 'nome', 'email', 'telefone', 'whatsapp', 'email_comunicacao',
+                         'bio', 'created_at', 'updated_at'];
+        
+        if ($hasInstagram) {
+            $selectFields[] = 'instagram';
+        }
+        if ($hasFotoPerfil) {
+            $selectFields[] = 'foto_perfil';
+        }
+        
+        $query = "SELECT " . implode(', ', $selectFields) . " FROM usuarios WHERE id = ? AND perfil = 'admin' LIMIT 1";
+        $stmt = $pdo->prepare($query);
         $stmt->execute([$adminId]);
         $admin = $stmt->fetch();
         
@@ -872,10 +940,10 @@ function getAdminProfile() {
             'email' => $admin['email'],
             'phone' => $admin['telefone'] ?? null,
             'whatsapp' => $admin['whatsapp'] ?? null,
-            'instagram' => $admin['instagram'] ?? null,
+            'instagram' => ($hasInstagram && isset($admin['instagram'])) ? $admin['instagram'] : null,
             'communication_email' => $admin['email_comunicacao'] ?? null,
             'bio' => $admin['bio'] ?? null,
-            'profile_photo' => null, // Campo foto_perfil não existe ainda na tabela
+            'profile_photo' => ($hasFotoPerfil && isset($admin['foto_perfil'])) ? $admin['foto_perfil'] : null,
             'created_at' => $admin['created_at'],
             'updated_at' => $admin['updated_at']
         ];
@@ -928,10 +996,9 @@ function updateAdminProfile($input) {
             errorResponse('Este email já está em uso por outro usuário', 400);
         }
         
-        // Verificar se o campo foto_perfil existe na tabela
-        $stmt = $pdo->prepare("SHOW COLUMNS FROM usuarios LIKE 'foto_perfil'");
-        $stmt->execute();
-        $hasFotoPerfil = $stmt->fetch() !== false;
+        // Verificar quais colunas existem antes de tentar atualizar
+        $hasInstagram = columnExists($pdo, 'usuarios', 'instagram');
+        $hasFotoPerfil = columnExists($pdo, 'usuarios', 'foto_perfil');
         
         // Buscar dados atuais para manipular arquivo de imagem
         $currentPhoto = null;
@@ -956,11 +1023,15 @@ function updateAdminProfile($input) {
             'email' => sanitizeInput($email),
             'telefone' => !empty($phone) ? sanitizeInput($phone) : null,
             'whatsapp' => !empty($whatsapp) ? sanitizeInput($whatsapp) : null,
-            'instagram' => !empty($instagram) ? sanitizeInput($instagram) : null,
             'email_comunicacao' => !empty($communicationEmail) ? sanitizeInput($communicationEmail) : null,
             'bio' => !empty($bio) ? $bio : null,
             'updated_at' => date('Y-m-d H:i:s')
         ];
+        
+        // Adicionar instagram apenas se o campo existir
+        if ($hasInstagram && !empty($instagram)) {
+            $updateFields['instagram'] = sanitizeInput($instagram);
+        }
         
         // Adicionar foto_perfil apenas se o campo existir
         if ($hasFotoPerfil) {
@@ -988,7 +1059,7 @@ function updateAdminProfile($input) {
             'email' => $updateFields['email'],
             'phone' => $updateFields['telefone'],
             'whatsapp' => $updateFields['whatsapp'],
-            'instagram' => $updateFields['instagram'],
+            'instagram' => ($hasInstagram && isset($updateFields['instagram'])) ? $updateFields['instagram'] : null,
             'communication_email' => $updateFields['email_comunicacao'],
             'bio' => $updateFields['bio'],
             'profile_photo' => $hasFotoPerfil ? ($updateFields['foto_perfil'] ?? null) : null
