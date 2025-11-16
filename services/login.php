@@ -273,16 +273,32 @@ function handleAdminLogin($input) {
  */
 function handleLogout() {
     try {
-        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        // Verificar se a sessão está iniciada antes de tentar acessá-la
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
+        $userId = null;
         if (isset($_SESSION['user_id'])) {
-            // Log de logout
-            logAccess($_SESSION['user_id'], 'logout', $pdo);
+            $userId = $_SESSION['user_id'];
+        }
+        
+        // Tentar registrar log de logout (não crítico se falhar)
+        try {
+            $pdo = getDatabaseConnection($GLOBALS['database_config']);
+            if ($userId !== null) {
+                logAccess($userId, 'logout', $pdo);
+            }
+        } catch (Exception $e) {
+            // Log do erro mas não interrompe o logout
+            error_log("Erro ao registrar log de logout: " . $e->getMessage());
         }
         
         // Limpar sessão
-        session_unset();
-        session_destroy();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_unset();
+            session_destroy();
+        }
         
         // Limpar cookies de "lembrar"
         if (isset($_COOKIE['remember_token'])) {
@@ -293,6 +309,7 @@ function handleLogout() {
         
     } catch (Exception $e) {
         error_log("Erro no logout: " . $e->getMessage());
+        // Sempre retornar sucesso mesmo em caso de erro para não bloquear o logout
         successResponse(null, 'Logout realizado com sucesso!');
     }
 }
@@ -302,19 +319,35 @@ function handleLogout() {
  */
 function handleAdminLogout() {
     try {
-        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        // Verificar se a sessão está iniciada antes de tentar acessá-la
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
+        $adminId = null;
         if (isset($_SESSION['admin_id'])) {
-            // Log de logout
-            logAccess($_SESSION['admin_id'], 'admin_logout', $pdo);
+            $adminId = $_SESSION['admin_id'];
+        }
+        
+        // Tentar registrar log de logout (não crítico se falhar)
+        try {
+            $pdo = getDatabaseConnection($GLOBALS['database_config']);
+            if ($adminId !== null) {
+                logAccess($adminId, 'admin_logout', $pdo);
+            }
+        } catch (Exception $e) {
+            // Log do erro mas não interrompe o logout
+            error_log("Erro ao registrar log de logout administrativo: " . $e->getMessage());
         }
         
         // Limpar sessão administrativa
-        unset($_SESSION['admin_id']);
-        unset($_SESSION['admin_email']);
-        unset($_SESSION['admin_name']);
-        unset($_SESSION['admin_role']);
-        unset($_SESSION['admin_login_time']);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            unset($_SESSION['admin_id']);
+            unset($_SESSION['admin_email']);
+            unset($_SESSION['admin_name']);
+            unset($_SESSION['admin_role']);
+            unset($_SESSION['admin_login_time']);
+        }
         
         // Limpar cookies de "lembrar"
         if (isset($_COOKIE['admin_remember_token'])) {
@@ -325,6 +358,7 @@ function handleAdminLogout() {
         
     } catch (Exception $e) {
         error_log("Erro no logout administrativo: " . $e->getMessage());
+        // Sempre retornar sucesso mesmo em caso de erro para não bloquear o logout
         successResponse(null, 'Logout administrativo realizado com sucesso!');
     }
 }
@@ -450,6 +484,12 @@ function handlePasswordReset($input) {
  */
 function logAccess($userId, $action, $pdo) {
     try {
+        // Validar parâmetros
+        if (empty($userId) || empty($action) || !$pdo) {
+            return;
+        }
+        
+        // Verificar se a tabela existe antes de tentar inserir
         $stmt = $pdo->prepare("
             INSERT INTO access_logs (user_id, action, ip_address, user_agent, created_at) 
             VALUES (?, ?, ?, ?, NOW())
@@ -460,7 +500,11 @@ function logAccess($userId, $action, $pdo) {
             $_SERVER['REMOTE_ADDR'] ?? 'unknown',
             $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
         ]);
+    } catch (PDOException $e) {
+        // Log do erro mas não lança exceção para não interromper o fluxo
+        error_log("Erro ao registrar log de acesso: " . $e->getMessage());
     } catch (Exception $e) {
+        // Log do erro mas não lança exceção para não interromper o fluxo
         error_log("Erro ao registrar log de acesso: " . $e->getMessage());
     }
 }
