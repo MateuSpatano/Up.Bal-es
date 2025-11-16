@@ -81,6 +81,11 @@ class AdminSystem {
     // Carregar dados dos usuários
     async loadUsers() {
         try {
+            // Obter valores dos filtros (vazios por padrão para retornar todos)
+            const searchValue = document.getElementById('user-search')?.value || '';
+            const typeValue = document.getElementById('user-type-filter')?.value || '';
+            const statusValue = document.getElementById('user-status-filter')?.value || '';
+            
             const response = await fetch('../services/admin.php', {
                 method: 'POST',
                 headers: {
@@ -90,9 +95,9 @@ class AdminSystem {
                     action: 'get_users',
                     page: this.currentPage,
                     limit: this.itemsPerPage,
-                    search: document.getElementById('user-search')?.value || '',
-                    type: document.getElementById('user-type-filter')?.value || '',
-                    status: document.getElementById('user-status-filter')?.value || ''
+                    search: searchValue,
+                    type: typeValue, // Vazio por padrão = todos os tipos
+                    status: statusValue // Vazio por padrão = todos os status
                 })
             });
             
@@ -260,44 +265,48 @@ class AdminSystem {
             
             const result = await response.json();
             
+            let user;
             if (!result.success) {
                 // Fallback: buscar da lista local
-                const user = this.users.find(u => u.id === userId);
+                user = this.users.find(u => u.id === userId);
                 if (!user) {
                     this.showNotification('Usuário não encontrado', 'error');
                     return;
                 }
-                
-                // Preencher modal de edição com dados locais
-                document.getElementById('edit-user-id').value = user.id;
-                document.getElementById('edit-user-name').value = user.name;
-                document.getElementById('edit-user-email').value = user.email;
-                document.getElementById('edit-user-phone').value = user.phone || '';
-                document.getElementById('edit-user-whatsapp').value = user.whatsapp || '';
-                document.getElementById('edit-user-instagram').value = user.instagram || '';
-                document.getElementById('edit-user-email-comunicacao').value = user.email_comunicacao || '';
-                document.getElementById('edit-user-status').value = user.status;
             } else {
-                // Preencher com dados do servidor
-                const user = result.data;
-                document.getElementById('edit-user-id').value = user.id;
-                document.getElementById('edit-user-name').value = user.name || '';
-                document.getElementById('edit-user-email').value = user.email || '';
-                document.getElementById('edit-user-phone').value = user.phone || '';
-                document.getElementById('edit-user-whatsapp').value = user.whatsapp || '';
-                document.getElementById('edit-user-instagram').value = user.instagram || '';
-                document.getElementById('edit-user-email-comunicacao').value = user.email_comunicacao || '';
-                document.getElementById('edit-user-status').value = user.status || 'active';
+                user = result.data;
             }
+            
+            // Armazenar status original para comparação posterior
+            const originalStatus = user.status || (user.ativo ? 'active' : 'inactive');
+            const originalApproved = user.aprovado_por_admin || (user.status === 'active' && user.type === 'decorator');
+            
+            // Preencher modal de edição
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-user-name').value = user.name || '';
+            document.getElementById('edit-user-email').value = user.email || '';
+            document.getElementById('edit-user-phone').value = user.phone || '';
+            document.getElementById('edit-user-whatsapp').value = user.whatsapp || '';
+            document.getElementById('edit-user-instagram').value = user.instagram || '';
+            document.getElementById('edit-user-email-comunicacao').value = user.email_comunicacao || '';
+            
+            // Definir status baseado no campo ativo do banco de dados
+            const statusValue = user.ativo !== undefined ? (user.ativo ? 'active' : 'inactive') : (user.status || 'active');
+            document.getElementById('edit-user-status').value = statusValue;
+            
+            // Armazenar dados originais no elemento para comparação
+            document.getElementById('edit-user-id').setAttribute('data-original-status', statusValue);
+            document.getElementById('edit-user-id').setAttribute('data-original-approved', originalApproved ? '1' : '0');
             
             // Mostrar seção de aprovação e termos se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
             const termsSection = document.getElementById('decorator-terms-section');
-            const user = this.users.find(u => u.id === userId) || result.data;
             if (user && user.type === 'decorator') {
                 if (approvalSection) {
                     approvalSection.classList.remove('hidden');
-                    document.getElementById('edit-user-approved').value = user.status === 'active' ? '1' : '0';
+                    // Usar aprovado_por_admin do banco, não o status
+                    const approvedValue = user.aprovado_por_admin !== undefined ? (user.aprovado_por_admin ? '1' : '0') : (statusValue === 'active' ? '1' : '0');
+                    document.getElementById('edit-user-approved').value = approvedValue;
                 }
                 if (termsSection) {
                     termsSection.classList.remove('hidden');
@@ -326,22 +335,36 @@ class AdminSystem {
     // Salvar edição de usuário
     async saveUserEdit() {
         try {
+            const userId = document.getElementById('edit-user-id').value;
+            const originalStatus = document.getElementById('edit-user-id').getAttribute('data-original-status');
+            const currentStatus = document.getElementById('edit-user-status').value;
+            
             const formData = {
-                id: document.getElementById('edit-user-id').value,
+                id: userId,
                 name: document.getElementById('edit-user-name').value,
                 email: document.getElementById('edit-user-email').value,
                 phone: document.getElementById('edit-user-phone').value,
                 whatsapp: document.getElementById('edit-user-whatsapp').value,
                 instagram: document.getElementById('edit-user-instagram').value,
-                email_comunicacao: document.getElementById('edit-user-email-comunicacao').value,
-                status: document.getElementById('edit-user-status').value
+                email_comunicacao: document.getElementById('edit-user-email-comunicacao').value
             };
+            
+            // Só enviar status se foi realmente alterado
+            if (currentStatus !== originalStatus) {
+                formData.status = currentStatus;
+            }
             
             // Adicionar aprovação e termos se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
             const termsSection = document.getElementById('decorator-terms-section');
             if (approvalSection && !approvalSection.classList.contains('hidden')) {
-                formData.aprovado_por_admin = document.getElementById('edit-user-approved').value === '1';
+                const originalApproved = document.getElementById('edit-user-id').getAttribute('data-original-approved') === '1';
+                const currentApproved = document.getElementById('edit-user-approved').value === '1';
+                
+                // Só enviar aprovação se foi realmente alterada
+                if (currentApproved !== originalApproved) {
+                    formData.aprovado_por_admin = currentApproved;
+                }
             }
             if (termsSection && !termsSection.classList.contains('hidden')) {
                 formData.termos_condicoes = document.getElementById('edit-user-terms').value;

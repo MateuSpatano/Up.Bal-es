@@ -3,7 +3,7 @@
  * Página do Decorador - Up.Baloes
  * 
  * Esta página é carregada quando alguém acessa www.upbaloes.com/{slug}
- * e exibe as informações do decorador correspondente.
+ * e exibe as informações do decorador correspondente usando o mesmo template da página inicial.
  */
 
 // Incluir configurações
@@ -34,20 +34,12 @@ try {
     $decorator = $decoratorData['decorator'];
     $services = $decoratorData['services'];
     $portfolio = $decoratorData['portfolio'];
-    
-    // Buscar personalização da página
-    $pdo = getDatabaseConnection($database_config);
-    $stmt = $pdo->prepare("
-        SELECT * FROM decorator_page_customization 
-        WHERE decorator_id = ? AND is_active = 1
-    ");
-    $stmt->execute([$decorator['id']]);
-    $customization = $stmt->fetch();
+    $customization = $decoratorData['customization'] ?? null;
     
     // Verificar se há personalização configurada
     $hasCustomization = $customization && !empty($customization['page_title']);
     
-    // Configuração da página - usar dados do banco ou valores padrão mínimos
+    // Configuração da página - usar dados do banco ou valores padrão
     $pageConfig = [
         'page_title' => $hasCustomization ? $customization['page_title'] : 'Bem-vindo à ' . $decorator['nome'] . '!',
         'page_description' => $hasCustomization ? $customization['page_description'] : 'Decoração profissional com balões para eventos.',
@@ -57,12 +49,20 @@ try {
         'secondary_color' => $hasCustomization ? ($customization['secondary_color'] ?? '#764ba2') : '#764ba2',
         'accent_color' => $hasCustomization ? ($customization['accent_color'] ?? '#f59e0b') : '#f59e0b',
         'social_media' => $hasCustomization && $customization['social_media'] ? json_decode($customization['social_media'], true) : [
-            'whatsapp' => $decorator['telefone'] ?? ''
+            'whatsapp' => $decorator['whatsapp'] ?? $decorator['telefone'] ?? '',
+            'instagram' => $decorator['instagram'] ?? '',
+            'facebook' => '',
+            'youtube' => ''
         ],
         'meta_title' => $hasCustomization ? ($customization['meta_title'] ?? $decorator['nome'] . ' - Up.Baloes') : $decorator['nome'] . ' - Decoração com Balões | Up.Baloes',
         'meta_description' => $hasCustomization ? ($customization['meta_description'] ?? 'Conheça ' . $decorator['nome']) : 'Decoração profissional com balões para eventos.',
         'meta_keywords' => $hasCustomization ? ($customization['meta_keywords'] ?? 'decorador, festas, balões') : 'decorador, festas, balões'
     ];
+    
+    // Preparar dados de contato
+    $contactEmail = $decorator['email_comunicacao'] ?? $decorator['email'] ?? '';
+    $contactWhatsapp = $decorator['whatsapp'] ?? $decorator['telefone'] ?? '';
+    $contactInstagram = $decorator['instagram'] ?? '';
     
 } catch (Exception $e) {
     // Erro interno - redirecionar para página 404
@@ -133,234 +133,285 @@ try {
         .portfolio-item:hover {
             transform: scale(1.05);
         }
-        .btn-primary {
-            background-color: var(--accent-color);
-        }
-        .btn-primary:hover {
-            background-color: var(--primary-color);
-        }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     
-    <!-- Navbar -->
-    <nav class="bg-white shadow-lg border-b border-gray-200">
+    <!-- Navbar Fixa (mesma estrutura da index.html) -->
+    <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo -->
-                <div class="flex items-center space-x-3">
-                    <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                        <img src="../Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
-                    </div>
-                    <span class="text-xl font-bold text-gray-800">Up.Baloes</span>
-                </div>
+            <div class="flex justify-between items-center h-18 sm:h-20">
                 
-                <!-- Menu -->
-                <div class="flex items-center space-x-4">
-                    <a href="../index.html" class="text-gray-700 hover:text-blue-600 transition-colors duration-200">
+                <!-- Logo do Sistema -->
+                <div class="flex items-center space-x-3">
+                    <a href="../index.html" class="flex items-center space-x-3">
+                        <div class="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg logo-container">
+                            <img src="../Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full logo-image">
+                        </div>
+                        <span class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 hidden sm:block">Up.Baloes</span>
+                    </a>
+                </div>
+
+                <!-- Menu de Navegação -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="../index.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
-                    <a href="../pages/solicitacao-cliente.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <a href="#portfolio" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-briefcase mr-2"></i>Portfólio
+                    </a>
+                    <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-phone mr-2"></i>Contatos
+                    </a>
+                    <a href="../pages/solicitacao-cliente.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
                         <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                     </a>
                 </div>
+
+                <!-- Menu Mobile -->
+                <div class="md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-700 hover:text-blue-600 transition-colors duration-200">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Mobile Expandido -->
+        <div id="mobile-menu" class="md:hidden bg-white border-t border-gray-200 opacity-0 invisible transition-all duration-200">
+            <div class="px-4 py-3 space-y-2">
+                <a href="../index.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                    <i class="fas fa-home mr-3"></i>Início
+                </a>
+                <a href="#portfolio" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                    <i class="fas fa-briefcase mr-3"></i>Portfólio
+                </a>
+                <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                    <i class="fas fa-phone mr-3"></i>Contatos
+                </a>
+                <a href="../pages/solicitacao-cliente.html" class="mobile-nav-link block px-3 py-2 bg-blue-600 text-white rounded-lg">
+                    <i class="fas fa-gift mr-3"></i>Solicitar Serviço
+                </a>
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="decorator-hero text-white py-16">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center">
-                <div class="w-32 h-32 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <i class="fas fa-user-tie text-6xl text-white"></i>
+    <!-- Conteúdo Principal -->
+    <main class="pt-18 sm:pt-20">
+        <!-- Hero Section (personalizado para o decorador) -->
+        <section id="inicio" class="decorator-hero text-white py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
+                        <?php echo htmlspecialchars($pageConfig['page_title']); ?>
+                    </h1>
+                    <p class="text-xl md:text-2xl mb-8 text-blue-100 animate-fade-in-delay">
+                        <?php echo htmlspecialchars($pageConfig['page_description']); ?>
+                    </p>
+                    <?php if ($pageConfig['welcome_text']): ?>
+                    <p class="text-lg md:text-xl mb-8 text-blue-200 animate-fade-in-delay-2 max-w-3xl mx-auto">
+                        <?php echo nl2br(htmlspecialchars($pageConfig['welcome_text'])); ?>
+                    </p>
+                    <?php endif; ?>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
+                        <a href="../pages/solicitacao-cliente.html" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
+                            <i class="fas fa-gift mr-2"></i>Solicitar Serviço
+                        </a>
+                        <a href="#contatos" class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-block text-center">
+                            <i class="fas fa-phone mr-2"></i>Entre em Contato
+                        </a>
+                    </div>
                 </div>
-                <h1 class="text-4xl md:text-5xl font-bold mb-4">
-                    <?php echo htmlspecialchars($pageConfig['page_title']); ?>
-                </h1>
-                <p class="text-xl text-blue-100 mb-6">
-                    <?php echo htmlspecialchars($pageConfig['page_description']); ?>
-                </p>
-                <?php if ($pageConfig['welcome_text']): ?>
-                <p class="text-lg text-blue-200 mb-4">
-                    <?php echo nl2br(htmlspecialchars($pageConfig['welcome_text'])); ?>
-                </p>
-                <?php endif; ?>
-                <!-- Localização pode ser adicionada quando o campo cidade/estado for incluído na tabela usuarios -->
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Informações de Contato -->
-    <section class="py-12 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <!-- Email -->
-                <div class="text-center p-6 bg-gray-50 rounded-xl">
-                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-envelope text-white text-2xl"></i>
-                    </div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Email</h3>
-                    <p class="text-gray-600"><?php echo htmlspecialchars($decorator['email']); ?></p>
-                </div>
-                
-                <!-- Telefone -->
-                <div class="text-center p-6 bg-gray-50 rounded-xl">
-                    <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-phone text-white text-2xl"></i>
-                    </div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Telefone</h3>
-                    <p class="text-gray-600"><?php echo htmlspecialchars($decorator['telefone']); ?></p>
-                </div>
-                
-                <!-- Localização -->
-                <div class="text-center p-6 bg-gray-50 rounded-xl">
-                    <div class="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-map-marker-alt text-white text-2xl"></i>
-                    </div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Localização</h3>
-                    <p class="text-gray-600">
-                        <!-- Localização será exibida quando os campos cidade/estado forem adicionados à tabela usuarios -->
-                        Informações de localização não disponíveis
+        <!-- Seção de Recursos/Serviços -->
+        <?php if (!empty($services)): ?>
+        <section class="py-20 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                        Nossos Serviços
+                    </h2>
+                    <p class="text-xl text-gray-600">
+                        Conheça os serviços especializados que oferecemos
                     </p>
                 </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Serviços -->
-    <?php if (!empty($services)): ?>
-    <section class="py-16 bg-gray-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-                    Nossos Serviços
-                </h2>
-                <p class="text-xl text-gray-600">
-                    Conheça os serviços especializados que oferecemos
-                </p>
-            </div>
-            
-            <?php if ($pageConfig['social_media'] && (isset($pageConfig['social_media']['facebook']) || isset($pageConfig['social_media']['instagram']) || isset($pageConfig['social_media']['whatsapp']) || isset($pageConfig['social_media']['youtube']))): ?>
-            <div class="flex justify-center space-x-4 mb-8">
-                <?php if (!empty($pageConfig['social_media']['facebook'])): ?>
-                <a href="<?php echo htmlspecialchars($pageConfig['social_media']['facebook']); ?>" target="_blank" class="text-blue-600 hover:text-blue-800 text-2xl">
-                    <i class="fab fa-facebook"></i>
-                </a>
-                <?php endif; ?>
-                <?php if (!empty($pageConfig['social_media']['instagram'])): ?>
-                <a href="<?php echo htmlspecialchars($pageConfig['social_media']['instagram']); ?>" target="_blank" class="text-pink-600 hover:text-pink-800 text-2xl">
-                    <i class="fab fa-instagram"></i>
-                </a>
-                <?php endif; ?>
-                <?php if (!empty($pageConfig['social_media']['whatsapp'])): ?>
-                <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $pageConfig['social_media']['whatsapp']); ?>" target="_blank" class="text-green-600 hover:text-green-800 text-2xl">
-                    <i class="fab fa-whatsapp"></i>
-                </a>
-                <?php endif; ?>
-                <?php if (!empty($pageConfig['social_media']['youtube'])): ?>
-                <a href="<?php echo htmlspecialchars($pageConfig['social_media']['youtube']); ?>" target="_blank" class="text-red-600 hover:text-red-800 text-2xl">
-                    <i class="fab fa-youtube"></i>
-                </a>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <?php foreach ($services as $service): ?>
-                <div class="service-card bg-white p-6 rounded-xl shadow-lg">
-                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-gift text-white text-2xl"></i>
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-800 mb-3 text-center">
-                        <?php echo htmlspecialchars($service['nome']); ?>
-                    </h3>
-                    <p class="text-gray-600 mb-4 text-center">
-                        <?php echo htmlspecialchars($service['descricao']); ?>
-                    </p>
-                    <?php if (!empty($service['preco_base'])): ?>
-                    <div class="text-center">
-                        <span class="text-2xl font-bold text-blue-600">
-                            R$ <?php echo number_format($service['preco_base'], 2, ',', '.'); ?>
-                        </span>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
-
-    <!-- Portfólio -->
-    <?php if (!empty($portfolio)): ?>
-    <section class="py-16 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-                    Nosso Portfólio
-                </h2>
-                <p class="text-xl text-gray-600">
-                    Veja alguns dos nossos trabalhos realizados
-                </p>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <?php foreach ($portfolio as $item): ?>
-                <div class="portfolio-item bg-white rounded-xl shadow-lg overflow-hidden">
-                    <?php if (!empty($item['imagem_url'])): ?>
-                    <img src="<?php echo htmlspecialchars($item['imagem_url']); ?>" 
-                         alt="<?php echo htmlspecialchars($item['titulo']); ?>" 
-                         class="w-full h-48 object-cover">
-                    <?php else: ?>
-                    <div class="w-full h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                        <i class="fas fa-image text-white text-4xl"></i>
-                    </div>
-                    <?php endif; ?>
-                    <div class="p-6">
-                        <h3 class="text-xl font-semibold text-gray-800 mb-2">
-                            <?php echo htmlspecialchars($item['titulo']); ?>
-                        </h3>
-                        <p class="text-gray-600 mb-4">
-                            <?php echo htmlspecialchars($item['descricao']); ?>
-                        </p>
-                        <?php if (!empty($item['data_evento'])): ?>
-                        <p class="text-sm text-gray-500">
-                            <i class="fas fa-calendar mr-2"></i>
-                            <?php echo date('d/m/Y', strtotime($item['data_evento'])); ?>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <?php foreach ($services as $service): ?>
+                    <div class="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <?php if (!empty($service['icon'])): ?>
+                            <i class="<?php echo htmlspecialchars($service['icon']); ?> text-white text-2xl"></i>
+                            <?php else: ?>
+                            <i class="fas fa-gift text-white text-2xl"></i>
+                            <?php endif; ?>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3"><?php echo htmlspecialchars($service['title'] ?? $service['nome'] ?? 'Serviço'); ?></h3>
+                        <p class="text-gray-600"><?php echo htmlspecialchars($service['description'] ?? $service['descricao'] ?? ''); ?></p>
+                        <?php if (!empty($service['price'])): ?>
+                        <p class="text-2xl font-bold text-blue-600 mt-4">
+                            R$ <?php echo number_format($service['price'], 2, ',', '.'); ?>
                         </p>
                         <?php endif; ?>
                     </div>
+                    <?php endforeach; ?>
                 </div>
-                <?php endforeach; ?>
             </div>
-        </div>
-    </section>
-    <?php endif; ?>
+        </section>
+        <?php endif; ?>
 
-    <!-- Call to Action -->
-    <section class="py-16 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-3xl md:text-4xl font-bold mb-6">
-                Pronto para fazer sua festa inesquecível?
-            </h2>
-            <p class="text-xl text-blue-100 mb-8">
-                Entre em contato conosco e vamos criar algo especial para você!
-            </p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="../pages/solicitacao-cliente.html" 
-                   class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-flex items-center justify-center">
-                    <i class="fas fa-gift mr-2"></i>
-                    Solicitar Orçamento
-                </a>
-                <a href="tel:<?php echo htmlspecialchars($decorator['telefone']); ?>" 
-                   class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-flex items-center justify-center">
-                    <i class="fas fa-phone mr-2"></i>
-                    Ligar Agora
-                </a>
+        <!-- Seção de Portfólio -->
+        <section id="portfolio" class="py-20 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                        Nosso Portfólio
+                    </h2>
+                    <p class="text-xl text-gray-600">
+                        Conheça alguns dos nossos trabalhos e serviços especializados
+                    </p>
+                </div>
+
+                <?php if (!empty($portfolio)): ?>
+                <!-- Grid de Portfólio -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <?php foreach ($portfolio as $item): ?>
+                    <div class="portfolio-item bg-white rounded-xl shadow-lg overflow-hidden">
+                        <?php if (!empty($item['imagem_url'])): ?>
+                        <img src="<?php echo htmlspecialchars($item['imagem_url']); ?>" 
+                             alt="<?php echo htmlspecialchars($item['titulo'] ?? 'Portfólio'); ?>" 
+                             class="w-full h-48 object-cover">
+                        <?php else: ?>
+                        <div class="w-full h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                            <i class="fas fa-image text-white text-4xl"></i>
+                        </div>
+                        <?php endif; ?>
+                        <div class="p-4">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">
+                                <?php echo htmlspecialchars($item['titulo'] ?? 'Trabalho'); ?>
+                            </h3>
+                            <p class="text-gray-600 text-sm">
+                                <?php echo htmlspecialchars($item['descricao'] ?? ''); ?>
+                            </p>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php else: ?>
+                <!-- Estado Vazio -->
+                <div class="text-center py-12">
+                    <div class="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-briefcase text-4xl text-purple-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Portfólio em construção</h3>
+                    <p class="text-gray-600 mb-6">Em breve você poderá ver nossos trabalhos aqui</p>
+                </div>
+                <?php endif; ?>
             </div>
-        </div>
-    </section>
+        </section>
+
+        <!-- Seção de Contatos (mesma estrutura da index.html) -->
+        <section id="contatos" class="py-20 bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 relative overflow-hidden">
+            <!-- Decoração de fundo -->
+            <div class="absolute inset-0 opacity-20">
+                <div class="absolute top-20 left-10 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
+                <div class="absolute top-40 right-10 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse" style="animation-delay: 2s;"></div>
+                <div class="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse" style="animation-delay: 4s;"></div>
+            </div>
+            
+            <!-- Padrão de pontos decorativo -->
+            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 50px 50px;"></div>
+            
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="text-center mb-16">
+                    <div class="inline-block mb-4">
+                        <span class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                            <i class="fas fa-phone-alt mr-2"></i>Contato
+                        </span>
+                    </div>
+                    <h2 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                        Entre em Contato
+                    </h2>
+                    <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+                        Fale conosco através dos nossos canais de comunicação. Estamos prontos para ajudar você!
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                    <!-- Email -->
+                    <?php if (!empty($contactEmail)): ?>
+                    <div class="group relative">
+                        <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+                        <div class="relative bg-white rounded-2xl p-8 shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:-translate-y-2 border border-gray-200">
+                            <div class="flex flex-col items-center text-center">
+                                <div class="relative mb-6">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition duration-300"></div>
+                                    <div class="relative w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300">
+                                        <i class="fas fa-envelope text-white text-3xl"></i>
+                                    </div>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">E-mail</h3>
+                                <p class="text-sm text-gray-500 mb-4">Envie sua mensagem</p>
+                                <a href="mailto:<?php echo htmlspecialchars($contactEmail); ?>" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-lg text-blue-700 hover:text-blue-900 font-medium transition-all duration-300 transform hover:scale-105 w-full break-all">
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    <span class="text-sm"><?php echo htmlspecialchars($contactEmail); ?></span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <!-- WhatsApp -->
+                    <?php if (!empty($contactWhatsapp)): ?>
+                    <div class="group relative">
+                        <div class="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+                        <div class="relative bg-white rounded-2xl p-8 shadow-2xl hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-2 border border-gray-200">
+                            <div class="flex flex-col items-center text-center">
+                                <div class="relative mb-6">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition duration-300"></div>
+                                    <div class="relative w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300">
+                                        <i class="fab fa-whatsapp text-white text-3xl"></i>
+                                    </div>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">WhatsApp</h3>
+                                <p class="text-sm text-gray-500 mb-4">Conversa rápida</p>
+                                <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" target="_blank" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 rounded-lg text-green-700 hover:text-green-900 font-medium transition-all duration-300 transform hover:scale-105 w-full">
+                                    <i class="fab fa-whatsapp mr-2 text-lg"></i>
+                                    <span class="text-sm"><?php echo htmlspecialchars($contactWhatsapp); ?></span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <!-- Instagram -->
+                    <?php if (!empty($contactInstagram)): ?>
+                    <div class="group relative">
+                        <div class="absolute -inset-0.5 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
+                        <div class="relative bg-white rounded-2xl p-8 shadow-2xl hover:shadow-pink-500/20 transition-all duration-300 transform hover:-translate-y-2 border border-gray-200">
+                            <div class="flex flex-col items-center text-center">
+                                <div class="relative mb-6">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition duration-300"></div>
+                                    <div class="relative w-20 h-20 bg-gradient-to-br from-pink-500 via-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300">
+                                        <i class="fab fa-instagram text-white text-3xl"></i>
+                                    </div>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">Instagram</h3>
+                                <p class="text-sm text-gray-500 mb-4">Siga-nos</p>
+                                <a href="<?php echo htmlspecialchars(strpos($contactInstagram, 'http') === 0 ? $contactInstagram : 'https://instagram.com/' . ltrim($contactInstagram, '@')); ?>" target="_blank" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-pink-50 via-purple-50 to-pink-50 hover:from-pink-100 hover:via-purple-100 hover:to-pink-100 rounded-lg text-pink-700 hover:text-pink-900 font-medium transition-all duration-300 transform hover:scale-105 w-full">
+                                    <i class="fab fa-instagram mr-2 text-lg"></i>
+                                    <span class="text-sm"><?php echo htmlspecialchars($contactInstagram); ?></span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-8">
@@ -371,7 +422,7 @@ try {
                 </div>
                 <span class="text-xl font-bold">Up.Baloes</span>
             </div>
-            <p>&copy; 2024 Up.Baloes. Todos os direitos reservados.</p>
+            <p>&copy; 2025 Up.Baloes. Todos os direitos reservados.</p>
             <p class="text-gray-400 text-sm mt-2">
                 Decorador: <?php echo htmlspecialchars($decorator['nome']); ?>
             </p>
@@ -379,9 +430,20 @@ try {
     </footer>
 
     <!-- JavaScript -->
+    <script src="../js/principal.js"></script>
     <script>
-        // Adicionar funcionalidades interativas se necessário
+        // Menu mobile toggle
         document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('opacity-0');
+                    mobileMenu.classList.toggle('invisible');
+                });
+            }
+            
             // Animar elementos quando entram na tela
             const observerOptions = {
                 threshold: 0.1,

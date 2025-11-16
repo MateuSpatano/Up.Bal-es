@@ -33,7 +33,8 @@ class DecoratorService {
     }
     
     private function buildDecoratorUrl(string $slug): string {
-        $path = '/pages/painel-decorador.html?decorator=' . urlencode($slug);
+        // URL pública do decorador: /{slug}
+        $path = '/' . urlencode($slug);
         $base = $this->getBaseUrl();
         
         if ($base === '') {

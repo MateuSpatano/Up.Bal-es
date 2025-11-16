@@ -30,7 +30,8 @@ function buildDecoratorUrl(?string $slug): ?string {
     }
 
     $base = getBaseUrl();
-    $path = '/pages/painel-decorador.html?decorator=' . urlencode($slug);
+    // URL pública do decorador: /{slug}
+    $path = '/' . urlencode($slug);
 
     if ($base === '') {
         return ltrim($path, '/');
