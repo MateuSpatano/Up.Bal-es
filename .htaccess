@@ -1,24 +1,38 @@
 RewriteEngine On
 
-# Detecta automaticamente onde o projeto está (não precisa editar RewriteBase)
-# RewriteBase /
+# IMPORTANTE: Ajuste este caminho conforme a localização do seu projeto
+# Se o projeto está em: http://localhost/Up.BaloesV3/
+# Então use: RewriteBase /Up.BaloesV3/
+# Se está na raiz: http://localhost/
+# Então use: RewriteBase /
+
+RewriteBase /Up.BaloesV3/
 
 # Se o arquivo ou pasta existir, não faz nada (serve o arquivo normal)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
 # Ignora pastas de sistema para evitar loops
-RewriteCond %{REQUEST_URI} !^/.+/(pages|services|css|js|Images|utils|database)/
+RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/(pages|services|css|js|Images|utils|database|uploads)/
 
-# Regra Mágica: Pega o slug e manda para o "Molde" (pagina-decorador.php)
-RewriteRule ^([a-z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
+# Regra para capturar o slug e redirecionar para o arquivo correto
+# Aceita letras, números e hífens no slug
+RewriteRule ^([a-zA-Z0-9-]+)/?$ services/decorador.php?slug=$1 [L,QSA]
 
 # Configurações de segurança (mantidas)
 <Files "*.sql">
     Order Allow,Deny
     Deny from all
 </Files>
+
 <Files "*.log">
     Order Allow,Deny
     Deny from all
 </Files>
+
+# Prevenir listagem de diretórios
+Options -Indexes
+
+# Força HTTPS (descomente se tiver SSL configurado)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

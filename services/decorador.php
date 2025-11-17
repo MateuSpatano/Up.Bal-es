@@ -1,1029 +1,322 @@
 <?php
-// Serviço de gerenciamento de decoradores Up.Baloes
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+/**
+ * Handler de URL para Página Pública do Decorador
+ * Processa requisições diretas via slug (ex: /nome-decorador)
+ */
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/../utils/gerador-slug.php';
+require_once __DIR__ . '/decorador-service.php';
 
-// Classe de gerenciamento de decoradores
-class DecoratorService {
-    private $pdo;
-    private $config;
-    
-    public function __construct($config) {
-        $this->config = $config;
-        try {
-            $this->pdo = getDatabaseConnection($config);
-        } catch (Exception $e) {
-            throw new Exception('Erro de conexão com o banco de dados: ' . $e->getMessage());
-        }
-    }
-    
-    private function getBaseUrl(): string {
-        $base = $GLOBALS['urls']['base'] ?? '';
-        return rtrim($base, '/');
-    }
-    
-    private function buildDecoratorUrl(string $slug): string {
-        // URL pública do decorador: /{slug}
-        $path = '/' . urlencode($slug);
-        $base = $this->getBaseUrl();
-        
-        if ($base === '') {
-            return ltrim($path, '/');
-        }
-        
-        return $base . $path;
-    }
-    
-    private function decodeJsonField(?string $value, $default = []) {
-        if ($value === null || $value === '') {
-            return $default;
-        }
-        
-        $decoded = json_decode($value, true);
-        return is_array($decoded) ? $decoded : $default;
-    }
-    
-    private function getPageCustomization(int $decoratorId): ?array {
-        $stmt = $this->pdo->prepare("
-            SELECT
-                page_title,
-                page_description,
-                welcome_text,
-                cover_image_url,
-                primary_color,
-                secondary_color,
-                accent_color,
-                services_config,
-                social_media,
-                meta_title,
-                meta_description,
-                meta_keywords,
-                show_contact_section,
-                show_services_section,
-                show_portfolio_section,
-                is_active,
-                created_at,
-                updated_at
-            FROM decorator_page_customization
-            WHERE decorator_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$decoratorId]);
-        $row = $stmt->fetch();
-        
-        if (!$row) {
-            return null;
-        }
-        
-        return [
-            'page_title' => $row['page_title'],
-            'page_description' => $row['page_description'],
-            'welcome_text' => $row['welcome_text'],
-            'cover_image_url' => $row['cover_image_url'],
-            'primary_color' => $row['primary_color'] ?? '#667eea',
-            'secondary_color' => $row['secondary_color'] ?? '#764ba2',
-            'accent_color' => $row['accent_color'] ?? '#f59e0b',
-            'services' => $this->decodeJsonField($row['services_config']),
-            'social_media' => $this->decodeJsonField($row['social_media']),
-            'meta_title' => $row['meta_title'],
-            'meta_description' => $row['meta_description'],
-            'meta_keywords' => $row['meta_keywords'],
-            'show_contact_section' => (bool)($row['show_contact_section'] ?? true),
-            'show_services_section' => (bool)($row['show_services_section'] ?? true),
-            'show_portfolio_section' => (bool)($row['show_portfolio_section'] ?? true),
-            'is_active' => (bool)($row['is_active'] ?? true),
-            'created_at' => $row['created_at'],
-            'updated_at' => $row['updated_at'],
-        ];
-    }
-    
-    private function ensureDefaultCustomization(int $decoratorId, string $decoratorName): void {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(*) 
-                FROM decorator_page_customization 
-                WHERE decorator_id = ?
-            ");
-            $stmt->execute([$decoratorId]);
-            
-            if ((int) $stmt->fetchColumn() > 0) {
-                return;
-            }
-            
-            // Buscar dados do decorador para personalização completa
-            $stmt = $this->pdo->prepare("
-                SELECT email_comunicacao, whatsapp 
-                FROM usuarios 
-                WHERE id = ?
-            ");
-            $stmt->execute([$decoratorId]);
-            $decoratorData = $stmt->fetch();
-            
-            $email = $decoratorData['email_comunicacao'] ?? '';
-            $whatsapp = $decoratorData['whatsapp'] ?? '';
-            
-            // Criar personalização padrão completa
-            $pageTitle = "Bem-vindo à {$decoratorName}!";
-            $pageDescription = "Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
-            $welcomeText = "Olá! Somos a {$decoratorName} e estamos prontos para tornar seu evento único e especial. Oferecemos serviços de decoração com balões personalizados para todos os tipos de celebrações.";
-            
-            // Configuração padrão de redes sociais
-            $socialMedia = json_encode([
-                'whatsapp' => $whatsapp,
-                'instagram' => '',
-                'facebook' => '',
-                'youtube' => ''
-            ]);
-            
-            // Configuração padrão de serviços
-            $servicesConfig = json_encode([
-                [
-                    'id' => 1,
-                    'title' => 'Arco Tradicional',
-                    'description' => 'Arcos de balões tradicionais para decoração de eventos',
-                    'icon' => 'fas fa-archway',
-                    'price' => null,
-                    'highlight' => false
-                ],
-                [
-                    'id' => 2,
-                    'title' => 'Arco Desconstruído',
-                    'description' => 'Arcos modernos com design desconstruído',
-                    'icon' => 'fas fa-palette',
-                    'price' => null,
-                    'highlight' => false
-                ],
-                [
-                    'id' => 3,
-                    'title' => 'Escultura de Balão',
-                    'description' => 'Esculturas personalizadas com balões',
-                    'icon' => 'fas fa-sculpture',
-                    'price' => null,
-                    'highlight' => false
-                ]
-            ]);
-            
-            $metaTitle = "{$decoratorName} - Decoração com Balões | Up.Baloes";
-            $metaDescription = "Conheça {$decoratorName}. Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
-            
-            $insert = $this->pdo->prepare("
-                INSERT INTO decorator_page_customization (
-                    decorator_id,
-                    page_title,
-                    page_description,
-                    welcome_text,
-                    cover_image_url,
-                    primary_color,
-                    secondary_color,
-                    accent_color,
-                    services_config,
-                    social_media,
-                    meta_title,
-                    meta_description,
-                    meta_keywords,
-                    show_contact_section,
-                    show_services_section,
-                    show_portfolio_section,
-                    is_active,
-                    created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, NULL, '#667eea', '#764ba2', '#f59e0b', ?, ?, ?, ?, 'decorador, festas, balões, eventos, decoração', 1, 1, 1, 1, NOW(), NOW())
-            ");
-            
-            $insert->execute([
-                $decoratorId,
-                $pageTitle,
-                $pageDescription,
-                $welcomeText,
-                $servicesConfig,
-                $socialMedia,
-                $metaTitle,
-                $metaDescription
-            ]);
-            
-            error_log("Personalização padrão criada automaticamente para decorador ID: {$decoratorId}");
-            
-        } catch (Exception $e) {
-            error_log('Erro ao criar personalização padrão do decorador: ' . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Buscar decorador por slug
-     */
-    public function getDecoratorBySlug($slug) {
-        try {
-            // Primeiro, buscar o decorador apenas pelo slug (sem verificar status)
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id,
-                    nome,
-                    email,
-                    email_comunicacao,
-                    telefone,
-                    whatsapp,
-                    instagram,
-                    cpf,
-                    endereco,
-                    cidade,
-                    estado,
-                    cep,
-                    slug,
-                    perfil,
-                    ativo,
-                    aprovado_por_admin,
-                    is_active,
-                    bio,
-                    especialidades,
-                    portfolio_images,
-                    redes_sociais,
-                    created_at,
-                    updated_at
-                FROM usuarios 
-                WHERE slug = ? 
-                AND perfil = 'decorator'
-                LIMIT 1
-            ");
-            $stmt->execute([$slug]);
-            $decorator = $stmt->fetch();
-            
-            if (!$decorator) {
-                error_log("Decorador não encontrado com slug: {$slug}");
-                return [
-                    'success' => false,
-                    'message' => 'Decorador não encontrado'
-                ];
-            }
-            
-            // Verificar se está ativo e aprovado
-            $ativo = (int) $decorator['ativo'];
-            $aprovado = (int) $decorator['aprovado_por_admin'];
-            
-            if ($ativo !== 1 || $aprovado !== 1) {
-                error_log("Decorador encontrado mas não está ativo ou aprovado. ID: {$decorator['id']}, Ativo: {$ativo}, Aprovado: {$aprovado}");
-                return [
-                    'success' => false,
-                    'message' => 'Decorador não está disponível no momento'
-                ];
-            }
-            
-            $decoratorId = (int) $decorator['id'];
-            
-            // Garantir que existe personalização padrão (criar se não existir)
-            $this->ensureDefaultCustomization($decoratorId, $decorator['nome']);
-            
-            $customization = $this->getPageCustomization($decoratorId);
-            $services = $this->getDecoratorServices($decoratorId, $customization);
-            $portfolio = $this->getDecoratorPortfolio($decoratorId);
-            
-            $communicationEmail = $decorator['email_comunicacao'] ?? $decorator['email'];
-            
-            $decoratorData = [
-                'id' => $decoratorId,
-                'name' => $decorator['nome'],
-                'email' => $decorator['email'],
-                'communication_email' => $communicationEmail,
-                'phone' => $decorator['telefone'],
-                'whatsapp' => $decorator['whatsapp'],
-                'instagram' => $decorator['instagram'],
-                'cpf' => $decorator['cpf'],
-                'address' => $decorator['endereco'],
-                'city' => $decorator['cidade'],
-                'state' => $decorator['estado'],
-                'zipcode' => $decorator['cep'],
-                'slug' => $decorator['slug'],
-                'profile' => $decorator['perfil'],
-                'status' => ((int) $decorator['ativo'] === 1) ? 'active' : 'inactive',
-                'approved_by_admin' => (bool) $decorator['aprovado_por_admin'],
-                'is_active' => (bool) $decorator['is_active'],
-                'bio' => $decorator['bio'],
-                'specialties' => $this->decodeJsonField($decorator['especialidades']),
-                'portfolio_images' => $this->decodeJsonField($decorator['portfolio_images']),
-                'social_media' => $this->decodeJsonField($decorator['redes_sociais']),
-                'created_at' => $decorator['created_at'],
-                'updated_at' => $decorator['updated_at'],
-                'url' => $this->buildDecoratorUrl($decorator['slug'])
-            ];
-            
-            return [
-                'success' => true,
-                'data' => [
-                    'decorator' => $decoratorData,
-                    'customization' => $customization,
-                    'services' => $services,
-                    'portfolio' => $portfolio
-                ]
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao buscar decorador por slug: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro interno do servidor'
-            ];
-        }
-    }
-    
-    /**
-     * Buscar serviços do decorador
-     * Nota: Esta função retorna array vazio pois a tabela de serviços ainda não está implementada
-     * A estrutura de dados será definida conforme necessário
-     */
-    private function getDecoratorServices(int $decoratorId, ?array $customization = null): array {
-        try {
-            $services = [];
-            
-            if ($customization && isset($customization['services']) && is_array($customization['services'])) {
-                foreach ($customization['services'] as $index => $service) {
-                    if (!is_array($service)) {
-                        continue;
-                    }
-                    
-                    $services[] = [
-                        'id' => $service['id'] ?? ($index + 1),
-                        'title' => $service['title'] ?? ($service['name'] ?? ''),
-                        'description' => $service['description'] ?? '',
-                        'icon' => $service['icon'] ?? null,
-                        'price' => isset($service['price']) && $service['price'] !== '' ? (float) $service['price'] : null,
-                        'highlight' => (bool) ($service['highlight'] ?? false)
-                    ];
-                }
-            }
-            
-            return $services;
-        } catch (Exception $e) {
-            error_log('Erro ao buscar serviços do decorador: ' . $e->getMessage());
-            return [];
-        }
-    }
-    
-    /**
-     * Buscar portfólio do decorador
-     * Nota: Esta função retorna array vazio pois a tabela de portfólio ainda não está implementada
-     * A estrutura de dados será definida conforme necessário
-     */
-    private function getDecoratorPortfolio(int $decoratorId): array {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id,
-                    service_type,
-                    title,
-                    description,
-                    price,
-                    arc_size,
-                    image_path,
-                    display_order,
-                    is_featured,
-                    is_active,
-                    created_at,
-                    updated_at
-                FROM decorator_portfolio_items
-                WHERE decorator_id = ? AND is_active = 1
-                ORDER BY display_order DESC, created_at DESC
-            ");
-            $stmt->execute([$decoratorId]);
-            $items = $stmt->fetchAll() ?: [];
-            
-            $baseUrl = $this->getBaseUrl();
-            $portfolio = [];
-            
-            foreach ($items as $item) {
-                $relativePath = $item['image_path'] ?? null;
-                $imageUrl = null;
-                
-                if ($relativePath) {
-                    $normalizedPath = '/' . ltrim($relativePath, '/');
-                    $imageUrl = $baseUrl !== ''
-                        ? $baseUrl . $normalizedPath
-                        : ltrim($normalizedPath, '/');
-                }
-                
-                $portfolio[] = [
-                    'id' => (int) $item['id'],
-                    'type' => $item['service_type'],
-                    'title' => $item['title'],
-                    'description' => $item['description'],
-                    'price' => $item['price'] !== null ? (float) $item['price'] : null,
-                    'arc_size' => $item['arc_size'],
-                    'image_path' => $relativePath,
-                    'image_url' => $imageUrl,
-                    'display_order' => (int) ($item['display_order'] ?? 0),
-                    'is_featured' => (bool) ($item['is_featured'] ?? false),
-                    'created_at' => $item['created_at'],
-                    'updated_at' => $item['updated_at']
-                ];
-            }
-            
-            return $portfolio;
-        } catch (Exception $e) {
-            error_log('Erro ao buscar portfólio do decorador: ' . $e->getMessage());
-            return [];
-        }
-    }
-    
-    /**
-     * Criar novo decorador
-     */
-    public function createDecorator($data) {
-        try {
-            $nome = trim($data['nome'] ?? '');
-            $email = trim($data['email'] ?? '');
-            $communicationEmail = trim($data['communication_email'] ?? $email);
-            $telefone = trim($data['telefone'] ?? '');
-            $whatsapp = trim($data['whatsapp'] ?? '');
-            $senha = $data['senha'] ?? '';
-            $cpf = trim($data['cpf'] ?? '');
-            $endereco = trim($data['endereco'] ?? '');
-            
-            $requiredFields = [
-                'nome' => $nome,
-                'email' => $email,
-                'telefone' => $telefone,
-                'whatsapp' => $whatsapp,
-                'senha' => $senha
-            ];
-            
-            foreach ($requiredFields as $field => $value) {
-                if ($value === '') {
-                    return [
-                        'success' => false,
-                        'message' => "Campo {$field} é obrigatório"
-                    ];
-                }
-            }
-            
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return [
-                    'success' => false,
-                    'message' => 'Email inválido'
-                ];
-            }
-            
-            if ($communicationEmail !== '' && !filter_var($communicationEmail, FILTER_VALIDATE_EMAIL)) {
-                return [
-                    'success' => false,
-                    'message' => 'E-mail para comunicação inválido'
-                ];
-            }
-            
-            if (strlen($senha) < 8) {
-                return [
-                    'success' => false,
-                    'message' => 'Senha deve ter pelo menos 8 caracteres'
-                ];
-            }
-            
-            // Verificar email duplicado
-            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                return [
-                    'success' => false,
-                    'message' => 'Email já cadastrado'
-                ];
-            }
-            
-            if ($communicationEmail !== '' && strcasecmp($communicationEmail, $email) !== 0) {
-                $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE email_comunicacao = ?");
-                $stmt->execute([$communicationEmail]);
-                if ($stmt->fetch()) {
-                    return [
-                        'success' => false,
-                        'message' => 'E-mail para comunicação já cadastrado'
-                    ];
-                }
-            }
-            
-            // Verificar whatsapp duplicado (opcional)
-            if ($whatsapp !== '') {
-                $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE whatsapp = ?");
-                $stmt->execute([$whatsapp]);
-                if ($stmt->fetch()) {
-                    return [
-                        'success' => false,
-                        'message' => 'WhatsApp já cadastrado'
-                    ];
-                }
-            }
-            
-            // Gerar slug único
-            $slug = generateUniqueSlug($this->pdo, $nome);
-            
-            // Hash da senha
-            $hashedPassword = hashPassword($senha);
-            
-            $insert = $this->pdo->prepare("
-                INSERT INTO usuarios (
-                    nome,
-                    email,
-                    email_comunicacao,
-                    telefone,
-                    whatsapp,
-                    cpf,
-                    endereco,
-                    senha,
-                    slug,
-                    perfil,
-                    ativo,
-                    aprovado_por_admin,
-                    is_active,
-                    is_admin,
-                    created_at,
-                    updated_at
-                ) VALUES (
-                    :nome,
-                    :email,
-                    :email_comunicacao,
-                    :telefone,
-                    :whatsapp,
-                    :cpf,
-                    :endereco,
-                    :senha,
-                    :slug,
-                    'decorator',
-                    1,
-                    0,
-                    1,
-                    0,
-                    NOW(),
-                    NOW()
-                )
-            ");
-            
-            $insert->execute([
-                ':nome' => $nome,
-                ':email' => $email,
-                ':email_comunicacao' => $communicationEmail !== '' ? $communicationEmail : $email,
-                ':telefone' => $telefone,
-                ':whatsapp' => $whatsapp,
-                ':cpf' => $cpf !== '' ? $cpf : null,
-                ':endereco' => $endereco !== '' ? $endereco : null,
-                ':senha' => $hashedPassword,
-                ':slug' => $slug
-            ]);
-            
-            $decoratorId = (int) $this->pdo->lastInsertId();
-            $this->ensureDefaultCustomization($decoratorId, $nome);
-            
-            return [
-                'success' => true,
-                'message' => 'Decorador criado com sucesso',
-                'data' => [
-                    'id' => $decoratorId,
-                    'slug' => $slug,
-                    'url' => $this->buildDecoratorUrl($slug),
-                    'name' => $nome,
-                    'email' => $email,
-                    'communication_email' => $communicationEmail !== '' ? $communicationEmail : $email,
-                    'whatsapp' => $whatsapp
-                ]
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao criar decorador: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro interno do servidor'
-            ];
-        }
-    }
-    
-    /**
-     * Atualizar slug do decorador
-     */
-    public function updateDecoratorSlug($decoratorId, $newName) {
-        try {
-            $slug = generateUniqueSlug($this->pdo, $newName, 'usuarios', 'slug', $decoratorId);
-            
-            $stmt = $this->pdo->prepare("
-                UPDATE usuarios 
-                SET slug = ?, updated_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmt->execute([$slug, $decoratorId]);
-            
-            return [
-                'success' => true,
-                'data' => [
-                    'slug' => $slug,
-                    'url' => $this->buildDecoratorUrl($slug)
-                ]
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao atualizar slug do decorador: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro interno do servidor'
-            ];
-        }
-    }
-    
-    /**
-     * Listar todos os decoradores ativos
-     */
-    public function listActiveDecorators() {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id,
-                    nome,
-                    email,
-                    email_comunicacao,
-                    telefone,
-                    whatsapp,
-                    slug,
-                    perfil,
-                    ativo,
-                    aprovado_por_admin,
-                    created_at,
-                    updated_at
-                FROM usuarios 
-                WHERE is_active = 1
-                ORDER BY nome ASC
-            ");
-            $stmt->execute();
-            $rows = $stmt->fetchAll() ?: [];
-            
-            $decorators = array_map(function ($decorator) {
-                $communicationEmail = $decorator['email_comunicacao'] ?? $decorator['email'];
-                
-                return [
-                    'id' => (int) $decorator['id'],
-                    'name' => $decorator['nome'],
-                    'email' => $decorator['email'],
-                    'communication_email' => $communicationEmail,
-                    'phone' => $decorator['telefone'],
-                    'whatsapp' => $decorator['whatsapp'],
-                    'slug' => $decorator['slug'],
-                    'profile' => $decorator['perfil'],
-                    'status' => ((int) $decorator['ativo'] === 1) ? 'active' : 'inactive',
-                    'approved_by_admin' => (bool) $decorator['aprovado_por_admin'],
-                    'created_at' => $decorator['created_at'],
-                    'updated_at' => $decorator['updated_at'],
-                    'url' => $this->buildDecoratorUrl($decorator['slug'])
-                ];
-            }, $rows);
-            
-            return [
-                'success' => true,
-                'data' => $decorators
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao listar decoradores: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro interno do servidor'
-            ];
-        }
-    }
-    
-    /**
-     * Obter personalização da página do decorador logado
-     */
-    public function getMyPageCustomization($decoratorId) {
-        try {
-            // Verificar se o decorador existe e está ativo
-            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
-            $stmt->execute([$decoratorId]);
-            if (!$stmt->fetch()) {
-                return [
-                    'success' => false,
-                    'message' => 'Decorador não encontrado'
-                ];
-            }
-            
-            // Garantir que existe personalização padrão
-            $stmt = $this->pdo->prepare("SELECT nome FROM usuarios WHERE id = ?");
-            $stmt->execute([$decoratorId]);
-            $decorator = $stmt->fetch();
-            if ($decorator) {
-                $this->ensureDefaultCustomization($decoratorId, $decorator['nome']);
-            }
-            
-            $customization = $this->getPageCustomization($decoratorId);
-            
-            // Buscar dados de contato do decorador
-            $stmt = $this->pdo->prepare("SELECT email_comunicacao, whatsapp, instagram FROM usuarios WHERE id = ?");
-            $stmt->execute([$decoratorId]);
-            $decoratorData = $stmt->fetch();
-            
-            if ($customization) {
-                // Adicionar dados de contato
-                $customization['contact_email'] = $decoratorData['email_comunicacao'] ?? '';
-                $customization['contact_whatsapp'] = $decoratorData['whatsapp'] ?? '';
-                $customization['contact_instagram'] = $decoratorData['instagram'] ?? '';
-            } else {
-                // Se não houver personalização, retornar estrutura vazia com valores padrão
-                $customization = [
-                    'page_title' => '',
-                    'page_description' => '',
-                    'welcome_text' => '',
-                    'cover_image_url' => '',
-                    'primary_color' => '#667eea',
-                    'secondary_color' => '#764ba2',
-                    'accent_color' => '#f59e0b',
-                    'social_media' => [],
-                    'meta_title' => '',
-                    'meta_description' => '',
-                    'meta_keywords' => '',
-                    'contact_email' => $decoratorData['email_comunicacao'] ?? '',
-                    'contact_whatsapp' => $decoratorData['whatsapp'] ?? '',
-                    'contact_instagram' => $decoratorData['instagram'] ?? ''
-                ];
-            }
-            
-            return [
-                'success' => true,
-                'data' => $customization
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao buscar personalização: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro interno do servidor'
-            ];
-        }
-    }
-    
-    /**
-     * Salvar personalização da página do decorador logado
-     */
-    public function saveMyPageCustomization($decoratorId, $data) {
-        try {
-            // Log para debug
-            error_log('Salvando personalização para decorador ID: ' . $decoratorId);
-            error_log('Dados recebidos: ' . json_encode($data));
-            
-            // Verificar se o decorador existe e está ativo
-            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
-            $stmt->execute([$decoratorId]);
-            if (!$stmt->fetch()) {
-                error_log('Decorador não encontrado: ' . $decoratorId);
-                return [
-                    'success' => false,
-                    'message' => 'Decorador não encontrado'
-                ];
-            }
-            
-            // Validar dados obrigatórios
-            if (empty($data['page_title']) || empty($data['page_description'])) {
-                error_log('Dados obrigatórios faltando: page_title=' . ($data['page_title'] ?? 'null') . ', page_description=' . ($data['page_description'] ?? 'null'));
-                return [
-                    'success' => false,
-                    'message' => 'Título e descrição são obrigatórios'
-                ];
-            }
-            
-            // Validar URL da imagem de capa se fornecida
-            if (!empty($data['cover_image_url'])) {
-                $coverImageUrl = trim($data['cover_image_url']);
-                if (!filter_var($coverImageUrl, FILTER_VALIDATE_URL) && !preg_match('/^\/[^\/]/', $coverImageUrl)) {
-                    // Se não for URL válida nem caminho relativo, limpar
-                    error_log('URL de imagem de capa inválida: ' . $coverImageUrl);
-                    $data['cover_image_url'] = null;
-                }
-            }
-            
-            // Verificar se já existe personalização
-            $stmt = $this->pdo->prepare("SELECT id FROM decorator_page_customization WHERE decorator_id = ?");
-            $stmt->execute([$decoratorId]);
-            $exists = $stmt->fetch();
-            
-            // Atualizar campos de contato na tabela usuarios se fornecidos
-            if (isset($data['contact_email']) || isset($data['contact_whatsapp']) || isset($data['contact_instagram'])) {
-                $updateUserFields = [];
-                $updateUserParams = [];
-                
-                if (isset($data['contact_email']) && !empty($data['contact_email'])) {
-                    if (!filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
-                        return [
-                            'success' => false,
-                            'message' => 'Email de comunicação inválido'
-                        ];
-                    }
-                    $updateUserFields[] = "email_comunicacao = ?";
-                    $updateUserParams[] = trim($data['contact_email']);
-                }
-                
-                if (isset($data['contact_whatsapp']) && !empty($data['contact_whatsapp'])) {
-                    $updateUserFields[] = "whatsapp = ?";
-                    $updateUserParams[] = trim($data['contact_whatsapp']);
-                }
-                
-                if (isset($data['contact_instagram']) && !empty($data['contact_instagram'])) {
-                    $updateUserFields[] = "instagram = ?";
-                    $updateUserParams[] = trim($data['contact_instagram']);
-                }
-                
-                if (!empty($updateUserFields)) {
-                    $updateUserFields[] = "updated_at = NOW()";
-                    $updateUserParams[] = $decoratorId;
-                    
-                    $updateUserQuery = "UPDATE usuarios SET " . implode(', ', $updateUserFields) . " WHERE id = ?";
-                    $updateUserStmt = $this->pdo->prepare($updateUserQuery);
-                    $updateUserStmt->execute($updateUserParams);
-                }
-            }
-            
-            // Validar cores hexadecimais
-            $primaryColor = !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea';
-            $secondaryColor = !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2';
-            $accentColor = !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b';
-            
-            // Validar formato de cor hexadecimal
-            $colorPattern = '/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/';
-            if (!preg_match($colorPattern, $primaryColor)) {
-                $primaryColor = '#667eea';
-            }
-            if (!preg_match($colorPattern, $secondaryColor)) {
-                $secondaryColor = '#764ba2';
-            }
-            if (!preg_match($colorPattern, $accentColor)) {
-                $accentColor = '#f59e0b';
-            }
-            
-            // Preparar dados de redes sociais
-            $socialMedia = json_encode([
-                'facebook' => $data['social_facebook'] ?? '',
-                'instagram' => $data['social_instagram'] ?? '',
-                'whatsapp' => $data['social_whatsapp'] ?? '',
-                'youtube' => $data['social_youtube'] ?? ''
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            
-            if ($exists) {
-                // Atualizar
-                $stmt = $this->pdo->prepare("
-                    UPDATE decorator_page_customization SET
-                        page_title = ?,
-                        page_description = ?,
-                        welcome_text = ?,
-                        cover_image_url = ?,
-                        primary_color = ?,
-                        secondary_color = ?,
-                        accent_color = ?,
-                        social_media = ?,
-                        meta_title = ?,
-                        meta_description = ?,
-                        meta_keywords = ?,
-                        updated_at = NOW()
-                    WHERE decorator_id = ?
-                ");
-                
-                $stmt->execute([
-                    trim($data['page_title']),
-                    trim($data['page_description']),
-                    !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
-                    !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
-                    $primaryColor,
-                    $secondaryColor,
-                    $accentColor,
-                    $socialMedia,
-                    !empty($data['meta_title']) ? trim($data['meta_title']) : null,
-                    !empty($data['meta_description']) ? trim($data['meta_description']) : null,
-                    !empty($data['meta_keywords']) ? trim($data['meta_keywords']) : null,
-                    $decoratorId
-                ]);
-            } else {
-                // Inserir
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO decorator_page_customization (
-                        decorator_id, page_title, page_description, welcome_text,
-                        cover_image_url, primary_color, secondary_color, accent_color,
-                        social_media, meta_title, meta_description, meta_keywords,
-                        is_active, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-                ");
-                
-                $stmt->execute([
-                    $decoratorId,
-                    trim($data['page_title']),
-                    trim($data['page_description']),
-                    !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
-                    !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
-                    $primaryColor,
-                    $secondaryColor,
-                    $accentColor,
-                    $socialMedia,
-                    !empty($data['meta_title']) ? trim($data['meta_title']) : null,
-                    !empty($data['meta_description']) ? trim($data['meta_description']) : null,
-                    !empty($data['meta_keywords']) ? trim($data['meta_keywords']) : null
-                ]);
-            }
-            
-            error_log('Personalização salva com sucesso para decorador ID: ' . $decoratorId);
-            
-            return [
-                'success' => true,
-                'message' => 'Personalização salva com sucesso!'
-            ];
-            
-        } catch (Exception $e) {
-            error_log('Erro ao salvar personalização: ' . $e->getMessage());
-            error_log('Stack trace: ' . $e->getTraceAsString());
-            return [
-                'success' => false,
-                'message' => 'Erro ao salvar: ' . $e->getMessage()
-            ];
-        }
-    }
+// Obter slug da URL
+$slug = $_GET['slug'] ?? '';
+
+// Log para debug
+error_log("Tentando acessar decorador com slug: " . $slug);
+
+if (empty($slug)) {
+    error_log("Slug vazio, redirecionando para index");
+    header('Location: ' . rtrim($urls['base'], '/') . '/index.html');
+    exit;
 }
 
-// Processar requisições
 try {
     $decoratorService = new DecoratorService($database_config);
+    $result = $decoratorService->getDecoratorBySlug($slug);
     
-    $method = $_SERVER['REQUEST_METHOD'];
-    $input = json_decode(file_get_contents('php://input'), true);
+    error_log("Resultado da busca: " . json_encode($result));
     
-    switch ($method) {
-        case 'GET':
-            // Buscar decorador por slug
-            $slug = $_GET['slug'] ?? '';
-            if ($slug) {
-                $result = $decoratorService->getDecoratorBySlug($slug);
-            } else {
-                // Listar todos os decoradores
-                $result = $decoratorService->listActiveDecorators();
-            }
-            break;
-            
-        case 'POST':
-            $action = $input['action'] ?? '';
-            
-            switch ($action) {
-                case 'create':
-                    $result = $decoratorService->createDecorator($input);
-                    break;
-                    
-                case 'update_slug':
-                    $decoratorId = $input['decorator_id'] ?? null;
-                    $newName = $input['new_name'] ?? '';
-                    
-                    if (!$decoratorId || !$newName) {
-                        throw new Exception('ID do decorador e novo nome são obrigatórios');
-                    }
-                    
-                    $result = $decoratorService->updateDecoratorSlug($decoratorId, $newName);
-                    break;
-                    
-                case 'get_my_page_customization':
-                    // Obter ID do decorador da sessão
-                    if (session_status() === PHP_SESSION_NONE) {
-                        session_start();
-                    }
-                    $decoratorId = $_SESSION['user_id'] ?? null;
-                    
-                    if (!$decoratorId) {
-                        throw new Exception('Usuário não autenticado');
-                    }
-                    
-                    $result = $decoratorService->getMyPageCustomization($decoratorId);
-                    break;
-                    
-                case 'save_my_page_customization':
-                    // Obter ID do decorador da sessão
-                    if (session_status() === PHP_SESSION_NONE) {
-                        session_start();
-                    }
-                    $decoratorId = $_SESSION['user_id'] ?? null;
-                    
-                    if (!$decoratorId) {
-                        throw new Exception('Usuário não autenticado');
-                    }
-                    
-                    $result = $decoratorService->saveMyPageCustomization($decoratorId, $input);
-                    break;
-                    
-                default:
-                    throw new Exception('Ação não reconhecida');
-            }
-            break;
-            
-        default:
-            throw new Exception('Método não permitido');
+    if (!$result['success']) {
+        error_log("Decorador não encontrado ou inativo: " . $slug);
+        http_response_code(404);
+        ?>
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Decorador não encontrado - Up.Baloes</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-50">
+            <div class="min-h-screen flex items-center justify-center px-4">
+                <div class="max-w-md w-full text-center">
+                    <div class="mb-8">
+                        <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-4">Decorador não encontrado</h1>
+                    <p class="text-gray-600 mb-8">
+                        O decorador que você está procurando não foi encontrado ou está aguardando aprovação.
+                    </p>
+                    <a href="<?php echo rtrim($urls['base'], '/'); ?>/index.html" 
+                       class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                        Voltar para o Início
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
     }
     
-    echo json_encode($result);
+    // Decorador encontrado e ativo
+    $data = $result['data'];
+    $decorator = $data['decorator'];
+    $customization = $data['customization'];
+    $services = $data['services'] ?? [];
+    $portfolio = $data['portfolio'] ?? [];
+    
+    error_log("Decorador carregado com sucesso: " . $decorator['name']);
+    
+    // Configurações da página
+    $pageTitle = htmlspecialchars($customization['page_title'] ?? 'Bem-vindo à ' . $decorator['name']);
+    $pageDesc = htmlspecialchars($customization['page_description'] ?? 'Decoração profissional com balões');
+    $welcomeText = $customization['welcome_text'] ?? '';
+    $coverImage = $customization['cover_image_url'] ?? '';
+    
+    // Cores personalizadas
+    $primaryColor = $customization['primary_color'] ?? '#667eea';
+    $secondaryColor = $customization['secondary_color'] ?? '#764ba2';
+    $accentColor = $customization['accent_color'] ?? '#f59e0b';
+    
+    // Redes sociais
+    $socialMedia = $customization['social_media'] ?? [];
+    
+    // Contato
+    $contactEmail = $decorator['communication_email'] ?? $decorator['email'];
+    $contactWhatsapp = $decorator['whatsapp'];
+    $contactInstagram = $decorator['instagram'] ?? '';
+    
+    // Base URL para assets
+    $baseUrl = rtrim($urls['base'], '/') . '/';
     
 } catch (Exception $e) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
+    error_log("Erro ao carregar página do decorador: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    http_response_code(500);
+    ?>
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erro - Up.Baloes</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-50">
+        <div class="min-h-screen flex items-center justify-center px-4">
+            <div class="max-w-md w-full text-center">
+                <h1 class="text-3xl font-bold text-gray-900 mb-4">Erro ao carregar página</h1>
+                <p class="text-gray-600 mb-8">Ocorreu um erro ao carregar a página. Tente novamente mais tarde.</p>
+                <a href="<?php echo rtrim($urls['base'], '/'); ?>/index.html" 
+                   class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                    Voltar para o Início
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $pageTitle; ?> - Up.Baloes</title>
+    <meta name="description" content="<?php echo $pageDesc; ?>">
+    <link rel="icon" type="image/x-icon" href="<?php echo $baseUrl; ?>Images/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="<?php echo $baseUrl; ?>css/estilos.css">
+    <style>
+        :root {
+            --primary-color: <?php echo $primaryColor; ?>;
+            --secondary-color: <?php echo $secondaryColor; ?>;
+            --accent-color: <?php echo $accentColor; ?>;
+        }
+        
+        .decorator-hero {
+            background: linear-gradient(135deg, <?php echo $primaryColor; ?> 0%, <?php echo $secondaryColor; ?> 100%);
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navegação -->
+    <nav class="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-sm shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="<?php echo $baseUrl; ?>index.html" class="flex items-center gap-3">
+                    <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" 
+                         alt="Up.Baloes" 
+                         class="w-12 h-12 rounded-full object-cover">
+                    <span class="font-bold text-xl text-gray-900">Up.Baloes</span>
+                </a>
+                
+                <div class="flex items-center gap-4">
+                    <?php if ($contactWhatsapp): ?>
+                        <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
+                           target="_blank"
+                           class="hidden sm:flex items-center gap-2 text-gray-700 hover:text-green-600 transition">
+                            <i class="fab fa-whatsapp text-xl"></i>
+                            <span><?php echo htmlspecialchars($contactWhatsapp); ?></span>
+                        </a>
+                    <?php endif; ?>
+                    
+                    <a href="<?php echo $baseUrl; ?>pages/solicitacao-cliente.html?decorador=<?php echo urlencode($slug); ?>" 
+                       class="btn-primary text-white px-6 py-2.5 rounded-lg font-medium hover:shadow-lg transition">
+                        Solicitar Orçamento
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="decorator-hero text-white pt-32 pb-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-4xl md:text-5xl font-bold mb-6"><?php echo $pageTitle; ?></h1>
+                <p class="text-xl md:text-2xl mb-8 opacity-90"><?php echo $pageDesc; ?></p>
+                
+                <?php if ($welcomeText): ?>
+                    <p class="text-lg max-w-3xl mx-auto opacity-80">
+                        <?php echo nl2br(htmlspecialchars($welcomeText)); ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- Serviços -->
+    <?php if (!empty($services)): ?>
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-center mb-12">Nossos Serviços</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <?php foreach ($services as $service): ?>
+                    <div class="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition">
+                        <?php if (!empty($service['icon'])): ?>
+                            <div class="text-4xl mb-4" style="color: var(--accent-color);">
+                                <i class="<?php echo htmlspecialchars($service['icon']); ?>"></i>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <h3 class="text-xl font-bold mb-3"><?php echo htmlspecialchars($service['title']); ?></h3>
+                        <p class="text-gray-600 mb-4"><?php echo htmlspecialchars($service['description']); ?></p>
+                        
+                        <?php if ($service['price']): ?>
+                            <p class="text-lg font-bold" style="color: var(--primary-color);">
+                                A partir de R$ <?php echo number_format($service['price'], 2, ',', '.'); ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Portfólio -->
+    <?php if (!empty($portfolio)): ?>
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-center mb-12">Nosso Portfólio</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <?php foreach ($portfolio as $item): ?>
+                    <div class="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition">
+                        <?php if (!empty($item['image_url'])): ?>
+                            <img src="<?php echo htmlspecialchars($item['image_url']); ?>" 
+                                 alt="<?php echo htmlspecialchars($item['title']); ?>"
+                                 class="w-full h-64 object-cover">
+                        <?php endif; ?>
+                        
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2"><?php echo htmlspecialchars($item['title']); ?></h3>
+                            
+                            <?php if (!empty($item['description'])): ?>
+                                <p class="text-gray-600 mb-3"><?php echo htmlspecialchars($item['description']); ?></p>
+                            <?php endif; ?>
+                            
+                            <?php if ($item['price']): ?>
+                                <p class="text-lg font-bold" style="color: var(--primary-color);">
+                                    R$ <?php echo number_format($item['price'], 2, ',', '.'); ?>
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Contato -->
+    <section class="py-16 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl font-bold mb-8">Entre em Contato</h2>
+            
+            <div class="flex flex-col sm:flex-row justify-center gap-6 mb-8">
+                <?php if ($contactWhatsapp): ?>
+                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
+                       target="_blank"
+                       class="flex items-center justify-center gap-3 bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 transition">
+                        <i class="fab fa-whatsapp text-2xl"></i>
+                        <span class="font-medium">WhatsApp</span>
+                    </a>
+                <?php endif; ?>
+                
+                <?php if ($contactEmail): ?>
+                    <a href="mailto:<?php echo htmlspecialchars($contactEmail); ?>" 
+                       class="flex items-center justify-center gap-3 bg-blue-500 text-white px-8 py-4 rounded-lg hover:bg-blue-600 transition">
+                        <i class="fas fa-envelope text-2xl"></i>
+                        <span class="font-medium">E-mail</span>
+                    </a>
+                <?php endif; ?>
+            </div>
+            
+            <?php if (!empty($socialMedia)): ?>
+                <div class="flex justify-center gap-4">
+                    <?php if (!empty($socialMedia['instagram'])): ?>
+                        <a href="<?php echo htmlspecialchars($socialMedia['instagram']); ?>" 
+                           target="_blank"
+                           class="text-3xl text-gray-600 hover:text-pink-600 transition">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($socialMedia['facebook'])): ?>
+                        <a href="<?php echo htmlspecialchars($socialMedia['facebook']); ?>" 
+                           target="_blank"
+                           class="text-3xl text-gray-600 hover:text-blue-600 transition">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($decorator['name']); ?>. Todos os direitos reservados.</p>
+            <p class="text-sm text-gray-400 mt-2">Desenvolvido com <i class="fas fa-heart text-red-500"></i> por Up.Baloes</p>
+        </div>
+    </footer>
+</body>
+</html>

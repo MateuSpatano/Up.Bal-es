@@ -4,7 +4,7 @@
  */
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/decorador.php';
+require_once __DIR__ . '/decorador-service.php';
 
 // --- CORREÇÃO DE CAMINHOS AUTOMÁTICA ---
 $scriptDir = dirname($_SERVER['SCRIPT_NAME']); 
