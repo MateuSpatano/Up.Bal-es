@@ -1181,9 +1181,6 @@ class AdminSystem {
                             <button onclick="adminSystem.editTermsAndConditions(${user.id})" class="text-orange-600 hover:text-orange-900 p-1" title="Editar Termos e Condições">
                                 <i class="fas fa-file-contract text-xs md:text-sm"></i>
                             </button>
-                            <button onclick="admin.editPageCustomization(${user.id})" class="text-indigo-600 hover:text-indigo-900 p-1" title="Editar Tela Inicial">
-                                <i class="fas fa-palette text-xs md:text-sm"></i>
-                            </button>
                         ` : ''}
                         ${user.type === 'decorator' ? `
                             <button onclick="notifyDecorator(${user.id}, '${user.status === 'active' ? 'approved' : 'rejected'}')" class="text-purple-600 hover:text-purple-900 p-1" title="Enviar Notificação">

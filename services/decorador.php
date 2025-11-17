@@ -689,6 +689,203 @@ class DecoratorService {
             ];
         }
     }
+    
+    /**
+     * Obter personalização da página do decorador logado
+     */
+    public function getMyPageCustomization($decoratorId) {
+        try {
+            // Verificar se o decorador existe e está ativo
+            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
+            $stmt->execute([$decoratorId]);
+            if (!$stmt->fetch()) {
+                return [
+                    'success' => false,
+                    'message' => 'Decorador não encontrado'
+                ];
+            }
+            
+            // Garantir que existe personalização padrão
+            $stmt = $this->pdo->prepare("SELECT nome FROM usuarios WHERE id = ?");
+            $stmt->execute([$decoratorId]);
+            $decorator = $stmt->fetch();
+            if ($decorator) {
+                $this->ensureDefaultCustomization($decoratorId, $decorator['nome']);
+            }
+            
+            $customization = $this->getPageCustomization($decoratorId);
+            
+            // Buscar dados de contato do decorador
+            $stmt = $this->pdo->prepare("SELECT email_comunicacao, whatsapp, instagram FROM usuarios WHERE id = ?");
+            $stmt->execute([$decoratorId]);
+            $decoratorData = $stmt->fetch();
+            
+            if ($customization) {
+                // Adicionar dados de contato
+                $customization['contact_email'] = $decoratorData['email_comunicacao'] ?? '';
+                $customization['contact_whatsapp'] = $decoratorData['whatsapp'] ?? '';
+                $customization['contact_instagram'] = $decoratorData['instagram'] ?? '';
+            }
+            
+            return [
+                'success' => true,
+                'data' => $customization
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao buscar personalização: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor'
+            ];
+        }
+    }
+    
+    /**
+     * Salvar personalização da página do decorador logado
+     */
+    public function saveMyPageCustomization($decoratorId, $data) {
+        try {
+            // Verificar se o decorador existe e está ativo
+            $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
+            $stmt->execute([$decoratorId]);
+            if (!$stmt->fetch()) {
+                return [
+                    'success' => false,
+                    'message' => 'Decorador não encontrado'
+                ];
+            }
+            
+            // Validar dados obrigatórios
+            if (empty($data['page_title']) || empty($data['page_description'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Título e descrição são obrigatórios'
+                ];
+            }
+            
+            // Verificar se já existe personalização
+            $stmt = $this->pdo->prepare("SELECT id FROM decorator_page_customization WHERE decorator_id = ?");
+            $stmt->execute([$decoratorId]);
+            $exists = $stmt->fetch();
+            
+            // Atualizar campos de contato na tabela usuarios se fornecidos
+            if (isset($data['contact_email']) || isset($data['contact_whatsapp']) || isset($data['contact_instagram'])) {
+                $updateUserFields = [];
+                $updateUserParams = [];
+                
+                if (isset($data['contact_email']) && !empty($data['contact_email'])) {
+                    if (!filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
+                        return [
+                            'success' => false,
+                            'message' => 'Email de comunicação inválido'
+                        ];
+                    }
+                    $updateUserFields[] = "email_comunicacao = ?";
+                    $updateUserParams[] = trim($data['contact_email']);
+                }
+                
+                if (isset($data['contact_whatsapp']) && !empty($data['contact_whatsapp'])) {
+                    $updateUserFields[] = "whatsapp = ?";
+                    $updateUserParams[] = trim($data['contact_whatsapp']);
+                }
+                
+                if (isset($data['contact_instagram']) && !empty($data['contact_instagram'])) {
+                    $updateUserFields[] = "instagram = ?";
+                    $updateUserParams[] = trim($data['contact_instagram']);
+                }
+                
+                if (!empty($updateUserFields)) {
+                    $updateUserFields[] = "updated_at = NOW()";
+                    $updateUserParams[] = $decoratorId;
+                    
+                    $updateUserQuery = "UPDATE usuarios SET " . implode(', ', $updateUserFields) . " WHERE id = ?";
+                    $updateUserStmt = $this->pdo->prepare($updateUserQuery);
+                    $updateUserStmt->execute($updateUserParams);
+                }
+            }
+            
+            // Preparar dados de redes sociais
+            $socialMedia = json_encode([
+                'facebook' => $data['social_facebook'] ?? '',
+                'instagram' => $data['social_instagram'] ?? '',
+                'whatsapp' => $data['social_whatsapp'] ?? '',
+                'youtube' => $data['social_youtube'] ?? ''
+            ]);
+            
+            if ($exists) {
+                // Atualizar
+                $stmt = $this->pdo->prepare("
+                    UPDATE decorator_page_customization SET
+                        page_title = ?,
+                        page_description = ?,
+                        welcome_text = ?,
+                        cover_image_url = ?,
+                        primary_color = ?,
+                        secondary_color = ?,
+                        accent_color = ?,
+                        social_media = ?,
+                        meta_title = ?,
+                        meta_description = ?,
+                        meta_keywords = ?,
+                        updated_at = NOW()
+                    WHERE decorator_id = ?
+                ");
+                
+                $stmt->execute([
+                    trim($data['page_title']),
+                    trim($data['page_description']),
+                    !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
+                    !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
+                    !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea',
+                    !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2',
+                    !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b',
+                    $socialMedia,
+                    !empty($data['meta_title']) ? trim($data['meta_title']) : null,
+                    !empty($data['meta_description']) ? trim($data['meta_description']) : null,
+                    !empty($data['meta_keywords']) ? trim($data['meta_keywords']) : null,
+                    $decoratorId
+                ]);
+            } else {
+                // Inserir
+                $stmt = $this->pdo->prepare("
+                    INSERT INTO decorator_page_customization (
+                        decorator_id, page_title, page_description, welcome_text,
+                        cover_image_url, primary_color, secondary_color, accent_color,
+                        social_media, meta_title, meta_description, meta_keywords,
+                        is_active, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                ");
+                
+                $stmt->execute([
+                    $decoratorId,
+                    trim($data['page_title']),
+                    trim($data['page_description']),
+                    !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
+                    !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
+                    !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea',
+                    !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2',
+                    !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b',
+                    $socialMedia,
+                    !empty($data['meta_title']) ? trim($data['meta_title']) : null,
+                    !empty($data['meta_description']) ? trim($data['meta_description']) : null,
+                    !empty($data['meta_keywords']) ? trim($data['meta_keywords']) : null
+                ]);
+            }
+            
+            return [
+                'success' => true,
+                'message' => 'Personalização salva com sucesso!'
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao salvar personalização: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro interno do servidor'
+            ];
+        }
+    }
 }
 
 // Processar requisições
@@ -727,6 +924,34 @@ try {
                     }
                     
                     $result = $decoratorService->updateDecoratorSlug($decoratorId, $newName);
+                    break;
+                    
+                case 'get_my_page_customization':
+                    // Obter ID do decorador da sessão
+                    if (session_status() === PHP_SESSION_NONE) {
+                        session_start();
+                    }
+                    $decoratorId = $_SESSION['user_id'] ?? null;
+                    
+                    if (!$decoratorId) {
+                        throw new Exception('Usuário não autenticado');
+                    }
+                    
+                    $result = $decoratorService->getMyPageCustomization($decoratorId);
+                    break;
+                    
+                case 'save_my_page_customization':
+                    // Obter ID do decorador da sessão
+                    if (session_status() === PHP_SESSION_NONE) {
+                        session_start();
+                    }
+                    $decoratorId = $_SESSION['user_id'] ?? null;
+                    
+                    if (!$decoratorId) {
+                        throw new Exception('Usuário não autenticado');
+                    }
+                    
+                    $result = $decoratorService->saveMyPageCustomization($decoratorId, $input);
                     break;
                     
                 default:

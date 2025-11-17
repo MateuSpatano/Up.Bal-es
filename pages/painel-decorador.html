@@ -77,6 +77,11 @@
                     <span>Painel Gerencial</span>
                 </a>
                 
+                <a href="#personalizar-tela" class="nav-item" data-module="personalizar-tela">
+                    <i class="fas fa-palette"></i>
+                    <span>Personalizar Tela Inicial</span>
+                </a>
+                
                 <a href="#portfolio" class="nav-item" data-module="portfolio">
                     <i class="fas fa-briefcase"></i>
                     <span>Portfólio</span>
@@ -495,6 +500,278 @@
                         <div class="bg-white rounded-lg border border-gray-200">
                             <div id="calendar" class="p-4"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Módulo Personalizar Tela Inicial -->
+            <div id="personalizar-tela-module" class="module-content hidden">
+                <div class="bg-white rounded-xl shadow-sm">
+                    <!-- Header do Módulo -->
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-800">Personalizar Tela Inicial</h2>
+                                <p class="text-sm text-gray-600 mt-1">Personalize completamente o visual da tela inicial que seus clientes veem ao acessar sua URL</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo do Módulo -->
+                    <div class="p-6">
+                        <form id="decorator-page-customization-form" class="space-y-6">
+                            <!-- Tabs -->
+                            <div class="border-b border-gray-200 mb-6">
+                                <nav class="flex space-x-4 overflow-x-auto">
+                                    <button type="button" class="decorator-customization-tab active px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 whitespace-nowrap" data-tab="content">
+                                        <i class="fas fa-edit mr-2"></i>Conteúdo
+                                    </button>
+                                    <button type="button" class="decorator-customization-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="visual">
+                                        <i class="fas fa-paint-brush mr-2"></i>Visual
+                                    </button>
+                                    <button type="button" class="decorator-customization-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="social">
+                                        <i class="fas fa-share-alt mr-2"></i>Redes Sociais
+                                    </button>
+                                    <button type="button" class="decorator-customization-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="seo">
+                                        <i class="fas fa-search mr-2"></i>SEO
+                                    </button>
+                                </nav>
+                            </div>
+
+                            <!-- Tab Content -->
+                            <div id="decorator-tab-content" class="space-y-6">
+                                <!-- Conteúdo -->
+                                <div id="decorator-tab-content-panel" class="decorator-tab-panel">
+                                    <div class="space-y-4">
+                                        <div class="space-y-2">
+                                            <label for="decorator-page-title" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-heading mr-2 text-indigo-600"></i>Título da Página *
+                                            </label>
+                                            <input type="text" id="decorator-page-title" name="page_title" required
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                   placeholder="Ex: Bem-vindo à [Seu Nome]">
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <label for="decorator-page-description" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-align-left mr-2 text-indigo-600"></i>Descrição da Página *
+                                            </label>
+                                            <textarea id="decorator-page-description" name="page_description" rows="4" required
+                                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                                      placeholder="Descrição que aparecerá na página pública"></textarea>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <label for="decorator-welcome-text" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-comment-dots mr-2 text-indigo-600"></i>Texto de Boas-vindas
+                                            </label>
+                                            <textarea id="decorator-welcome-text" name="welcome_text" rows="3"
+                                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                                      placeholder="Mensagem de boas-vindas personalizada"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Visual -->
+                                <div id="decorator-tab-visual-panel" class="decorator-tab-panel hidden">
+                                    <div class="space-y-4">
+                                        <div class="space-y-2">
+                                            <label for="decorator-cover-image-url" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-image mr-2 text-indigo-600"></i>URL da Imagem de Capa
+                                            </label>
+                                            <input type="url" id="decorator-cover-image-url" name="cover_image_url"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                   placeholder="https://exemplo.com/imagem.jpg">
+                                            <p class="text-xs text-gray-500">URL da imagem que aparecerá no topo da página</p>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div class="space-y-2">
+                                                <label for="decorator-primary-color" class="block text-sm font-medium text-gray-700">
+                                                    <i class="fas fa-palette mr-2 text-blue-600"></i>Cor Primária
+                                                </label>
+                                                <div class="flex items-center space-x-2">
+                                                    <input type="color" id="decorator-primary-color" name="primary_color" value="#667eea"
+                                                           class="w-16 h-12 border border-gray-300 rounded cursor-pointer">
+                                                    <input type="text" id="decorator-primary-color-hex" value="#667eea"
+                                                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                           placeholder="#667eea" pattern="^#[0-9A-Fa-f]{6}$">
+                                                </div>
+                                            </div>
+
+                                            <div class="space-y-2">
+                                                <label for="decorator-secondary-color" class="block text-sm font-medium text-gray-700">
+                                                    <i class="fas fa-palette mr-2 text-purple-600"></i>Cor Secundária
+                                                </label>
+                                                <div class="flex items-center space-x-2">
+                                                    <input type="color" id="decorator-secondary-color" name="secondary_color" value="#764ba2"
+                                                           class="w-16 h-12 border border-gray-300 rounded cursor-pointer">
+                                                    <input type="text" id="decorator-secondary-color-hex" value="#764ba2"
+                                                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                           placeholder="#764ba2" pattern="^#[0-9A-Fa-f]{6}$">
+                                                </div>
+                                            </div>
+
+                                            <div class="space-y-2">
+                                                <label for="decorator-accent-color" class="block text-sm font-medium text-gray-700">
+                                                    <i class="fas fa-palette mr-2 text-yellow-600"></i>Cor de Destaque
+                                                </label>
+                                                <div class="flex items-center space-x-2">
+                                                    <input type="color" id="decorator-accent-color" name="accent_color" value="#f59e0b"
+                                                           class="w-16 h-12 border border-gray-300 rounded cursor-pointer">
+                                                    <input type="text" id="decorator-accent-color-hex" value="#f59e0b"
+                                                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                           placeholder="#f59e0b" pattern="^#[0-9A-Fa-f]{6}$">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Redes Sociais -->
+                                <div id="decorator-tab-social-panel" class="decorator-tab-panel hidden">
+                                    <div class="space-y-6">
+                                        <!-- Informação -->
+                                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                            <p class="text-sm text-blue-800">
+                                                <i class="fas fa-info-circle mr-2"></i>
+                                                Os campos abaixo serão exibidos na seção de contatos da página inicial do site.
+                                            </p>
+                                        </div>
+                                        
+                                        <!-- Campos de Contato para Página Inicial -->
+                                        <div class="space-y-4">
+                                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">
+                                                <i class="fas fa-phone-alt mr-2 text-indigo-600"></i>Contatos para Página Inicial
+                                            </h3>
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div class="space-y-2">
+                                                    <label for="decorator-contact-email" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fas fa-envelope mr-2 text-blue-600"></i>E-mail de Comunicação *
+                                                    </label>
+                                                    <input type="email" id="decorator-contact-email" name="contact_email"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                           placeholder="contato@exemplo.com">
+                                                    <p class="text-xs text-gray-500">Email exibido na página inicial</p>
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <label for="decorator-contact-whatsapp" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-whatsapp mr-2 text-green-600"></i>WhatsApp *
+                                                    </label>
+                                                    <input type="tel" id="decorator-contact-whatsapp" name="contact_whatsapp"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                           placeholder="(11) 99999-9999">
+                                                    <p class="text-xs text-gray-500">Número para contato via WhatsApp</p>
+                                                </div>
+
+                                                <div class="space-y-2 md:col-span-2">
+                                                    <label for="decorator-contact-instagram" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-instagram mr-2 text-pink-600"></i>Instagram
+                                                    </label>
+                                                    <input type="text" id="decorator-contact-instagram" name="contact_instagram"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                                           placeholder="@usuario ou https://instagram.com/usuario">
+                                                    <p class="text-xs text-gray-500">Handle do Instagram (@usuario) ou link completo</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Outras Redes Sociais -->
+                                        <div class="space-y-4 pt-4 border-t">
+                                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">
+                                                <i class="fas fa-share-alt mr-2 text-indigo-600"></i>Outras Redes Sociais
+                                            </h3>
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div class="space-y-2">
+                                                    <label for="decorator-social-facebook" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-facebook mr-2 text-blue-600"></i>Facebook
+                                                    </label>
+                                                    <input type="url" id="decorator-social-facebook" name="social_facebook"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                           placeholder="https://facebook.com/seu-perfil">
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <label for="decorator-social-instagram" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-instagram mr-2 text-pink-600"></i>Instagram
+                                                    </label>
+                                                    <input type="url" id="decorator-social-instagram" name="social_instagram"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                                           placeholder="https://instagram.com/seu-perfil">
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <label for="decorator-social-whatsapp" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-whatsapp mr-2 text-green-600"></i>WhatsApp
+                                                    </label>
+                                                    <input type="url" id="decorator-social-whatsapp" name="social_whatsapp"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                           placeholder="https://wa.me/5511999999999">
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <label for="decorator-social-youtube" class="block text-sm font-medium text-gray-700">
+                                                        <i class="fab fa-youtube mr-2 text-red-600"></i>YouTube
+                                                    </label>
+                                                    <input type="url" id="decorator-social-youtube" name="social_youtube"
+                                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                                           placeholder="https://youtube.com/seu-canal">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SEO -->
+                                <div id="decorator-tab-seo-panel" class="decorator-tab-panel hidden">
+                                    <div class="space-y-4">
+                                        <div class="space-y-2">
+                                            <label for="decorator-meta-title" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-heading mr-2 text-indigo-600"></i>Título SEO
+                                            </label>
+                                            <input type="text" id="decorator-meta-title" name="meta_title"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                   placeholder="Título para motores de busca (máx. 60 caracteres)">
+                                            <p class="text-xs text-gray-500" id="decorator-meta-title-count">0 caracteres</p>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <label for="decorator-meta-description" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-align-left mr-2 text-indigo-600"></i>Descrição SEO
+                                            </label>
+                                            <textarea id="decorator-meta-description" name="meta_description" rows="3"
+                                                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                                      placeholder="Descrição para motores de busca (máx. 160 caracteres)"></textarea>
+                                            <p class="text-xs text-gray-500" id="decorator-meta-description-count">0 caracteres</p>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <label for="decorator-meta-keywords" class="block text-sm font-medium text-gray-700">
+                                                <i class="fas fa-tags mr-2 text-indigo-600"></i>Palavras-chave
+                                            </label>
+                                            <input type="text" id="decorator-meta-keywords" name="meta_keywords"
+                                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                   placeholder="decorador, festas, balões, eventos (separadas por vírgula)">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botões -->
+                            <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                                <button type="button" id="decorator-preview-customization" 
+                                        class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200">
+                                    <i class="fas fa-eye mr-2"></i>Visualizar Página
+                                </button>
+                                <button type="submit" id="decorator-save-customization" 
+                                        class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>

@@ -291,8 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const floatingBtn = document.getElementById('floating-add-btn');
         if (!floatingBtn) return;
         
-        // Ocultar botão no módulo de agenda
-        if (moduleName === 'agenda') {
+        // Ocultar botão no módulo de agenda e personalizar tela
+        if (moduleName === 'agenda' || moduleName === 'personalizar-tela') {
             floatingBtn.style.display = 'none';
         } else {
             floatingBtn.style.display = 'flex';
@@ -312,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePageTitle(moduleName) {
         const titles = {
             'painel-gerencial': 'Painel Gerencial',
+            'personalizar-tela': 'Personalizar Tela Inicial',
             'portfolio': 'Portfólio',
             'agenda': 'Gerenciar Agenda',
             'dashboard': 'Dashboard',
@@ -333,6 +334,9 @@ document.addEventListener('DOMContentLoaded', function() {
         switch (moduleName) {
             case 'painel-gerencial':
                 loadPainelGerencialData();
+                break;
+            case 'personalizar-tela':
+                loadPersonalizarTelaData();
                 break;
             case 'portfolio':
                 loadPortfolioData();
@@ -6208,6 +6212,283 @@ Qualquer dúvida, estou à disposição! 😊`;
             
             // Log para debug
             console.log('Chamado de suporte criado:', ticket);
+        });
+    }
+
+    // ========== FUNCIONALIDADES DE PERSONALIZAÇÃO DA TELA INICIAL ==========
+    
+    async function loadPersonalizarTelaData() {
+        try {
+            const response = await fetch('../services/decorador.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_my_page_customization'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const config = result.data;
+                
+                // Preencher campos de conteúdo
+                const pageTitleEl = document.getElementById('decorator-page-title');
+                const pageDescEl = document.getElementById('decorator-page-description');
+                const welcomeTextEl = document.getElementById('decorator-welcome-text');
+                
+                if (pageTitleEl) pageTitleEl.value = config.page_title || '';
+                if (pageDescEl) pageDescEl.value = config.page_description || '';
+                if (welcomeTextEl) welcomeTextEl.value = config.welcome_text || '';
+                
+                // Preencher campos visuais
+                const coverImageEl = document.getElementById('decorator-cover-image-url');
+                if (coverImageEl) coverImageEl.value = config.cover_image_url || '';
+                
+                const primaryColor = config.primary_color || '#667eea';
+                const secondaryColor = config.secondary_color || '#764ba2';
+                const accentColor = config.accent_color || '#f59e0b';
+                
+                const primaryColorEl = document.getElementById('decorator-primary-color');
+                const primaryColorHexEl = document.getElementById('decorator-primary-color-hex');
+                const secondaryColorEl = document.getElementById('decorator-secondary-color');
+                const secondaryColorHexEl = document.getElementById('decorator-secondary-color-hex');
+                const accentColorEl = document.getElementById('decorator-accent-color');
+                const accentColorHexEl = document.getElementById('decorator-accent-color-hex');
+                
+                if (primaryColorEl) primaryColorEl.value = primaryColor;
+                if (primaryColorHexEl) primaryColorHexEl.value = primaryColor;
+                if (secondaryColorEl) secondaryColorEl.value = secondaryColor;
+                if (secondaryColorHexEl) secondaryColorHexEl.value = secondaryColor;
+                if (accentColorEl) accentColorEl.value = accentColor;
+                if (accentColorHexEl) accentColorHexEl.value = accentColor;
+                
+                // Preencher redes sociais
+                const socialFacebookEl = document.getElementById('decorator-social-facebook');
+                const socialInstagramEl = document.getElementById('decorator-social-instagram');
+                const socialWhatsappEl = document.getElementById('decorator-social-whatsapp');
+                const socialYoutubeEl = document.getElementById('decorator-social-youtube');
+                
+                if (config.social_media) {
+                    const social = typeof config.social_media === 'string' ? JSON.parse(config.social_media) : config.social_media;
+                    if (socialFacebookEl) socialFacebookEl.value = social.facebook || '';
+                    if (socialInstagramEl) socialInstagramEl.value = social.instagram || '';
+                    if (socialWhatsappEl) socialWhatsappEl.value = social.whatsapp || '';
+                    if (socialYoutubeEl) socialYoutubeEl.value = social.youtube || '';
+                }
+                
+                // Preencher contatos
+                const contactEmailEl = document.getElementById('decorator-contact-email');
+                const contactWhatsappEl = document.getElementById('decorator-contact-whatsapp');
+                const contactInstagramEl = document.getElementById('decorator-contact-instagram');
+                
+                if (contactEmailEl) contactEmailEl.value = config.contact_email || '';
+                if (contactWhatsappEl) contactWhatsappEl.value = config.contact_whatsapp || '';
+                if (contactInstagramEl) contactInstagramEl.value = config.contact_instagram || '';
+                
+                // Preencher SEO
+                const metaTitleEl = document.getElementById('decorator-meta-title');
+                const metaDescEl = document.getElementById('decorator-meta-description');
+                const metaKeywordsEl = document.getElementById('decorator-meta-keywords');
+                
+                if (metaTitleEl) metaTitleEl.value = config.meta_title || '';
+                if (metaDescEl) metaDescEl.value = config.meta_description || '';
+                if (metaKeywordsEl) metaKeywordsEl.value = config.meta_keywords || '';
+                
+                // Atualizar contadores
+                updateDecoratorCharCounters();
+            }
+            
+            // Configurar tabs e eventos
+            setupDecoratorCustomizationTabs();
+            setupDecoratorColorInputs();
+            setupDecoratorCharCounters();
+            
+        } catch (error) {
+            console.error('Erro ao carregar personalização:', error);
+            showNotification('Erro ao carregar configurações. Verifique a conexão com o servidor.', 'error');
+        }
+    }
+    
+    function setupDecoratorCustomizationTabs() {
+        const tabs = document.querySelectorAll('.decorator-customization-tab');
+        const panels = document.querySelectorAll('.decorator-tab-panel');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.getAttribute('data-tab');
+                
+                // Remover active de todas as tabs
+                tabs.forEach(t => {
+                    t.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                    t.classList.add('text-gray-500');
+                });
+                
+                // Adicionar active na tab clicada
+                tab.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+                tab.classList.remove('text-gray-500');
+                
+                // Esconder todos os painéis
+                panels.forEach(p => p.classList.add('hidden'));
+                
+                // Mostrar painel correspondente
+                const panel = document.getElementById(`decorator-tab-${targetTab}-panel`);
+                if (panel) {
+                    panel.classList.remove('hidden');
+                }
+            });
+        });
+    }
+    
+    function setupDecoratorColorInputs() {
+        const colorInputs = ['primary', 'secondary', 'accent'];
+        
+        colorInputs.forEach(color => {
+            const colorPicker = document.getElementById(`decorator-${color}-color`);
+            const colorHex = document.getElementById(`decorator-${color}-color-hex`);
+            
+            if (colorPicker && colorHex) {
+                // Sincronizar color picker com input de texto
+                colorPicker.addEventListener('input', (e) => {
+                    colorHex.value = e.target.value;
+                });
+                
+                // Sincronizar input de texto com color picker
+                colorHex.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                        colorPicker.value = value;
+                    }
+                });
+            }
+        });
+    }
+    
+    function setupDecoratorCharCounters() {
+        const metaTitle = document.getElementById('decorator-meta-title');
+        const metaDescription = document.getElementById('decorator-meta-description');
+        const metaTitleCount = document.getElementById('decorator-meta-title-count');
+        const metaDescriptionCount = document.getElementById('decorator-meta-description-count');
+        
+        if (metaTitle && metaTitleCount) {
+            metaTitle.addEventListener('input', () => {
+                const count = metaTitle.value.length;
+                metaTitleCount.textContent = `${count} caracteres`;
+                metaTitleCount.style.color = count > 60 ? '#ef4444' : '#6b7280';
+            });
+        }
+        
+        if (metaDescription && metaDescriptionCount) {
+            metaDescription.addEventListener('input', () => {
+                const count = metaDescription.value.length;
+                metaDescriptionCount.textContent = `${count} caracteres`;
+                metaDescriptionCount.style.color = count > 160 ? '#ef4444' : '#6b7280';
+            });
+        }
+        
+        updateDecoratorCharCounters();
+    }
+    
+    function updateDecoratorCharCounters() {
+        const metaTitle = document.getElementById('decorator-meta-title');
+        const metaDescription = document.getElementById('decorator-meta-description');
+        const metaTitleCount = document.getElementById('decorator-meta-title-count');
+        const metaDescriptionCount = document.getElementById('decorator-meta-description-count');
+        
+        if (metaTitle && metaTitleCount) {
+            const count = metaTitle.value.length;
+            metaTitleCount.textContent = `${count} caracteres`;
+        }
+        
+        if (metaDescription && metaDescriptionCount) {
+            const count = metaDescription.value.length;
+            metaDescriptionCount.textContent = `${count} caracteres`;
+        }
+    }
+    
+    // Formulário de personalização
+    const decoratorCustomizationForm = document.getElementById('decorator-page-customization-form');
+    if (decoratorCustomizationForm) {
+        decoratorCustomizationForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('decorator-save-customization');
+            const originalText = submitBtn.innerHTML;
+            
+            try {
+                const formData = new FormData(decoratorCustomizationForm);
+                
+                // Coletar dados do formulário
+                const customizationData = {
+                    action: 'save_my_page_customization',
+                    page_title: formData.get('page_title'),
+                    page_description: formData.get('page_description'),
+                    welcome_text: formData.get('welcome_text'),
+                    cover_image_url: formData.get('cover_image_url'),
+                    primary_color: formData.get('primary_color'),
+                    secondary_color: formData.get('secondary_color'),
+                    accent_color: formData.get('accent_color'),
+                    social_facebook: formData.get('social_facebook'),
+                    social_instagram: formData.get('social_instagram'),
+                    social_whatsapp: formData.get('social_whatsapp'),
+                    social_youtube: formData.get('social_youtube'),
+                    meta_title: formData.get('meta_title'),
+                    meta_description: formData.get('meta_description'),
+                    meta_keywords: formData.get('meta_keywords'),
+                    contact_email: formData.get('contact_email'),
+                    contact_whatsapp: formData.get('contact_whatsapp'),
+                    contact_instagram: formData.get('contact_instagram')
+                };
+                
+                // Validar dados obrigatórios
+                if (!customizationData.page_title || !customizationData.page_description) {
+                    showNotification('Título e descrição são obrigatórios', 'error');
+                    return;
+                }
+                
+                // Mostrar loading
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                submitBtn.disabled = true;
+                
+                // Enviar para o servidor
+                const response = await fetch('../services/decorador.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(customizationData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Personalização salva com sucesso!', 'success');
+                } else {
+                    showNotification('Erro: ' + (result.message || 'Erro ao salvar personalização'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao salvar personalização:', error);
+                showNotification('Erro ao salvar personalização', 'error');
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    }
+    
+    // Botão de visualizar página
+    const previewBtn = document.getElementById('decorator-preview-customization');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.slug) {
+                window.open(`../${userData.slug}`, '_blank');
+            } else {
+                showNotification('Slug do decorador não encontrado', 'error');
+            }
         });
     }
 
