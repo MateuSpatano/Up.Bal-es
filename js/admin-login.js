@@ -178,12 +178,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 2000);
                 
             } else {
+                // Se response.success for false, mostrar a mensagem do servidor
                 showMessage(response.message || 'Erro ao fazer login. Verifique suas credenciais administrativas.', 'error');
             }
             
         } catch (error) {
             console.error('Erro no login administrativo:', error);
-            showMessage('Erro de conexão. Tente novamente.', 'error');
+            // Verificar se o erro tem uma mensagem específica
+            const errorMessage = error.message || 'Erro de conexão. Tente novamente.';
+            // Se a mensagem não for sobre conexão, usar ela, senão usar mensagem genérica
+            if (errorMessage.includes('conexão') || errorMessage.includes('connection') || errorMessage.includes('network')) {
+                showMessage('Erro de conexão. Tente novamente.', 'error');
+            } else {
+                showMessage(errorMessage, 'error');
+            }
         } finally {
             setLoadingState(false);
         }
@@ -238,15 +246,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Tentar ler o JSON mesmo se a resposta não for ok
+            let result;
+            try {
+                result = await response.json();
+            } catch (e) {
+                // Se não conseguir ler JSON, lançar erro de conexão
+                throw new Error('Erro de conexão. Tente novamente.');
             }
             
-            const result = await response.json();
+            // Se a resposta não for ok, mas temos uma mensagem de erro, retornar o resultado
+            // para que o código acima possa tratar a mensagem
+            if (!response.ok) {
+                // Se for erro 401 (não autorizado), retornar o resultado com a mensagem do servidor
+                if (response.status === 401 || response.status === 403) {
+                    return result; // Retornar para que a mensagem seja exibida
+                }
+                // Para outros erros HTTP, lançar exceção
+                throw new Error(result.message || 'Erro ao fazer login. Tente novamente.');
+            }
+            
             return result;
             
         } catch (error) {
             console.error('Erro na requisição:', error);
+            // Se já tiver mensagem, lançar com ela, senão lançar erro genérico
             throw error;
         }
     }
