@@ -25,6 +25,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     let isPasswordVisible = false;
     let isLoading = false;
+    
+    // ========== FUNÇÕES DE CRIPTOGRAFIA ==========
+    // Chave simples para criptografia básica (não é totalmente segura, mas melhor que texto plano)
+    const ENCRYPTION_KEY = 'upbaloes_remember_key_2025';
+    
+    /**
+     * Criptografar senha antes de salvar
+     * Usa uma criptografia simples com base64 e chave
+     */
+    function encryptPassword(password) {
+        try {
+            // Criar uma string combinando senha + chave
+            const combined = password + ENCRYPTION_KEY;
+            // Converter para base64
+            return btoa(combined);
+        } catch (error) {
+            console.error('Erro ao criptografar senha:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Descriptografar senha salva
+     */
+    function decryptPassword(encryptedPassword) {
+        try {
+            // Decodificar base64
+            const decoded = atob(encryptedPassword);
+            // Remover a chave
+            return decoded.replace(ENCRYPTION_KEY, '');
+        } catch (error) {
+            console.error('Erro ao descriptografar senha:', error);
+            return null;
+        }
+    }
 
     // Toggle de visibilidade da senha
     togglePasswordBtn.addEventListener('click', function() {
@@ -140,8 +175,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Salvar dados se "lembrar" estiver marcado
                 if (formData.remember) {
                     localStorage.setItem('rememberedEmail', formData.email);
+                    // Salvar senha criptografada
+                    const encryptedPassword = encryptPassword(formData.password);
+                    if (encryptedPassword) {
+                        localStorage.setItem('rememberedPassword', encryptedPassword);
+                    }
                 } else {
                     localStorage.removeItem('rememberedEmail');
+                    localStorage.removeItem('rememberedPassword');
                 }
                 
                 // Redirecionamento baseado no role do usuário
@@ -266,12 +307,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== INICIALIZAÇÃO ==========
     
-    // Carregar email lembrado se existir
+    // Carregar email e senha lembrados se existirem
     const rememberedEmail = localStorage.getItem('rememberedEmail');
+    const rememberedPassword = localStorage.getItem('rememberedPassword');
+    
     if (rememberedEmail) {
         emailInput.value = rememberedEmail;
         rememberCheckbox.checked = true;
         validateEmail(emailInput);
+        
+        // Carregar senha descriptografada se existir
+        if (rememberedPassword) {
+            const decryptedPassword = decryptPassword(rememberedPassword);
+            if (decryptedPassword) {
+                passwordInput.value = decryptedPassword;
+                validatePassword(passwordInput);
+            }
+        }
     }
 
     // Adicionar efeitos visuais
@@ -456,6 +508,7 @@ async function logout() {
     } finally {
         // Limpar dados locais
         localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
         

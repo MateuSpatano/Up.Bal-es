@@ -16,6 +16,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Estado dos campos
     let isPasswordVisible = false;
     let isLoading = false;
+    
+    // ========== FUNÇÕES DE CRIPTOGRAFIA ==========
+    // Chave simples para criptografia básica (não é totalmente segura, mas melhor que texto plano)
+    const ENCRYPTION_KEY = 'upbaloes_remember_key_2025';
+    
+    /**
+     * Criptografar senha antes de salvar
+     * Usa uma criptografia simples com base64 e chave
+     */
+    function encryptPassword(password) {
+        try {
+            // Criar uma string combinando senha + chave
+            const combined = password + ENCRYPTION_KEY;
+            // Converter para base64
+            return btoa(combined);
+        } catch (error) {
+            console.error('Erro ao criptografar senha:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Descriptografar senha salva
+     */
+    function decryptPassword(encryptedPassword) {
+        try {
+            // Decodificar base64
+            const decoded = atob(encryptedPassword);
+            // Remover a chave
+            return decoded.replace(ENCRYPTION_KEY, '');
+        } catch (error) {
+            console.error('Erro ao descriptografar senha:', error);
+            return null;
+        }
+    }
 
     // Toggle de visibilidade da senha
     toggleAdminPasswordBtn.addEventListener('click', function() {
@@ -127,8 +162,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Salvar dados se "lembrar" estiver marcado
                 if (formData.remember) {
                     localStorage.setItem('rememberedAdminEmail', formData.email);
+                    // Salvar senha criptografada
+                    const encryptedPassword = encryptPassword(formData.password);
+                    if (encryptedPassword) {
+                        localStorage.setItem('rememberedAdminPassword', encryptedPassword);
+                    }
                 } else {
                     localStorage.removeItem('rememberedAdminEmail');
+                    localStorage.removeItem('rememberedAdminPassword');
                 }
                 
                 // Redirecionamento para área administrativa
@@ -212,12 +253,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== INICIALIZAÇÃO ==========
     
-    // Carregar email lembrado se existir
+    // Carregar email e senha lembrados se existirem
     const rememberedAdminEmail = localStorage.getItem('rememberedAdminEmail');
+    const rememberedAdminPassword = localStorage.getItem('rememberedAdminPassword');
+    
     if (rememberedAdminEmail) {
         adminEmailInput.value = rememberedAdminEmail;
         adminRememberCheckbox.checked = true;
         validateAdminEmail(adminEmailInput);
+        
+        // Carregar senha descriptografada se existir
+        if (rememberedAdminPassword) {
+            const decryptedPassword = decryptPassword(rememberedAdminPassword);
+            if (decryptedPassword) {
+                adminPasswordInput.value = decryptedPassword;
+                validateAdminPassword(adminPasswordInput);
+            }
+        }
     }
 
     // Adicionar efeitos visuais
@@ -302,6 +354,7 @@ async function adminLogout() {
     } finally {
         // Limpar dados locais
         localStorage.removeItem('rememberedAdminEmail');
+        localStorage.removeItem('rememberedAdminPassword');
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
         window.location.href = 'admin-login.html';
