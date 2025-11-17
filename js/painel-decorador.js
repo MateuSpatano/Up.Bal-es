@@ -6229,10 +6229,29 @@ Qualquer dúvida, estou à disposição! 😊`;
                 return;
             }
             
-            // Carregar preview da página
+            // Carregar preview da página do decorador (via slug)
             const previewIframe = document.getElementById('decorator-page-preview');
             if (previewIframe) {
+                // Carregar a página do decorador via slug (que usa pagina-decorador.php)
+                // A URL será processada pelo .htaccess e direcionada para services/pagina-decorador.php
                 previewIframe.src = `../${userData.slug}`;
+                
+                // Aguardar o iframe carregar completamente
+                previewIframe.onload = function() {
+                    console.log('Preview da página do decorador carregado:', previewIframe.src);
+                    // Pequeno delay para garantir que o conteúdo está renderizado
+                    setTimeout(() => {
+                        // Se o modo de edição estiver ativo, reativar
+                        if (editModeActive) {
+                            enableEditMode();
+                        }
+                    }, 500);
+                };
+                
+                previewIframe.onerror = function() {
+                    console.error('Erro ao carregar preview da página do decorador');
+                    showNotification('Erro ao carregar preview. Verifique se o slug está correto.', 'error');
+                };
             }
             
             // Carregar configurações
@@ -6343,12 +6362,14 @@ Qualquer dúvida, estou à disposição! 😊`;
             return;
         }
         
-        // Remover listener anterior se existir
+        // Remover listener anterior se existir usando clone
         const newSaveBtn = saveBtn.cloneNode(true);
         saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
         
         // Adicionar novo listener
-        newSaveBtn.addEventListener('click', async function() {
+        newSaveBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             const form = document.getElementById('decorator-page-customization-form');
             if (!form) {
                 showNotification('Formulário não encontrado', 'error');
@@ -6421,50 +6442,101 @@ Qualquer dúvida, estou à disposição! 😊`;
         });
     }
     
+    let previewUpdateTimeout = null;
+    const previewUpdateHandlers = new WeakMap();
+    
     function setupPreviewUpdates() {
-        // Atualizar preview quando campos mudarem
+        // Atualizar preview quando campos mudarem (com debounce)
         const inputs = document.querySelectorAll('#decorator-page-customization-form input, #decorator-page-customization-form textarea');
         inputs.forEach(input => {
-            input.addEventListener('input', () => {
+            // Remover listener anterior se existir
+            const existingHandler = previewUpdateHandlers.get(input);
+            if (existingHandler) {
+                input.removeEventListener('input', existingHandler.inputHandler);
+                input.removeEventListener('change', existingHandler.changeHandler);
+            }
+            
+            // Criar novos handlers
+            const inputHandler = () => {
+                // Debounce: aguardar 1 segundo após a última mudança
+                clearTimeout(previewUpdateTimeout);
+                previewUpdateTimeout = setTimeout(() => {
+                    updatePreview();
+                }, 1000);
+            };
+            
+            const changeHandler = () => {
+                clearTimeout(previewUpdateTimeout);
                 updatePreview();
-            });
-            input.addEventListener('change', () => {
-                updatePreview();
-            });
+            };
+            
+            // Adicionar listeners
+            input.addEventListener('input', inputHandler);
+            input.addEventListener('change', changeHandler);
+            
+            // Armazenar handlers para remoção futura
+            previewUpdateHandlers.set(input, { inputHandler, changeHandler });
         });
     }
     
     function updatePreview() {
         const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe || !previewIframe.contentWindow) return;
+        if (!previewIframe) return;
         
-        // Recarregar iframe para aplicar mudanças
-        const currentSrc = previewIframe.src;
-        previewIframe.src = '';
-        setTimeout(() => {
-            previewIframe.src = currentSrc;
-        }, 100);
+        // Obter dados do usuário para recarregar com o slug correto
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData.slug) {
+            // Recarregar iframe para aplicar mudanças
+            const currentSrc = previewIframe.src;
+            previewIframe.src = '';
+            setTimeout(() => {
+                previewIframe.src = `../${userData.slug}`;
+            }, 300);
+        }
     }
     
     function setupEditModeToggle() {
         const toggleBtn = document.getElementById('decorator-toggle-edit-mode');
         const overlay = document.getElementById('edit-overlay');
         
-        if (toggleBtn && overlay) {
-            toggleBtn.addEventListener('click', function() {
+        if (!toggleBtn) {
+            setTimeout(setupEditModeToggle, 100);
+            return;
+        }
+        
+        // Remover listener anterior usando clone
+        const newToggleBtn = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+        
+        if (newToggleBtn && overlay) {
+            newToggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 editModeActive = !editModeActive;
                 
                 if (editModeActive) {
                     overlay.classList.remove('hidden');
-                    toggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
-                    toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-                    enableEditMode();
+                    newToggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
+                    newToggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    newToggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    
+                    // Aguardar iframe carregar antes de habilitar modo edição
+                    const previewIframe = document.getElementById('decorator-page-preview');
+                    if (previewIframe) {
+                        if (previewIframe.contentDocument || previewIframe.contentWindow) {
+                            enableEditMode();
+                        } else {
+                            previewIframe.onload = function() {
+                                enableEditMode();
+                            };
+                        }
+                    }
                 } else {
                     overlay.classList.add('hidden');
-                    toggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
-                    toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                    toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    newToggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
+                    newToggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    newToggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
                     disableEditMode();
                 }
             });
@@ -6473,84 +6545,157 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     function enableEditMode() {
         const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe || !previewIframe.contentDocument) return;
+        if (!previewIframe) return;
         
-        try {
-            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-            const style = iframeDoc.createElement('style');
-            style.textContent = `
-                .editable-element {
-                    position: relative;
-                    cursor: pointer;
-                    outline: 2px dashed rgba(59, 130, 246, 0.5);
-                    outline-offset: 2px;
+        // Aguardar iframe carregar completamente
+        const tryEnableEdit = () => {
+            try {
+                const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
+                if (!iframeDoc || !iframeDoc.body) {
+                    setTimeout(tryEnableEdit, 200);
+                    return;
                 }
-                .editable-element:hover {
-                    outline-color: rgba(59, 130, 246, 0.8);
-                    background-color: rgba(59, 130, 246, 0.1);
-                }
-                .edit-icon {
-                    position: absolute;
-                    top: -8px;
-                    right: -8px;
-                    background: #3b82f6;
-                    color: white;
-                    border-radius: 50%;
-                    width: 24px;
-                    height: 24px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 12px;
-                    z-index: 1000;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                }
-            `;
-            iframeDoc.head.appendChild(style);
-            
-            // Adicionar classe editável e ícone de lápis aos elementos principais
-            const elementsToEdit = [
-                { selector: 'h1', field: 'page_title' },
-                { selector: 'p:first-of-type', field: 'page_description' },
-                { selector: '.hero-section', field: 'cover_image_url' }
-            ];
-            
-            elementsToEdit.forEach(({ selector, field }) => {
-                const elements = iframeDoc.querySelectorAll(selector);
-                elements.forEach((el, index) => {
-                    if (index === 0) { // Apenas o primeiro elemento de cada tipo
-                        el.classList.add('editable-element');
-                        el.setAttribute('data-edit-field', field);
-                        
-                        const editIcon = iframeDoc.createElement('div');
-                        editIcon.className = 'edit-icon';
-                        editIcon.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                        el.style.position = 'relative';
-                        el.appendChild(editIcon);
-                        
-                        el.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            openEditModal(field, el.textContent || el.src);
-                        });
+                
+                // Verificar se já foi adicionado o estilo
+                if (iframeDoc.getElementById('decorator-edit-style')) return;
+                
+                const style = iframeDoc.createElement('style');
+                style.id = 'decorator-edit-style';
+                style.textContent = `
+                    .editable-element {
+                        position: relative !important;
+                        cursor: pointer !important;
+                        outline: 2px dashed rgba(59, 130, 246, 0.5) !important;
+                        outline-offset: 2px !important;
                     }
-                });
-            });
-        } catch (e) {
-            console.error('Erro ao habilitar modo de edição:', e);
-            // Se houver erro de CORS, apenas mostrar mensagem
-            showNotification('Para editar visualmente, a página precisa estar no mesmo domínio', 'info');
-        }
+                    .editable-element:hover {
+                        outline-color: rgba(59, 130, 246, 0.8) !important;
+                        background-color: rgba(59, 130, 246, 0.1) !important;
+                    }
+                    .edit-icon {
+                        position: absolute !important;
+                        top: -8px !important;
+                        right: -8px !important;
+                        background: #3b82f6 !important;
+                        color: white !important;
+                        border-radius: 50% !important;
+                        width: 24px !important;
+                        height: 24px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        font-size: 12px !important;
+                        z-index: 10000 !important;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+                    }
+                `;
+                iframeDoc.head.appendChild(style);
+                
+                // Função auxiliar para tornar elementos editáveis
+                function makeElementEditable(el, field, iframeDoc) {
+                    if (el.classList.contains('editable-element')) return;
+                    
+                    el.classList.add('editable-element');
+                    el.setAttribute('data-edit-field', field);
+                    
+                    // Verificar se já tem ícone
+                    if (el.querySelector('.edit-icon')) return;
+                    
+                    const editIcon = iframeDoc.createElement('div');
+                    editIcon.className = 'edit-icon';
+                    editIcon.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                    el.style.position = 'relative';
+                    el.appendChild(editIcon);
+                    
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        let value = '';
+                        if (field === 'cover_image_url') {
+                            try {
+                                const iframeWindow = previewIframe.contentWindow || previewIframe.contentDocument.defaultView;
+                                const bgImage = iframeWindow.getComputedStyle(el).backgroundImage;
+                                value = bgImage.replace(/url\(['"]?(.*?)['"]?\)/, '$1');
+                            } catch (err) {
+                                value = el.style.backgroundImage || '';
+                            }
+                        } else {
+                            value = el.textContent || el.innerText || '';
+                        }
+                        openEditModal(field, value);
+                    });
+                }
+                
+                // Adicionar classe editável e ícone de lápis aos elementos principais
+                // Baseado na nova estrutura simplificada da pagina-decorador.php
+                // Estrutura: section#inicio.decorator-hero > h1 e p.text-xl
+                
+                // 1. Título (h1 dentro de #inicio)
+                try {
+                    let titleEl = iframeDoc.querySelector('#inicio h1') || 
+                                  iframeDoc.querySelector('section#inicio h1') ||
+                                  iframeDoc.querySelector('.decorator-hero h1');
+                    if (titleEl) {
+                        makeElementEditable(titleEl, 'page_title', iframeDoc);
+                    }
+                } catch (err) {
+                    console.error('Erro ao adicionar edição para título:', err);
+                }
+                
+                // 2. Descrição (p.text-xl dentro de #inicio)
+                try {
+                    let descEl = iframeDoc.querySelector('#inicio p.text-xl') ||
+                                 iframeDoc.querySelector('#inicio p.text-xl.md\\:text-2xl') ||
+                                 iframeDoc.querySelector('section#inicio p.text-xl') ||
+                                 iframeDoc.querySelector('section#inicio p');
+                    if (descEl) {
+                        makeElementEditable(descEl, 'page_description', iframeDoc);
+                    }
+                } catch (err) {
+                    console.error('Erro ao adicionar edição para descrição:', err);
+                }
+                
+                // 3. Imagem de capa (section.decorator-hero)
+                try {
+                    let heroEl = iframeDoc.querySelector('section.decorator-hero') ||
+                                 iframeDoc.querySelector('section#inicio.decorator-hero') ||
+                                 iframeDoc.querySelector('#inicio.decorator-hero');
+                    if (heroEl) {
+                        makeElementEditable(heroEl, 'cover_image_url', iframeDoc);
+                    }
+                } catch (err) {
+                    console.error('Erro ao adicionar edição para imagem de capa:', err);
+                }
+            } catch (e) {
+                console.error('Erro ao habilitar modo de edição:', e);
+                // Se houver erro de CORS, apenas mostrar mensagem
+                showNotification('Modo de edição visual disponível. Use os campos do formulário para editar.', 'info');
+            }
+        };
+        
+        // Tentar habilitar após um pequeno delay para garantir que o iframe carregou
+        setTimeout(tryEnableEdit, 500);
     }
     
     function disableEditMode() {
         const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe || !previewIframe.contentDocument) return;
+        if (!previewIframe) return;
         
         try {
-            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
+            if (!iframeDoc || !iframeDoc.body) return;
+            
+            // Remover estilo de edição
+            const editStyle = iframeDoc.getElementById('decorator-edit-style');
+            if (editStyle) {
+                editStyle.remove();
+            }
+            
+            // Remover classes e ícones de edição
             const editableElements = iframeDoc.querySelectorAll('.editable-element');
             editableElements.forEach(el => {
                 el.classList.remove('editable-element');
+                el.removeAttribute('data-edit-field');
                 const editIcon = el.querySelector('.edit-icon');
                 if (editIcon) editIcon.remove();
             });
@@ -6560,31 +6705,70 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     function openEditModal(field, currentValue) {
+        // Limpar valor se for URL de imagem
+        if (field === 'cover_image_url' && currentValue) {
+            currentValue = currentValue.replace(/url\(['"]?/g, '').replace(/['"]?\)/g, '');
+        }
+        
         // Criar modal simples para editar
         const modal = document.createElement('div');
+        modal.id = 'edit-modal-overlay';
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
         modal.innerHTML = `
-            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold mb-4">Editar ${getFieldLabel(field)}</h3>
-                <textarea id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" rows="4">${currentValue}</textarea>
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">
+                    <i class="fas fa-edit mr-2 text-indigo-600"></i>
+                    Editar ${getFieldLabel(field)}
+                </h3>
+                ${field === 'cover_image_url' ? 
+                    `<input type="url" id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" value="${currentValue}" placeholder="https://exemplo.com/imagem.jpg">` :
+                    `<textarea id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" rows="4" placeholder="Digite o conteúdo">${currentValue || ''}</textarea>`
+                }
                 <div class="flex gap-2">
-                    <button id="save-edit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Salvar</button>
-                    <button id="cancel-edit" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+                    <button id="cancel-edit" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </button>
+                    <button id="save-edit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Salvar
+                    </button>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
         
+        // Fechar ao clicar no overlay
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
         document.getElementById('save-edit').addEventListener('click', () => {
-            const newValue = document.getElementById('edit-field-value').value;
-            updateField(field, newValue);
-            modal.remove();
-            updatePreview();
+            const newValue = document.getElementById('edit-field-value').value.trim();
+            if (newValue) {
+                updateField(field, newValue);
+                modal.remove();
+                // Aguardar um pouco antes de atualizar preview para garantir que o campo foi atualizado
+                setTimeout(() => {
+                    updatePreview();
+                }, 200);
+            } else {
+                showNotification('O campo não pode estar vazio', 'error');
+            }
         });
         
         document.getElementById('cancel-edit').addEventListener('click', () => {
             modal.remove();
         });
+        
+        // Focar no campo de edição
+        setTimeout(() => {
+            const input = document.getElementById('edit-field-value');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 100);
     }
     
     function getFieldLabel(field) {
@@ -6610,39 +6794,66 @@ Qualquer dúvida, estou à disposição! 😊`;
             const input = document.getElementById(inputId);
             if (input) {
                 input.value = value;
+                // Disparar eventos para atualizar preview
                 input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // Mostrar feedback visual
+                input.style.borderColor = '#10b981';
+                setTimeout(() => {
+                    input.style.borderColor = '';
+                }, 1000);
+                
+                showNotification(`${getFieldLabel(field)} atualizado!`, 'success');
             }
         }
     }
     
     function setupDecoratorCustomizationTabs() {
-        const tabs = document.querySelectorAll('.decorator-customization-tab');
-        const panels = document.querySelectorAll('.decorator-tab-panel');
+        // Usar event delegation no container do formulário
+        const form = document.getElementById('decorator-page-customization-form');
+        if (!form) {
+            setTimeout(setupDecoratorCustomizationTabs, 100);
+            return;
+        }
         
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const targetTab = tab.getAttribute('data-tab');
-                
-                // Remover active de todas as tabs
-                tabs.forEach(t => {
-                    t.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
-                    t.classList.add('text-gray-500');
-                });
-                
-                // Adicionar active na tab clicada
-                tab.classList.add('active', 'text-indigo-600', 'border-indigo-600');
-                tab.classList.remove('text-gray-500');
-                
-                // Esconder todos os painéis
-                panels.forEach(p => p.classList.add('hidden'));
-                
-                // Mostrar painel correspondente
-                const panel = document.getElementById(`decorator-tab-${targetTab}-panel`);
-                if (panel) {
-                    panel.classList.remove('hidden');
-                }
+        // Função para lidar com cliques nas tabs
+        function handleTabClick(e) {
+            const tab = e.target.closest('.decorator-customization-tab');
+            if (!tab) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const targetTab = tab.getAttribute('data-tab');
+            if (!targetTab) return;
+            
+            const tabs = document.querySelectorAll('.decorator-customization-tab');
+            const panels = document.querySelectorAll('.decorator-tab-panel');
+            
+            // Remover active de todas as tabs
+            tabs.forEach(t => {
+                t.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                t.classList.add('text-gray-500');
             });
-        });
+            
+            // Adicionar active na tab clicada
+            tab.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+            tab.classList.remove('text-gray-500');
+            
+            // Esconder todos os painéis
+            panels.forEach(p => p.classList.add('hidden'));
+            
+            // Mostrar painel correspondente
+            const panel = document.getElementById(`decorator-tab-${targetTab}-panel`);
+            if (panel) {
+                panel.classList.remove('hidden');
+            }
+        }
+        
+        // Remover listener anterior se existir
+        form.removeEventListener('click', handleTabClick);
+        form.addEventListener('click', handleTabClick);
     }
     
     function setupDecoratorColorInputs() {
