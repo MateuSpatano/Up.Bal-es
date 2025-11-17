@@ -1495,6 +1495,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Carregando dados do portfólio...');
         
         // Garantir que o portfólio esteja inicializado
+        if (typeof initPortfolio === 'function') {
+            initPortfolio();
+        }
+        
+        // Garantir que o portfólio esteja inicializado
         if (typeof loadPortfolioServices === 'function') {
             loadPortfolioServices();
         }
@@ -5089,14 +5094,21 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         // Adicionar event listeners usando event delegation
         card.addEventListener('click', (e) => {
-            if (e.target.closest('.edit-service-btn')) {
+            const editBtn = e.target.closest('.edit-service-btn');
+            const deleteBtn = e.target.closest('.delete-service-btn');
+            
+            if (editBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                editService(service.id);
-            } else if (e.target.closest('.delete-service-btn')) {
+                const serviceId = editBtn.getAttribute('data-id') || service.id;
+                console.log('Botão editar clicado para serviço ID:', serviceId);
+                editService(serviceId);
+            } else if (deleteBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                confirmDeleteServiceAction(service.id);
+                const serviceId = deleteBtn.getAttribute('data-id') || service.id;
+                console.log('Botão excluir clicado para serviço ID:', serviceId);
+                confirmDeleteServiceAction(serviceId);
             }
         });
         
@@ -5169,48 +5181,92 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Abrir modal para editar serviço
     function editService(serviceId) {
-        const service = portfolioServices.find(s => s.id === serviceId);
+        console.log('Editando serviço ID:', serviceId);
+        const service = portfolioServices.find(s => s.id === serviceId || s.id === String(serviceId));
         if (!service) {
+            console.error('Serviço não encontrado. ID:', serviceId, 'Serviços disponíveis:', portfolioServices);
             showErrorToast('Erro', 'Serviço não encontrado.');
             return;
         }
         
+        console.log('Serviço encontrado:', service);
         editingServiceId = serviceId;
-        document.getElementById('service-modal-title').textContent = 'Editar Serviço';
-        document.getElementById('service-modal-subtitle').textContent = 'Atualize as informações do seu serviço';
         
-        // Preencher formulário
-        document.getElementById('service-type').value = service.type;
-        document.getElementById('service-title').value = service.title;
-        document.getElementById('service-description').value = service.description;
-        document.getElementById('service-price').value = service.price || '';
-        document.getElementById('service-arc-size').value = service.arcSize || '';
+        const modalTitle = document.getElementById('service-modal-title');
+        const modalSubtitle = document.getElementById('service-modal-subtitle');
+        if (modalTitle) modalTitle.textContent = 'Editar Serviço';
+        if (modalSubtitle) modalSubtitle.textContent = 'Atualize as informações do seu serviço';
+        
+        // Preencher formulário - usar os IDs corretos do HTML
+        const typeField = document.getElementById('service-type');
+        const titleField = document.getElementById('service-title');
+        const descriptionField = document.getElementById('service-description');
+        const priceField = document.getElementById('service-price');
+        const arcSizeField = document.getElementById('service-arc-size');
+        
+        if (typeField) typeField.value = service.type || service.service_type || '';
+        if (titleField) titleField.value = service.title || '';
+        if (descriptionField) descriptionField.value = service.description || '';
+        if (priceField) priceField.value = service.price || '';
+        if (arcSizeField) arcSizeField.value = service.arcSize || service.arc_size || '';
+        
+        console.log('Campos preenchidos:', {
+            type: service.type,
+            title: service.title,
+            description: service.description,
+            price: service.price,
+            arcSize: service.arcSize
+        });
         
         // Mostrar preview da imagem se existir
-        if (service.image) {
-            const preview = document.getElementById('image-preview');
-            const previewImg = document.getElementById('preview-img');
+        const preview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+        const openImageEditor = document.getElementById('open-image-editor');
+        
+        if (service.image && preview && previewImg) {
             previewImg.src = service.image;
             preview.classList.remove('hidden');
-            document.getElementById('open-image-editor').classList.remove('hidden');
+            if (openImageEditor) openImageEditor.classList.remove('hidden');
         } else {
-            document.getElementById('image-preview').classList.add('hidden');
-            document.getElementById('open-image-editor').classList.add('hidden');
+            if (preview) preview.classList.add('hidden');
+            if (openImageEditor) openImageEditor.classList.add('hidden');
         }
         
-        serviceModal.classList.remove('hidden');
-        showInfoToast('Editando Serviço', 'Modifique as informações conforme necessário.');
+        if (serviceModal) {
+            serviceModal.classList.remove('hidden');
+            showInfoToast('Editando Serviço', 'Modifique as informações conforme necessário.');
+        } else {
+            console.error('Modal de serviço não encontrado!');
+            showErrorToast('Erro', 'Modal de edição não encontrado.');
+        }
     }
     
     // Confirmar exclusão de serviço
     function confirmDeleteServiceAction(serviceId) {
+        console.log('Confirmando exclusão do serviço ID:', serviceId);
+        if (!serviceId) {
+            console.error('ID do serviço não fornecido para exclusão');
+            showErrorToast('Erro', 'ID do serviço não encontrado.');
+            return;
+        }
+        
         deletingServiceId = serviceId;
-        deleteServiceModal.classList.remove('hidden');
+        if (deleteServiceModal) {
+            deleteServiceModal.classList.remove('hidden');
+        } else {
+            console.error('Modal de confirmação de exclusão não encontrado!');
+            showErrorToast('Erro', 'Modal de confirmação não encontrado.');
+        }
     }
     
     // Excluir serviço
     async function deleteService() {
-        if (!deletingServiceId) return;
+        if (!deletingServiceId) {
+            console.warn('Nenhum ID de serviço para excluir');
+            return;
+        }
+        
+        console.log('Excluindo serviço ID:', deletingServiceId);
         
         let originalButtonContent = null;
         try {
@@ -5231,19 +5287,30 @@ Qualquer dúvida, estou à disposição! 😊`;
                 })
             });
             
-            const result = await response.json();
+            console.log('Resposta do servidor:', response.status);
             
-            if (response.ok && result.success) {
-                deleteServiceModal.classList.add('hidden');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('Resultado da exclusão:', result);
+            
+            if (result.success) {
+                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                const deletedId = deletingServiceId;
                 deletingServiceId = null;
+                
+                // Recarregar serviços
                 await loadPortfolioServices(false);
+                
                 showSuccessToast('Serviço removido', result.message || 'O serviço foi removido do portfólio.');
             } else {
                 showErrorToast('Erro', result.message || 'Não foi possível remover o serviço. Tente novamente.');
             }
         } catch (error) {
             console.error('Erro ao remover serviço:', error);
-            showErrorToast('Erro', 'Erro ao remover o serviço. Verifique sua conexão.');
+            showErrorToast('Erro', 'Erro ao remover o serviço: ' + error.message);
         } finally {
             if (confirmDeleteService) {
                 confirmDeleteService.disabled = false;
@@ -5500,25 +5567,67 @@ Qualquer dúvida, estou à disposição! 😊`;
                 payload.append('id', editingServiceId);
             }
             
-            for (const [key, value] of formData.entries()) {
-                if (key === 'image' && value instanceof File && value.size === 0) {
-                    continue;
+            // Mapear campos do formulário para o formato esperado pelo backend
+            // O formulário usa name="type", name="title", etc.
+            const type = formData.get('type') || '';
+            const title = formData.get('title') || '';
+            const description = formData.get('description') || '';
+            const price = formData.get('price') || '';
+            const arcSize = formData.get('arcSize') || '';
+            const image = formData.get('image');
+            
+            // Validar campos obrigatórios
+            if (!type || !title) {
+                showErrorToast('Erro', 'Tipo e título do serviço são obrigatórios.');
+                if (saveService) {
+                    saveService.disabled = false;
+                    saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
                 }
-                payload.append(key, value);
+                return;
             }
+            
+            // Adicionar campos no formato esperado pelo backend
+            payload.append('type', type);
+            payload.append('title', title);
+            payload.append('description', description);
+            if (price) {
+                payload.append('price', price);
+            }
+            if (arcSize) {
+                payload.append('arcSize', arcSize);
+            }
+            if (image && image instanceof File && image.size > 0) {
+                payload.append('image', image);
+            }
+            
+            console.log('Enviando dados do serviço:', {
+                action: isEdit ? 'update_portfolio_item' : 'create_portfolio_item',
+                id: editingServiceId,
+                type,
+                title,
+                description,
+                price,
+                arcSize,
+                hasImage: image && image instanceof File
+            });
             
             const response = await fetch('../services/portfolio.php', {
                 method: 'POST',
                 body: payload
             });
             
-            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
-            if (response.ok && result.success) {
+            const result = await response.json();
+            console.log('Resultado do salvamento:', result);
+            
+            if (result.success) {
                 await loadPortfolioServices(false);
                 
-                serviceModal.classList.add('hidden');
-                serviceForm.reset();
+                if (serviceModal) serviceModal.classList.add('hidden');
+                if (serviceForm) serviceForm.reset();
                 editingServiceId = null;
                 const preview = document.getElementById('image-preview');
                 const openEditorBtn = document.getElementById('open-image-editor');
@@ -5528,6 +5637,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const message = result.message || (isEdit ? 'Serviço atualizado com sucesso!' : 'Serviço adicionado com sucesso!');
                 showSuccessToast('Portfólio', message);
             } else {
+                console.error('Erro ao salvar:', result);
                 showErrorToast('Erro', result.message || 'Não foi possível salvar o serviço. Tente novamente.');
             }
         } catch (error) {
@@ -5583,13 +5693,21 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Configurar event listeners do portfólio
     function setupPortfolioEventListeners() {
+        console.log('Configurando event listeners do portfólio...');
+        
         // Botões para abrir modal de adicionar serviço
         if (addServiceBtn) {
-            addServiceBtn.addEventListener('click', openAddServiceModal);
+            // Remover listener anterior se existir
+            const newAddBtn = addServiceBtn.cloneNode(true);
+            addServiceBtn.parentNode.replaceChild(newAddBtn, addServiceBtn);
+            newAddBtn.addEventListener('click', openAddServiceModal);
         }
         
         if (addFirstServiceBtn) {
-            addFirstServiceBtn.addEventListener('click', openAddServiceModal);
+            // Remover listener anterior se existir
+            const newAddFirstBtn = addFirstServiceBtn.cloneNode(true);
+            addFirstServiceBtn.parentNode.replaceChild(newAddFirstBtn, addFirstServiceBtn);
+            newAddFirstBtn.addEventListener('click', openAddServiceModal);
         }
         
         // Fechar modal de serviço
@@ -5713,27 +5831,56 @@ Qualquer dúvida, estou à disposição! 😊`;
             resetImageBtn.addEventListener('click', resetImageEditor);
         }
         
-        // Salvar serviço
+        // Salvar serviço - remover listener anterior se existir
         if (serviceForm) {
-            serviceForm.addEventListener('submit', async (e) => {
+            // Remover listener anterior
+            const newForm = serviceForm.cloneNode(true);
+            serviceForm.parentNode.replaceChild(newForm, serviceForm);
+            
+            newForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const formData = new FormData(serviceForm);
+                e.stopPropagation();
+                console.log('Formulário de serviço submetido');
+                const formData = new FormData(newForm);
                 await saveServiceData(formData);
             });
+            
+            // Atualizar referência
+            const serviceFormRef = newForm;
         }
         
         // Modal de confirmação de exclusão
         if (cancelDeleteService) {
-            cancelDeleteService.addEventListener('click', () => deleteServiceModal.classList.add('hidden'));
+            // Remover listener anterior
+            const newCancelBtn = cancelDeleteService.cloneNode(true);
+            cancelDeleteService.parentNode.replaceChild(newCancelBtn, cancelDeleteService);
+            newCancelBtn.addEventListener('click', () => {
+                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+            });
         }
         
         if (confirmDeleteService) {
-            confirmDeleteService.addEventListener('click', deleteService);
+            // Remover listener anterior
+            const newConfirmBtn = confirmDeleteService.cloneNode(true);
+            confirmDeleteService.parentNode.replaceChild(newConfirmBtn, confirmDeleteService);
+            newConfirmBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Botão confirmar exclusão clicado');
+                await deleteService();
+            });
         }
         
         if (deleteServiceModalOverlay) {
-            deleteServiceModalOverlay.addEventListener('click', () => deleteServiceModal.classList.add('hidden'));
+            // Remover listener anterior
+            const newOverlay = deleteServiceModalOverlay.cloneNode(true);
+            deleteServiceModalOverlay.parentNode.replaceChild(newOverlay, deleteServiceModalOverlay);
+            newOverlay.addEventListener('click', () => {
+                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+            });
         }
+        
+        console.log('Event listeners do portfólio configurados com sucesso');
     }
     
     // Função para recarregar imagens quando a tela for redimensionada
@@ -6245,6 +6392,24 @@ Qualquer dúvida, estou à disposição! 😊`;
             // Aguardar um pouco para garantir que o DOM está pronto
             await new Promise(resolve => setTimeout(resolve, 100));
             
+            // Configurar link de visualização da página
+            const viewPageLink = document.getElementById('decorator-view-page-link');
+            if (viewPageLink) {
+                // Construir URL da página pública do decorador
+                const currentPath = window.location.pathname;
+                let pageUrl;
+                if (currentPath.includes('/pages/')) {
+                    const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
+                    pageUrl = `${basePath}/${userData.slug}`;
+                } else {
+                    pageUrl = `../${userData.slug}`;
+                }
+                // Garantir que a URL não tenha barras duplas
+                pageUrl = pageUrl.replace(/\/+/g, '/');
+                viewPageLink.href = pageUrl;
+                console.log('Link de visualização configurado:', pageUrl);
+            }
+            
             // Carregar preview da página do decorador (via slug)
             const previewIframe = document.getElementById('decorator-page-preview');
             const previewContainer = document.getElementById('page-preview-container');
@@ -6495,6 +6660,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                     showNotification('Personalização salva com sucesso!', 'success');
                     // Recarregar preview
                     updatePreview();
+                    // Atualizar link de visualização (caso o slug tenha mudado)
+                    updateViewPageLink();
                 } else {
                     showNotification('Erro: ' + (result.message || 'Erro ao salvar personalização'), 'error');
                 }
@@ -6546,6 +6713,25 @@ Qualquer dúvida, estou à disposição! 😊`;
         });
     }
     
+    function updateViewPageLink() {
+        const viewPageLink = document.getElementById('decorator-view-page-link');
+        if (!viewPageLink) return;
+        
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData.slug) {
+            const currentPath = window.location.pathname;
+            let pageUrl;
+            if (currentPath.includes('/pages/')) {
+                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
+                pageUrl = `${basePath}/${userData.slug}`;
+            } else {
+                pageUrl = `../${userData.slug}`;
+            }
+            pageUrl = pageUrl.replace(/\/+/g, '/');
+            viewPageLink.href = pageUrl;
+        }
+    }
+    
     function updatePreview() {
         const previewIframe = document.getElementById('decorator-page-preview');
         if (!previewIframe) {
@@ -6558,8 +6744,14 @@ Qualquer dúvida, estou à disposição! 😊`;
         if (userData.slug) {
             // Construir URL correta
             const currentPath = window.location.pathname;
-            const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
-            const previewUrl = `${basePath}/${userData.slug}`;
+            let previewUrl;
+            if (currentPath.includes('/pages/')) {
+                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
+                previewUrl = `${basePath}/${userData.slug}`;
+            } else {
+                previewUrl = `../${userData.slug}`;
+            }
+            previewUrl = previewUrl.replace(/\/+/g, '/');
             
             console.log('Atualizando preview com URL:', previewUrl);
             

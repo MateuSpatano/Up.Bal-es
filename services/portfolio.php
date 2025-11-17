@@ -198,13 +198,18 @@ function createPortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
  * Atualizar item do portfólio
  */
 function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $files): void {
+    error_log('Atualizando item do portfólio. Decorador ID: ' . $decoratorId);
+    error_log('Dados recebidos: ' . json_encode($input));
+    
     $itemId = (int) ($input['id'] ?? 0);
 
     if ($itemId <= 0) {
+        error_log('ID do item inválido: ' . $itemId);
         errorResponse('ID do item é obrigatório.', 400);
     }
 
     $existing = fetchPortfolioItem($pdo, $decoratorId, $itemId);
+    error_log('Item existente encontrado: ' . json_encode($existing));
 
     $type = trim($input['type'] ?? $existing['service_type']);
     $title = trim($input['title'] ?? $existing['title']);
@@ -215,10 +220,12 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
     $arcSize = trim($input['arcSize'] ?? ($existing['arc_size'] ?? ''));
 
     if ($type === '' || $title === '') {
+        error_log('Campos obrigatórios faltando. Type: ' . $type . ', Title: ' . $title);
         errorResponse('Tipo e título do serviço são obrigatórios.', 400);
     }
 
     $newImagePath = handlePortfolioImageUpload($decoratorId, $files['image'] ?? null, $existing['image_path'] ?? null);
+    error_log('Nova imagem: ' . ($newImagePath ?? 'null'));
 
     $stmt = $pdo->prepare("
         UPDATE decorator_portfolio_items
@@ -233,7 +240,7 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
         WHERE id = :id AND decorator_id = :decorator_id
     ");
 
-    $stmt->execute([
+    $params = [
         'service_type' => sanitizeInput($type),
         'title' => sanitizeInput($title),
         'description' => $description !== '' ? sanitizeInput($description) : null,
@@ -242,9 +249,22 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
         'image_path' => $newImagePath,
         'id' => $itemId,
         'decorator_id' => $decoratorId
-    ]);
+    ];
+    
+    error_log('Parâmetros da atualização: ' . json_encode($params));
+
+    $stmt->execute($params);
+    
+    $rowsAffected = $stmt->rowCount();
+    error_log('Linhas afetadas: ' . $rowsAffected);
+
+    if ($rowsAffected === 0) {
+        error_log('Nenhuma linha foi atualizada. Verificar se o item existe e pertence ao decorador.');
+        errorResponse('Nenhuma alteração foi feita. Verifique se o item existe.', 400);
+    }
 
     $updated = fetchPortfolioItem($pdo, $decoratorId, $itemId);
+    error_log('Item atualizado: ' . json_encode($updated));
 
     successResponse([
         'item' => normalizePortfolioRow($updated)
@@ -255,24 +275,40 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
  * Excluir item do portfólio
  */
 function deletePortfolioItem(PDO $pdo, int $decoratorId, array $input): void {
+    error_log('Excluindo item do portfólio. Decorador ID: ' . $decoratorId);
+    error_log('Dados recebidos: ' . json_encode($input));
+    
     $itemId = (int) ($input['id'] ?? 0);
 
     if ($itemId <= 0) {
+        error_log('ID do item inválido: ' . $itemId);
         errorResponse('ID do item é obrigatório.', 400);
     }
 
+    // Verificar se o item existe e pertence ao decorador
     $item = fetchPortfolioItem($pdo, $decoratorId, $itemId);
+    error_log('Item encontrado para exclusão: ' . json_encode($item));
 
     $stmt = $pdo->prepare("
         DELETE FROM decorator_portfolio_items
         WHERE id = ? AND decorator_id = ?
     ");
     $stmt->execute([$itemId, $decoratorId]);
+    
+    $rowsAffected = $stmt->rowCount();
+    error_log('Linhas afetadas na exclusão: ' . $rowsAffected);
+
+    if ($rowsAffected === 0) {
+        error_log('Nenhuma linha foi excluída. Verificar se o item existe e pertence ao decorador.');
+        errorResponse('Não foi possível excluir o item. Verifique se ele existe.', 400);
+    }
 
     if (!empty($item['image_path'])) {
         deletePortfolioImage($item['image_path']);
+        error_log('Imagem do item excluída: ' . $item['image_path']);
     }
 
+    error_log('Item excluído com sucesso. ID: ' . $itemId);
     successResponse(null, 'Serviço removido do portfólio.');
 }
 
@@ -458,9 +494,37 @@ function deletePortfolioImage(string $relativePath): void {
     }
 }
 
+/**
+ * Função auxiliar para resposta de sucesso
+ */
+function successResponse($data = null, string $message = 'Operação realizada com sucesso.'): void {
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'message' => $message,
+        'data' => $data
+    ]);
+    exit;
+}
 
+/**
+ * Função auxiliar para resposta de erro
+ */
+function errorResponse(string $message, int $code = 400): void {
+    http_response_code($code);
+    echo json_encode([
+        'success' => false,
+        'message' => $message
+    ]);
+    exit;
+}
 
-
+/**
+ * Sanitizar entrada de dados
+ */
+function sanitizeInput(string $input): string {
+    return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
+}
 
 
 
