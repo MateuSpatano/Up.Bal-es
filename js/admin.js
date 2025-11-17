@@ -928,10 +928,17 @@ class AdminSystem {
             return;
         }
 
+        // Obter referência do botão antes do try
+        const submitBtn = document.getElementById('create-decorator-btn');
+        if (!submitBtn) {
+            this.showNotification('Erro: Botão de envio não encontrado', 'error');
+            return;
+        }
+        
+        const originalText = submitBtn.innerHTML;
+        
         try {
             // Mostrar loading
-            const submitBtn = document.getElementById('create-decorator-btn');
-            const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Criando...';
             submitBtn.disabled = true;
 
@@ -991,10 +998,11 @@ class AdminSystem {
             console.error('Erro ao criar decorador:', error);
             this.showNotification('Erro de conexão. Tente novamente.', 'error');
         } finally {
-            // Restaurar botão
-            const submitBtn = document.getElementById('create-decorator-btn');
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
+            // Restaurar botão sempre, mesmo em caso de erro
+            if (submitBtn) {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
         }
     }
 
@@ -2278,8 +2286,22 @@ class AdminSystem {
     
     // Salvar personalização da página
     async savePageCustomization() {
+        // Obter referência do botão antes do try
+        const submitBtn = document.getElementById('save-page-customization');
+        if (!submitBtn) {
+            this.showNotification('Erro: Botão de envio não encontrado', 'error');
+            return;
+        }
+        
+        const originalText = submitBtn.innerHTML;
+        
         try {
             const form = document.getElementById('page-customization-form');
+            if (!form) {
+                this.showNotification('Erro: Formulário não encontrado', 'error');
+                return;
+            }
+            
             const formData = new FormData(form);
             
             const decoratorId = formData.get('decorator_id');
@@ -2313,12 +2335,13 @@ class AdminSystem {
             // Validar dados obrigatórios
             if (!customizationData.page_title || !customizationData.page_description) {
                 this.showNotification('Título e descrição são obrigatórios', 'error');
+                // Restaurar botão antes de retornar
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
                 return;
             }
             
             // Mostrar loading
-            const submitBtn = document.getElementById('save-page-customization');
-            const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
             submitBtn.disabled = true;
             
@@ -2344,9 +2367,11 @@ class AdminSystem {
             console.error('Erro ao salvar personalização:', error);
             this.showNotification('Erro ao salvar personalização', 'error');
         } finally {
-            const submitBtn = document.getElementById('save-page-customization');
-            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Alterações';
-            submitBtn.disabled = false;
+            // Restaurar botão sempre, mesmo em caso de erro
+            if (submitBtn) {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
         }
     }
     
