@@ -432,10 +432,10 @@ function createDecorator($input) {
         $stmt = $pdo->prepare("
             INSERT INTO usuarios (
                 nome, email, senha, telefone, endereco, slug, perfil, 
-                ativo, aprovado_por_admin, created_at, whatsapp, email_comunicacao
+                ativo, aprovado_por_admin, is_active, created_at, whatsapp, email_comunicacao
             ) VALUES (
                 :nome, :email, :senha, :telefone, :endereco, :slug, 'decorator',
-                1, 1, NOW(), :whatsapp, :email_comunicacao
+                1, 1, 1, NOW(), :whatsapp, :email_comunicacao
             )
         ");
         
@@ -455,14 +455,14 @@ function createDecorator($input) {
         $decoratorId = $pdo->lastInsertId();
         
         // Garantir que o decorador está aprovado e ativo (caso algum trigger ou constraint tenha alterado)
-        $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1 WHERE id = ?");
+        $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1, is_active = 1 WHERE id = ?");
         $updateStmt->execute([$decoratorId]);
         
         // Criar personalização padrão da página para o novo decorador
         createDefaultPageCustomization($pdo, $decoratorId, $input['name'], $input['communication_email'], $input['whatsapp']);
         
         // Buscar dados do decorador criado incluindo slug e status
-        $stmt = $pdo->prepare("SELECT slug, ativo, aprovado_por_admin FROM usuarios WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT slug, ativo, aprovado_por_admin, is_active FROM usuarios WHERE id = ?");
         $stmt->execute([$decoratorId]);
         $decoratorData = $stmt->fetch();
         
@@ -479,11 +479,12 @@ function createDecorator($input) {
         // Verificar se está aprovado e ativo
         $ativo = (int) ($decoratorData['ativo'] ?? 0);
         $aprovado = (int) ($decoratorData['aprovado_por_admin'] ?? 0);
+        $isActive = (int) ($decoratorData['is_active'] ?? 0);
         
-        if ($ativo !== 1 || $aprovado !== 1) {
-            error_log("AVISO: Decorador criado mas não está ativo/aprovado. ID: {$decoratorId}, Ativo: {$ativo}, Aprovado: {$aprovado}");
+        if ($ativo !== 1 || $aprovado !== 1 || $isActive !== 1) {
+            error_log("AVISO: Decorador criado mas não está ativo/aprovado. ID: {$decoratorId}, Ativo: {$ativo}, Aprovado: {$aprovado}, is_active: {$isActive}");
             // Forçar atualização novamente
-            $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1 WHERE id = ?");
+            $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1, is_active = 1 WHERE id = ?");
             $updateStmt->execute([$decoratorId]);
         }
         
