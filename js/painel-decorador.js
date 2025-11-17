@@ -6217,8 +6217,25 @@ Qualquer dúvida, estou à disposição! 😊`;
 
     // ========== FUNCIONALIDADES DE PERSONALIZAÇÃO DA TELA INICIAL ==========
     
+    let editModeActive = false;
+    let currentCustomizationData = null;
+    
     async function loadPersonalizarTelaData() {
         try {
+            // Obter dados do usuário
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (!userData.slug) {
+                showNotification('Slug do decorador não encontrado', 'error');
+                return;
+            }
+            
+            // Carregar preview da página
+            const previewIframe = document.getElementById('decorator-page-preview');
+            if (previewIframe) {
+                previewIframe.src = `../${userData.slug}`;
+            }
+            
+            // Carregar configurações
             const response = await fetch('../services/decorador.php', {
                 method: 'POST',
                 headers: {
@@ -6232,6 +6249,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             const result = await response.json();
             
             if (result.success && result.data) {
+                currentCustomizationData = result.data;
                 const config = result.data;
                 
                 // Preencher campos de conteúdo
@@ -6299,16 +6317,301 @@ Qualquer dúvida, estou à disposição! 😊`;
                 
                 // Atualizar contadores
                 updateDecoratorCharCounters();
+                
+                // Atualizar preview quando campos mudarem
+                setupPreviewUpdates();
             }
             
             // Configurar tabs e eventos
             setupDecoratorCustomizationTabs();
             setupDecoratorColorInputs();
             setupDecoratorCharCounters();
+            setupEditModeToggle();
+            setupSaveButton();
             
         } catch (error) {
             console.error('Erro ao carregar personalização:', error);
             showNotification('Erro ao carregar configurações. Verifique a conexão com o servidor.', 'error');
+        }
+    }
+    
+    function setupSaveButton() {
+        const saveBtn = document.getElementById('decorator-save-customization');
+        if (!saveBtn) {
+            // Tentar novamente após um pequeno delay
+            setTimeout(setupSaveButton, 100);
+            return;
+        }
+        
+        // Remover listener anterior se existir
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        
+        // Adicionar novo listener
+        newSaveBtn.addEventListener('click', async function() {
+            const form = document.getElementById('decorator-page-customization-form');
+            if (!form) {
+                showNotification('Formulário não encontrado', 'error');
+                return;
+            }
+            
+            const originalText = newSaveBtn.innerHTML;
+            
+            try {
+                const formData = new FormData(form);
+                
+                // Coletar dados do formulário
+                const customizationData = {
+                    action: 'save_my_page_customization',
+                    page_title: formData.get('page_title'),
+                    page_description: formData.get('page_description'),
+                    welcome_text: formData.get('welcome_text'),
+                    cover_image_url: formData.get('cover_image_url'),
+                    primary_color: formData.get('primary_color'),
+                    secondary_color: formData.get('secondary_color'),
+                    accent_color: formData.get('accent_color'),
+                    social_facebook: formData.get('social_facebook'),
+                    social_instagram: formData.get('social_instagram'),
+                    social_whatsapp: formData.get('social_whatsapp'),
+                    social_youtube: formData.get('social_youtube'),
+                    meta_title: formData.get('meta_title'),
+                    meta_description: formData.get('meta_description'),
+                    meta_keywords: formData.get('meta_keywords'),
+                    contact_email: formData.get('contact_email'),
+                    contact_whatsapp: formData.get('contact_whatsapp'),
+                    contact_instagram: formData.get('contact_instagram')
+                };
+                
+                // Validar dados obrigatórios
+                if (!customizationData.page_title || !customizationData.page_description) {
+                    showNotification('Título e descrição são obrigatórios', 'error');
+                    return;
+                }
+                
+                // Mostrar loading
+                newSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                newSaveBtn.disabled = true;
+                
+                // Enviar para o servidor
+                const response = await fetch('../services/decorador.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(customizationData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Personalização salva com sucesso!', 'success');
+                    // Recarregar preview
+                    updatePreview();
+                } else {
+                    showNotification('Erro: ' + (result.message || 'Erro ao salvar personalização'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao salvar personalização:', error);
+                showNotification('Erro ao salvar personalização: ' + error.message, 'error');
+            } finally {
+                newSaveBtn.innerHTML = originalText;
+                newSaveBtn.disabled = false;
+            }
+        });
+    }
+    
+    function setupPreviewUpdates() {
+        // Atualizar preview quando campos mudarem
+        const inputs = document.querySelectorAll('#decorator-page-customization-form input, #decorator-page-customization-form textarea');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                updatePreview();
+            });
+            input.addEventListener('change', () => {
+                updatePreview();
+            });
+        });
+    }
+    
+    function updatePreview() {
+        const previewIframe = document.getElementById('decorator-page-preview');
+        if (!previewIframe || !previewIframe.contentWindow) return;
+        
+        // Recarregar iframe para aplicar mudanças
+        const currentSrc = previewIframe.src;
+        previewIframe.src = '';
+        setTimeout(() => {
+            previewIframe.src = currentSrc;
+        }, 100);
+    }
+    
+    function setupEditModeToggle() {
+        const toggleBtn = document.getElementById('decorator-toggle-edit-mode');
+        const overlay = document.getElementById('edit-overlay');
+        
+        if (toggleBtn && overlay) {
+            toggleBtn.addEventListener('click', function() {
+                editModeActive = !editModeActive;
+                
+                if (editModeActive) {
+                    overlay.classList.remove('hidden');
+                    toggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
+                    toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    enableEditMode();
+                } else {
+                    overlay.classList.add('hidden');
+                    toggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
+                    toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    disableEditMode();
+                }
+            });
+        }
+    }
+    
+    function enableEditMode() {
+        const previewIframe = document.getElementById('decorator-page-preview');
+        if (!previewIframe || !previewIframe.contentDocument) return;
+        
+        try {
+            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            const style = iframeDoc.createElement('style');
+            style.textContent = `
+                .editable-element {
+                    position: relative;
+                    cursor: pointer;
+                    outline: 2px dashed rgba(59, 130, 246, 0.5);
+                    outline-offset: 2px;
+                }
+                .editable-element:hover {
+                    outline-color: rgba(59, 130, 246, 0.8);
+                    background-color: rgba(59, 130, 246, 0.1);
+                }
+                .edit-icon {
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    background: #3b82f6;
+                    color: white;
+                    border-radius: 50%;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 12px;
+                    z-index: 1000;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+            `;
+            iframeDoc.head.appendChild(style);
+            
+            // Adicionar classe editável e ícone de lápis aos elementos principais
+            const elementsToEdit = [
+                { selector: 'h1', field: 'page_title' },
+                { selector: 'p:first-of-type', field: 'page_description' },
+                { selector: '.hero-section', field: 'cover_image_url' }
+            ];
+            
+            elementsToEdit.forEach(({ selector, field }) => {
+                const elements = iframeDoc.querySelectorAll(selector);
+                elements.forEach((el, index) => {
+                    if (index === 0) { // Apenas o primeiro elemento de cada tipo
+                        el.classList.add('editable-element');
+                        el.setAttribute('data-edit-field', field);
+                        
+                        const editIcon = iframeDoc.createElement('div');
+                        editIcon.className = 'edit-icon';
+                        editIcon.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                        el.style.position = 'relative';
+                        el.appendChild(editIcon);
+                        
+                        el.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openEditModal(field, el.textContent || el.src);
+                        });
+                    }
+                });
+            });
+        } catch (e) {
+            console.error('Erro ao habilitar modo de edição:', e);
+            // Se houver erro de CORS, apenas mostrar mensagem
+            showNotification('Para editar visualmente, a página precisa estar no mesmo domínio', 'info');
+        }
+    }
+    
+    function disableEditMode() {
+        const previewIframe = document.getElementById('decorator-page-preview');
+        if (!previewIframe || !previewIframe.contentDocument) return;
+        
+        try {
+            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+            const editableElements = iframeDoc.querySelectorAll('.editable-element');
+            editableElements.forEach(el => {
+                el.classList.remove('editable-element');
+                const editIcon = el.querySelector('.edit-icon');
+                if (editIcon) editIcon.remove();
+            });
+        } catch (e) {
+            console.error('Erro ao desabilitar modo de edição:', e);
+        }
+    }
+    
+    function openEditModal(field, currentValue) {
+        // Criar modal simples para editar
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold mb-4">Editar ${getFieldLabel(field)}</h3>
+                <textarea id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" rows="4">${currentValue}</textarea>
+                <div class="flex gap-2">
+                    <button id="save-edit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Salvar</button>
+                    <button id="cancel-edit" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        document.getElementById('save-edit').addEventListener('click', () => {
+            const newValue = document.getElementById('edit-field-value').value;
+            updateField(field, newValue);
+            modal.remove();
+            updatePreview();
+        });
+        
+        document.getElementById('cancel-edit').addEventListener('click', () => {
+            modal.remove();
+        });
+    }
+    
+    function getFieldLabel(field) {
+        const labels = {
+            'page_title': 'Título',
+            'page_description': 'Descrição',
+            'welcome_text': 'Texto de Boas-vindas',
+            'cover_image_url': 'URL da Imagem'
+        };
+        return labels[field] || field;
+    }
+    
+    function updateField(field, value) {
+        const fieldMap = {
+            'page_title': 'decorator-page-title',
+            'page_description': 'decorator-page-description',
+            'welcome_text': 'decorator-welcome-text',
+            'cover_image_url': 'decorator-cover-image-url'
+        };
+        
+        const inputId = fieldMap[field];
+        if (inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = value;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
     }
     
@@ -6408,89 +6711,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         }
     }
     
-    // Formulário de personalização
-    const decoratorCustomizationForm = document.getElementById('decorator-page-customization-form');
-    if (decoratorCustomizationForm) {
-        decoratorCustomizationForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('decorator-save-customization');
-            const originalText = submitBtn.innerHTML;
-            
-            try {
-                const formData = new FormData(decoratorCustomizationForm);
-                
-                // Coletar dados do formulário
-                const customizationData = {
-                    action: 'save_my_page_customization',
-                    page_title: formData.get('page_title'),
-                    page_description: formData.get('page_description'),
-                    welcome_text: formData.get('welcome_text'),
-                    cover_image_url: formData.get('cover_image_url'),
-                    primary_color: formData.get('primary_color'),
-                    secondary_color: formData.get('secondary_color'),
-                    accent_color: formData.get('accent_color'),
-                    social_facebook: formData.get('social_facebook'),
-                    social_instagram: formData.get('social_instagram'),
-                    social_whatsapp: formData.get('social_whatsapp'),
-                    social_youtube: formData.get('social_youtube'),
-                    meta_title: formData.get('meta_title'),
-                    meta_description: formData.get('meta_description'),
-                    meta_keywords: formData.get('meta_keywords'),
-                    contact_email: formData.get('contact_email'),
-                    contact_whatsapp: formData.get('contact_whatsapp'),
-                    contact_instagram: formData.get('contact_instagram')
-                };
-                
-                // Validar dados obrigatórios
-                if (!customizationData.page_title || !customizationData.page_description) {
-                    showNotification('Título e descrição são obrigatórios', 'error');
-                    return;
-                }
-                
-                // Mostrar loading
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
-                submitBtn.disabled = true;
-                
-                // Enviar para o servidor
-                const response = await fetch('../services/decorador.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(customizationData)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showNotification('Personalização salva com sucesso!', 'success');
-                } else {
-                    showNotification('Erro: ' + (result.message || 'Erro ao salvar personalização'), 'error');
-                }
-                
-            } catch (error) {
-                console.error('Erro ao salvar personalização:', error);
-                showNotification('Erro ao salvar personalização', 'error');
-            } finally {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            }
-        });
-    }
-    
-    // Botão de visualizar página
-    const previewBtn = document.getElementById('decorator-preview-customization');
-    if (previewBtn) {
-        previewBtn.addEventListener('click', function() {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.slug) {
-                window.open(`../${userData.slug}`, '_blank');
-            } else {
-                showNotification('Slug do decorador não encontrado', 'error');
-            }
-        });
-    }
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });

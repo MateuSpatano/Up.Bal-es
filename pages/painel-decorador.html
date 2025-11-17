@@ -506,20 +506,32 @@
 
             <!-- Módulo Personalizar Tela Inicial -->
             <div id="personalizar-tela-module" class="module-content hidden">
-                <div class="bg-white rounded-xl shadow-sm">
+                <div class="bg-white rounded-xl shadow-sm flex flex-col" style="height: calc(100vh - 200px); min-height: 600px;">
                     <!-- Header do Módulo -->
                     <div class="px-6 py-4 border-b border-gray-200">
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h2 class="text-xl font-semibold text-gray-800">Personalizar Tela Inicial</h2>
-                                <p class="text-sm text-gray-600 mt-1">Personalize completamente o visual da tela inicial que seus clientes veem ao acessar sua URL</p>
+                                <p class="text-sm text-gray-600 mt-1">Clique nos elementos da página ao lado para personalizar. As alterações são salvas automaticamente.</p>
+                            </div>
+                            <div class="mt-4 sm:mt-0 flex gap-2">
+                                <button type="button" id="decorator-toggle-edit-mode" 
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200">
+                                    <i class="fas fa-edit mr-2"></i>Modo Edição
+                                </button>
+                                <button type="button" id="decorator-save-customization" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                                    <i class="fas fa-save mr-2"></i>Salvar
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Conteúdo do Módulo -->
-                    <div class="p-6">
-                        <form id="decorator-page-customization-form" class="space-y-6">
+                    <!-- Layout Dividido: Controles e Preview -->
+                    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                        <!-- Painel de Controles (Esquerda) -->
+                        <div class="w-full lg:w-1/3 border-r border-gray-200 overflow-y-auto p-6 bg-gray-50">
+                            <form id="decorator-page-customization-form" class="space-y-6">
                             <!-- Tabs -->
                             <div class="border-b border-gray-200 mb-6">
                                 <nav class="flex space-x-4 overflow-x-auto">
@@ -760,18 +772,29 @@
                                 </div>
                             </div>
 
-                            <!-- Botões -->
-                            <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                                <button type="button" id="decorator-preview-customization" 
-                                        class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200">
-                                    <i class="fas fa-eye mr-2"></i>Visualizar Página
-                                </button>
-                                <button type="submit" id="decorator-save-customization" 
-                                        class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
-                                    <i class="fas fa-save mr-2"></i>Salvar Alterações
-                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Preview da Página do Cliente (Direita) -->
+                        <div class="w-full lg:w-2/3 relative overflow-hidden bg-gray-100 flex flex-col">
+                            <div id="page-preview-container" class="flex-1 overflow-auto bg-white">
+                                <iframe id="decorator-page-preview" 
+                                        src="" 
+                                        class="w-full h-full border-0"
+                                        style="min-height: 100%;">
+                                </iframe>
                             </div>
-                        </form>
+                            
+                            <!-- Overlay de Edição -->
+                            <div id="edit-overlay" class="hidden absolute inset-0 bg-black bg-opacity-20 z-10 pointer-events-none">
+                                <div class="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2">
+                                    <p class="text-sm text-gray-700">
+                                        <i class="fas fa-info-circle mr-2 text-blue-600"></i>
+                                        Modo Edição Ativo - Clique nos elementos para editar
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
