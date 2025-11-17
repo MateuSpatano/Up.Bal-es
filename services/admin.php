@@ -461,20 +461,43 @@ function createDecorator($input) {
         // Criar personalização padrão da página para o novo decorador
         createDefaultPageCustomization($pdo, $decoratorId, $input['name'], $input['communication_email'], $input['whatsapp']);
         
-        // Buscar dados do decorador criado incluindo slug
-        $stmt = $pdo->prepare("SELECT slug FROM usuarios WHERE id = ?");
+        // Buscar dados do decorador criado incluindo slug e status
+        $stmt = $pdo->prepare("SELECT slug, ativo, aprovado_por_admin FROM usuarios WHERE id = ?");
         $stmt->execute([$decoratorId]);
         $decoratorData = $stmt->fetch();
         
-        // Construir URL do decorador
-        $decoratorUrl = buildDecoratorUrl($decoratorData['slug'] ?? $slug);
+        // Verificar se o slug foi salvo corretamente
+        $finalSlug = $decoratorData['slug'] ?? $slug;
+        if (empty($finalSlug)) {
+            error_log("AVISO: Slug vazio para decorador ID: {$decoratorId}");
+            // Tentar gerar novamente se estiver vazio
+            $finalSlug = generateSlug($input['name']);
+            $updateSlugStmt = $pdo->prepare("UPDATE usuarios SET slug = ? WHERE id = ?");
+            $updateSlugStmt->execute([$finalSlug, $decoratorId]);
+        }
+        
+        // Verificar se está aprovado e ativo
+        $ativo = (int) ($decoratorData['ativo'] ?? 0);
+        $aprovado = (int) ($decoratorData['aprovado_por_admin'] ?? 0);
+        
+        if ($ativo !== 1 || $aprovado !== 1) {
+            error_log("AVISO: Decorador criado mas não está ativo/aprovado. ID: {$decoratorId}, Ativo: {$ativo}, Aprovado: {$aprovado}");
+            // Forçar atualização novamente
+            $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1 WHERE id = ?");
+            $updateStmt->execute([$decoratorId]);
+        }
+        
+        // Construir URL do decorador (sem base URL, apenas o slug)
+        $decoratorUrl = '/' . urlencode($finalSlug);
         
         // Log da criação
         logAdminAction($_SESSION['admin_id'], 'create_decorator', $decoratorId, $pdo);
         
+        error_log("Decorador criado com sucesso. ID: {$decoratorId}, Slug: {$finalSlug}, URL: {$decoratorUrl}");
+        
         successResponse([
             'id' => $decoratorId,
-            'slug' => $decoratorData['slug'] ?? $slug,
+            'slug' => $finalSlug,
             'url' => $decoratorUrl
         ], 'Decorador criado com sucesso!');
         

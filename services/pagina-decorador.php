@@ -10,35 +10,50 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/decorador.php';
 
+// Calcular o caminho base do projeto a partir da URL configurada
+$basePath = parse_url($urls['base'], PHP_URL_PATH);
+$basePath = rtrim($basePath, '/') . '/'; // Garante que termina com /
+// Se der erro ou vazio, tenta detectar automaticamente
+if (empty($basePath) || $basePath == '/') {
+    // Tenta detectar o caminho base a partir do script atual
+    $scriptPath = $_SERVER['SCRIPT_NAME'] ?? '';
+    $basePath = str_replace('/services/pagina-decorador.php', '', $scriptPath);
+    $basePath = rtrim($basePath, '/') . '/';
+    // Se ainda estiver vazio, usa o padrão
+    if (empty($basePath) || $basePath == '/') {
+        $basePath = '/Up.BaloesV3/';
+    }
+}
+
 // Obter slug da URL
 $slug = $_GET['slug'] ?? '';
 
 if (empty($slug)) {
     // Redirecionar para página inicial se não houver slug
-    header('Location: /index.html');
+    header('Location: ' . $basePath . 'index.html');
     exit;
 }
 
 // Buscar dados do decorador
 try {
-    // Log para debug (apenas em desenvolvimento)
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        error_log("Tentando buscar decorador com slug: {$slug}");
-    }
+    // Log para debug (sempre logar para ajudar a identificar problemas)
+    error_log("Pagina Decorador - Tentando buscar decorador com slug: {$slug}");
     
     $decoratorService = new DecoratorService($database_config);
     $result = $decoratorService->getDecoratorBySlug($slug);
     
-    // Log resultado (apenas em desenvolvimento)
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        error_log("Resultado da busca: " . json_encode(['success' => $result['success'] ?? false, 'message' => $result['message'] ?? '']));
-    }
+    // Log resultado
+    error_log("Pagina Decorador - Resultado da busca: " . json_encode([
+        'success' => $result['success'] ?? false, 
+        'message' => $result['message'] ?? '',
+        'has_data' => isset($result['data'])
+    ]));
     
     if (!$result['success']) {
         // Decorador não encontrado - retornar 404
         http_response_code(404);
         $message = $result['message'] ?? 'O decorador solicitado não foi encontrado.';
-        echo '<!DOCTYPE html><html><head><title>Decorador não encontrado</title></head><body><h1>404 - Decorador não encontrado</h1><p>' . htmlspecialchars($message) . '</p><p>Slug: ' . htmlspecialchars($slug) . '</p><a href="/index.html">Voltar para a página inicial</a></body></html>';
+        echo '<!DOCTYPE html><html><head><title>Decorador não encontrado</title></head><body><h1>404 - Decorador não encontrado</h1><p>' . htmlspecialchars($message) . '</p><p>Slug: ' . htmlspecialchars($slug) . '</p><a href="' . htmlspecialchars($basePath) . 'index.html">Voltar para a página inicial</a></body></html>';
         exit;
     }
     
@@ -48,7 +63,7 @@ try {
     if (!isset($decoratorData['decorator'])) {
         error_log('Estrutura de dados inválida: ' . json_encode($decoratorData));
         http_response_code(404);
-        echo '<!DOCTYPE html><html><head><title>Erro ao carregar decorador</title></head><body><h1>404 - Erro ao carregar decorador</h1><p>Estrutura de dados inválida.</p><a href="/index.html">Voltar para a página inicial</a></body></html>';
+        echo '<!DOCTYPE html><html><head><title>Erro ao carregar decorador</title></head><body><h1>404 - Erro ao carregar decorador</h1><p>Estrutura de dados inválida.</p><a href="' . htmlspecialchars($basePath) . 'index.html">Voltar para a página inicial</a></body></html>';
         exit;
     }
     
@@ -92,7 +107,7 @@ try {
     // Erro interno - retornar 404
     error_log('Erro ao carregar decorador: ' . $e->getMessage());
     http_response_code(404);
-    echo '<!DOCTYPE html><html><head><title>Erro ao carregar decorador</title></head><body><h1>404 - Erro ao carregar decorador</h1><p>Ocorreu um erro ao carregar a página do decorador.</p><a href="/index.html">Voltar para a página inicial</a></body></html>';
+        echo '<!DOCTYPE html><html><head><title>Erro ao carregar decorador</title></head><body><h1>404 - Erro ao carregar decorador</h1><p>Ocorreu um erro ao carregar a página do decorador.</p><a href="' . htmlspecialchars($basePath) . 'index.html">Voltar para a página inicial</a></body></html>';
     exit;
 }
 ?>
@@ -117,9 +132,9 @@ try {
     <?php endif; ?>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/Images/favicon.ico">
-    <link rel="shortcut icon" type="image/x-icon" href="/Images/favicon.ico">
-    <link rel="apple-touch-icon" href="/Images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?php echo htmlspecialchars($basePath); ?>Images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="<?php echo htmlspecialchars($basePath); ?>Images/favicon.ico">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($basePath); ?>Images/favicon.ico">
     
     <!-- Font Awesome para ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -128,7 +143,7 @@ try {
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- CSS personalizado -->
-    <link rel="stylesheet" href="/css/estilos.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($basePath); ?>css/estilos.css">
     
     <style>
         :root {
@@ -169,9 +184,9 @@ try {
                 
                 <!-- Logo do Sistema -->
                 <div class="flex items-center space-x-3">
-                    <a href="/index.html" class="flex items-center space-x-3">
+                    <a href="<?php echo htmlspecialchars($basePath); ?>index.html" class="flex items-center space-x-3">
                         <div class="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg logo-container">
-                            <img src="/Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full logo-image">
+                            <img src="<?php echo htmlspecialchars($basePath); ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full logo-image">
                         </div>
                         <span class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 hidden sm:block">Up.Baloes</span>
                     </a>
@@ -179,7 +194,7 @@ try {
 
                 <!-- Menu de Navegação -->
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="/index.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="<?php echo htmlspecialchars($basePath); ?>index.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
                     <a href="#portfolio" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
@@ -188,7 +203,7 @@ try {
                     <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-phone mr-2"></i>Contatos
                     </a>
-                    <a href="/pages/solicitacao-cliente.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                    <a href="<?php echo htmlspecialchars($basePath); ?>pages/solicitacao-cliente.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
                         <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                     </a>
                 </div>
@@ -205,7 +220,7 @@ try {
         <!-- Menu Mobile Expandido -->
         <div id="mobile-menu" class="md:hidden bg-white border-t border-gray-200 opacity-0 invisible transition-all duration-200">
             <div class="px-4 py-3 space-y-2">
-                <a href="/index.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                <a href="<?php echo htmlspecialchars($basePath); ?>index.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-home mr-3"></i>Início
                 </a>
                 <a href="#portfolio" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
@@ -214,7 +229,7 @@ try {
                 <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-phone mr-3"></i>Contatos
                 </a>
-                <a href="/pages/solicitacao-cliente.html" class="mobile-nav-link block px-3 py-2 bg-blue-600 text-white rounded-lg">
+                <a href="<?php echo htmlspecialchars($basePath); ?>pages/solicitacao-cliente.html" class="mobile-nav-link block px-3 py-2 bg-blue-600 text-white rounded-lg">
                     <i class="fas fa-gift mr-3"></i>Solicitar Serviço
                 </a>
             </div>
@@ -239,7 +254,7 @@ try {
                     </p>
                     <?php endif; ?>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
-                        <a href="/pages/solicitacao-cliente.html" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
+                        <a href="<?php echo htmlspecialchars($basePath); ?>pages/solicitacao-cliente.html" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                         </a>
                         <a href="#contatos" class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-block text-center">
@@ -443,7 +458,7 @@ try {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div class="flex items-center justify-center space-x-3 mb-4">
                 <div class="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                    <img src="/Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
+                    <img src="<?php echo htmlspecialchars($basePath); ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
                 </div>
                 <span class="text-xl font-bold">Up.Baloes</span>
             </div>
@@ -455,7 +470,7 @@ try {
     </footer>
 
     <!-- JavaScript -->
-    <script src="/js/principal.js"></script>
+    <script src="<?php echo htmlspecialchars($basePath); ?>js/principal.js"></script>
     <script>
         // Menu mobile toggle
         document.addEventListener('DOMContentLoaded', function() {

@@ -1,18 +1,20 @@
 RewriteEngine On
 
-# Define a base para reescrita automática
-RewriteBase /
+# Tenta detectar o diretório base automaticamente
+# Se sua pasta não for detectada, descomente a linha abaixo e coloque o nome da pasta
+# RewriteBase /NomeDaSuaPasta/
 
-# Condição de Segurança: Se o arquivo ou diretório solicitado existe, não faz nada
+# Não aplicar regras para arquivos ou diretórios reais
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Regra Principal:
-# Captura qualquer coisa após a barra (o slug) e envia para o script da página
-# O padrão ([a-z0-9-]+) aceita letras, números e hifens
+# Ignorar pastas do sistema para evitar loops (ajustado para ser genérico)
+RewriteCond %{REQUEST_URI} !^/.+/(pages|services|css|js|Images|utils|database|docs|components)/
+
+# Regra principal: Captura o slug e envia para a página do decorador
 RewriteRule ^([a-z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
 
-# Configurações extras de segurança e performance (mantidas do seu original)
+# Configurações de segurança e cache (mantidas)
 <Files "*.sql">
     Order Allow,Deny
     Deny from all
