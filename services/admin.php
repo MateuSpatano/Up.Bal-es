@@ -115,6 +115,10 @@ try {
             deleteUser($input);
             break;
             
+        case 'get_first_decorator':
+            getFirstDecorator();
+            break;
+            
         default:
             errorResponse('Ação não reconhecida', 400);
     }
@@ -1460,6 +1464,47 @@ function createDefaultPageCustomization($pdo, $decoratorId, $decoratorName, $ema
         error_log("Erro ao criar personalização padrão para decorador {$decoratorId}: " . $e->getMessage());
     } catch (Exception $e) {
         error_log("Erro ao criar personalização padrão para decorador {$decoratorId}: " . $e->getMessage());
+    }
+}
+
+/**
+ * Obter o primeiro decorador ativo e aprovado
+ * Usado pelo carrinho quando não há decorador_id especificado
+ */
+function getFirstDecorator() {
+    try {
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        // Buscar o primeiro decorador ativo e aprovado
+        $stmt = $pdo->prepare("
+            SELECT id 
+            FROM usuarios 
+            WHERE perfil = 'decorator' 
+            AND ativo = 1 
+            AND aprovado_por_admin = 1 
+            ORDER BY id ASC 
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $decorator = $stmt->fetch();
+        
+        if ($decorator) {
+            successResponse([
+                'decorator_id' => (int)$decorator['id']
+            ], 'Decorador encontrado');
+        } else {
+            // Se não houver decorador, retornar null ou ID padrão
+            successResponse([
+                'decorator_id' => null
+            ], 'Nenhum decorador disponível');
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar primeiro decorador: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
+    } catch (Exception $e) {
+        error_log("Erro ao buscar primeiro decorador: " . $e->getMessage());
+        errorResponse('Erro interno do servidor', 500);
     }
 }
 ?>

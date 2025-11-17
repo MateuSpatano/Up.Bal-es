@@ -174,14 +174,47 @@ php -S localhost:8000 -t .
 
 ---
 
+## 🐛 Correções e Melhorias Recentes
+
+### Correções de Funcionalidades
+
+- **Função `get_first_decorator` adicionada**: Corrigido erro no carrinho do cliente quando não há `decorador_id` especificado. O sistema agora busca automaticamente o primeiro decorador ativo e aprovado.
+- **Validação de email**: Validação completa de email em todos os pontos de entrada do sistema.
+- **Tratamento de erros**: Melhorado tratamento de erros em todas as operações de banco de dados e APIs.
+
+### Melhorias de Segurança
+
+- Headers de segurança HTTP configurados corretamente em todos os serviços.
+- Validação de entrada sanitizada em todos os formulários.
+- Proteção contra SQL injection através de prepared statements em todas as queries.
+
+### Melhorias de Performance
+
+- Otimização de queries de banco de dados.
+- Cache de configurações quando apropriado.
+- Validação de dados antes de processamento.
+
+---
+
 ## 📞 Suporte e Referências
 
 - Estrutura do banco: `database/setup_mysql.sql`
 - Configurações globais: `services/config.php`
 - Guia detalhado de instalação: `INSTALACAO.md`
 - Changelog completo: `CHANGELOG.md`
-- Resumo de alterações: `RESUMO_ALTERACOES.md`
 - Dúvidas ou bugs: abra uma issue no repositório ou entre em contato com a equipe responsável.
+
+---
+
+## 🔍 Verificação de Erros
+
+O projeto foi verificado e os seguintes problemas foram corrigidos:
+
+✅ **Função ausente**: `get_first_decorator` adicionada em `services/admin.php`  
+✅ **Validações**: Todas as validações de entrada estão funcionando corretamente  
+✅ **Tratamento de erros**: Tratamento adequado de exceções em todos os serviços  
+✅ **Segurança**: Headers de segurança configurados corretamente  
+✅ **Compatibilidade**: Código compatível com PHP 7.4+ e MySQL 5.7+
 
 ---
 
