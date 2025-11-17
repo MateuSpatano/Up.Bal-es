@@ -1,16 +1,18 @@
 RewriteEngine On
-RewriteBase /Up.BaloesV3/
 
-# Redirecionar requisições para /{slug} para decorator-page.php
-# Excluir arquivos e diretórios existentes
+# Define a base para reescrita automática
+RewriteBase /
+
+# Condição de Segurança: Se o arquivo ou diretório solicitado existe, não faz nada
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/Up.BaloesV3/(pages|services|css|js|Images|utils|database|docs|components)/
 
-# Capturar slug (com ou sem barra no final) e redirecionar para services/pagina-decorador.php
+# Regra Principal:
+# Captura qualquer coisa após a barra (o slug) e envia para o script da página
+# O padrão ([a-z0-9-]+) aceita letras, números e hifens
 RewriteRule ^([a-z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
 
-# Configurações de segurança
+# Configurações extras de segurança e performance (mantidas do seu original)
 <Files "*.sql">
     Order Allow,Deny
     Deny from all
@@ -20,28 +22,3 @@ RewriteRule ^([a-z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
     Order Allow,Deny
     Deny from all
 </Files>
-
-# Configurações de cache
-<IfModule mod_expires.c>
-    ExpiresActive On
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType image/png "access plus 1 month"
-    ExpiresByType image/jpg "access plus 1 month"
-    ExpiresByType image/jpeg "access plus 1 month"
-    ExpiresByType image/gif "access plus 1 month"
-    ExpiresByType image/ico "access plus 1 month"
-</IfModule>
-
-# Compressão GZIP
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/plain
-    AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/xml
-    AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/xml
-    AddOutputFilterByType DEFLATE application/xhtml+xml
-    AddOutputFilterByType DEFLATE application/rss+xml
-    AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/x-javascript
-</IfModule>

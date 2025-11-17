@@ -428,6 +428,7 @@ function createDecorator($input) {
         $passwordHash = hashPassword($input['password']);
         
         // Inserir decorador
+        // IMPORTANTE: Decoradores criados pelo admin são automaticamente aprovados e ativados
         $stmt = $pdo->prepare("
             INSERT INTO usuarios (
                 nome, email, senha, telefone, endereco, slug, perfil, 
@@ -452,6 +453,10 @@ function createDecorator($input) {
         $stmt->execute($params);
         
         $decoratorId = $pdo->lastInsertId();
+        
+        // Garantir que o decorador está aprovado e ativo (caso algum trigger ou constraint tenha alterado)
+        $updateStmt = $pdo->prepare("UPDATE usuarios SET ativo = 1, aprovado_por_admin = 1 WHERE id = ?");
+        $updateStmt->execute([$decoratorId]);
         
         // Criar personalização padrão da página para o novo decorador
         createDefaultPageCustomization($pdo, $decoratorId, $input['name'], $input['communication_email'], $input['whatsapp']);
