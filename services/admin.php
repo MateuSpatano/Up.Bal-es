@@ -332,9 +332,10 @@ function getUsers($input) {
             }
 
             if ($user['type'] === 'decorator') {
-                // Se não tem slug, gerar um baseado no nome
+                // Se não tem slug, gerar um baseado no nome (não no email)
                 if (empty($user['slug'])) {
-                    $userName = $user['name'] ?? '';
+                    // Usar o nome diretamente do banco de dados, não o campo 'name' que pode estar vazio
+                    $userName = $user['nome'] ?? '';
                     if (!empty($userName)) {
                         $newSlug = generateSlug($userName);
                         // Atualizar slug no banco de dados
