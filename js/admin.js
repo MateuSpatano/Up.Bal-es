@@ -86,6 +86,16 @@ class AdminSystem {
             const typeValue = document.getElementById('user-type-filter')?.value || '';
             const statusValue = document.getElementById('user-status-filter')?.value || '';
             
+            // Se não há filtros aplicados, carregar todos os usuários (sem paginação)
+            // Caso contrário, usar paginação normal
+            const hasFilters = searchValue || typeValue || statusValue;
+            const limit = hasFilters ? this.itemsPerPage : 10000; // Limite alto para carregar todos quando sem filtros
+            
+            // Resetar página para 1 quando não há filtros
+            if (!hasFilters) {
+                this.currentPage = 1;
+            }
+            
             const response = await fetch('../services/admin.php', {
                 method: 'POST',
                 headers: {
@@ -93,8 +103,8 @@ class AdminSystem {
                 },
                 body: JSON.stringify({
                     action: 'get_users',
-                    page: this.currentPage,
-                    limit: this.itemsPerPage,
+                    page: hasFilters ? this.currentPage : 1,
+                    limit: limit,
                     search: searchValue,
                     type: typeValue, // Vazio por padrão = todos os tipos
                     status: statusValue // Vazio por padrão = todos os status
@@ -105,9 +115,11 @@ class AdminSystem {
             
             if (result.success) {
                 this.users = result.data.users;
+                // Inicializar filteredUsers com todos os usuários carregados
+                this.filteredUsers = [...this.users];
                 this.refreshUsersChart();
-                this.updateUsersTable();
-                this.updatePagination(result.data.pagination);
+                // Usar renderUsersTable para manter consistência com o sistema de filtros
+                this.renderUsersTable();
             } else {
                 this.showNotification('Erro ao carregar usuários: ' + result.message, 'error');
             }
@@ -663,7 +675,13 @@ class AdminSystem {
         if (pageId === 'dashboard') {
             this.loadDashboardData();
         } else if (pageId === 'manage-users') {
-            this.renderUsersTable();
+            // Garantir que os usuários sejam carregados quando a página é exibida
+            if (this.users.length === 0) {
+                this.loadUsers();
+            } else {
+                // Se já há usuários carregados, apenas renderizar a tabela
+                this.renderUsersTable();
+            }
         } else if (pageId === 'support') {
             this.loadSupportTickets();
         } else if (pageId === 'settings') {
@@ -1067,15 +1085,27 @@ class AdminSystem {
     }
 
     // Filtrar usuários
-    filterUsers() {
-        const search = document.getElementById('user-search').value.toLowerCase();
-        const typeFilter = document.getElementById('user-type-filter').value;
-        const statusFilter = document.getElementById('user-status-filter').value;
-
+    async filterUsers() {
+        const search = document.getElementById('user-search')?.value || '';
+        const typeFilter = document.getElementById('user-type-filter')?.value || '';
+        const statusFilter = document.getElementById('user-status-filter')?.value || '';
+        
+        // Se não há filtros aplicados, recarregar todos os usuários do servidor
+        // Caso contrário, filtrar localmente dos usuários já carregados
+        const hasFilters = search || typeFilter || statusFilter;
+        
+        if (!hasFilters) {
+            // Sem filtros: recarregar todos os usuários do servidor
+            await this.loadUsers();
+            return;
+        }
+        
+        // Com filtros: filtrar localmente
+        const searchLower = search.toLowerCase();
         this.filteredUsers = this.users.filter(user => {
-            const matchesSearch = !search || 
-                user.name.toLowerCase().includes(search) || 
-                user.email.toLowerCase().includes(search);
+            const matchesSearch = !searchLower || 
+                user.name.toLowerCase().includes(searchLower) || 
+                user.email.toLowerCase().includes(searchLower);
             
             const matchesType = !typeFilter || user.type === typeFilter;
             const matchesStatus = !statusFilter || user.status === statusFilter;
@@ -1129,7 +1159,7 @@ class AdminSystem {
                     </span>
                 </td>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 hidden md:table-cell">
-                    ${new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                    ${new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </td>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-1 md:space-x-2">
