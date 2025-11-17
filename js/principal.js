@@ -341,28 +341,67 @@ document.addEventListener('DOMContentLoaded', function() {
         const logoutLink = Array.from(userDropdown.querySelectorAll('a')).find(a => a.querySelector('.fa-sign-out-alt'));
         const accountLink = document.getElementById('account-management-link');
         const minhasComprasLink = document.getElementById('minhas-compras-menu-item');
+        const painelAdminLink = document.getElementById('painel-admin-link');
+        const painelDecoradorLink = document.getElementById('painel-decorador-link');
 
-        // Mostrar/ocultar opção "Minhas Compras" baseado no login
+        // Mostrar/ocultar opções do menu baseado no login e perfil
         function updateUserMenuVisibility() {
             try {
                 const userToken = localStorage.getItem('userToken');
-                const userData = localStorage.getItem('userData');
+                const userDataStr = localStorage.getItem('userData');
                 
-                if (userToken && userData) {
-                    // Usuário logado - mostrar "Minhas Compras" e ocultar "Login"
+                if (userToken && userDataStr) {
+                    // Usuário logado
+                    const userData = JSON.parse(userDataStr);
+                    const userRole = userData?.role || userData?.perfil;
+                    
+                    // Mostrar "Minhas Compras" e ocultar "Login"
                     if (minhasComprasLink) {
                         minhasComprasLink.classList.remove('hidden');
                     }
                     if (loginLink) {
                         loginLink.classList.add('hidden');
                     }
+                    
+                    // Mostrar/ocultar links de painel baseado no perfil
+                    if (userRole === 'admin') {
+                        // Admin logado - mostrar "Painel Admin"
+                        if (painelAdminLink) {
+                            painelAdminLink.classList.remove('hidden');
+                        }
+                        if (painelDecoradorLink) {
+                            painelDecoradorLink.classList.add('hidden');
+                        }
+                    } else if (userRole === 'decorator') {
+                        // Decorador logado - mostrar "Painel Decorador"
+                        if (painelDecoradorLink) {
+                            painelDecoradorLink.classList.remove('hidden');
+                        }
+                        if (painelAdminLink) {
+                            painelAdminLink.classList.add('hidden');
+                        }
+                    } else {
+                        // Cliente ou outro perfil - ocultar ambos
+                        if (painelAdminLink) {
+                            painelAdminLink.classList.add('hidden');
+                        }
+                        if (painelDecoradorLink) {
+                            painelDecoradorLink.classList.add('hidden');
+                        }
+                    }
                 } else {
-                    // Usuário não logado - ocultar "Minhas Compras" e mostrar "Login"
+                    // Usuário não logado - ocultar tudo e mostrar apenas "Login"
                     if (minhasComprasLink) {
                         minhasComprasLink.classList.add('hidden');
                     }
                     if (loginLink) {
                         loginLink.classList.remove('hidden');
+                    }
+                    if (painelAdminLink) {
+                        painelAdminLink.classList.add('hidden');
+                    }
+                    if (painelDecoradorLink) {
+                        painelDecoradorLink.classList.add('hidden');
                     }
                 }
             } catch (error) {
@@ -409,6 +448,82 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Usuário logado - abrir modal
                 openAccountModal();
+            });
+        }
+
+        // Event listener para Painel Admin
+        if (painelAdminLink) {
+            painelAdminLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                toggleUserDropdown();
+                
+                // Verificar se o usuário está logado como admin
+                const userToken = localStorage.getItem('userToken');
+                const userDataStr = localStorage.getItem('userData');
+                
+                if (!userToken || !userDataStr) {
+                    showNotification('Por favor, faça login como administrador para acessar o painel.', 'warning');
+                    setTimeout(() => {
+                        window.location.href = 'pages/admin-login.html';
+                    }, 1500);
+                    return;
+                }
+                
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    const userRole = userData?.role || userData?.perfil;
+                    
+                    if (userRole === 'admin') {
+                        // Redirecionar para o painel admin
+                        window.location.href = 'pages/admin.html';
+                    } else {
+                        showNotification('Acesso negado. Apenas administradores podem acessar o painel admin.', 'error');
+                        setTimeout(() => {
+                            window.location.href = 'pages/admin-login.html';
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar perfil:', error);
+                    showNotification('Erro ao verificar permissões. Tente fazer login novamente.', 'error');
+                }
+            });
+        }
+
+        // Event listener para Painel Decorador
+        if (painelDecoradorLink) {
+            painelDecoradorLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                toggleUserDropdown();
+                
+                // Verificar se o usuário está logado como decorador
+                const userToken = localStorage.getItem('userToken');
+                const userDataStr = localStorage.getItem('userData');
+                
+                if (!userToken || !userDataStr) {
+                    showNotification('Por favor, faça login como decorador para acessar o painel.', 'warning');
+                    setTimeout(() => {
+                        window.location.href = 'pages/login.html';
+                    }, 1500);
+                    return;
+                }
+                
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    const userRole = userData?.role || userData?.perfil;
+                    
+                    if (userRole === 'decorator') {
+                        // Redirecionar para o painel do decorador
+                        window.location.href = 'pages/painel-decorador.html';
+                    } else {
+                        showNotification('Acesso negado. Apenas decoradores podem acessar o painel.', 'error');
+                        setTimeout(() => {
+                            window.location.href = 'pages/login.html';
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar perfil:', error);
+                    showNotification('Erro ao verificar permissões. Tente fazer login novamente.', 'error');
+                }
             });
         }
 
