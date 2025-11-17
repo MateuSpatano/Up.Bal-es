@@ -16,7 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    errorResponse('Método não permitido', 405);
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Método não permitido']);
+    exit;
 }
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -24,7 +26,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    errorResponse('Usuário não autenticado', 401);
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
+    exit;
 }
 
 $decoratorId = (int) $_SESSION['user_id'];
@@ -71,11 +75,27 @@ try {
             break;
 
         default:
-            errorResponse('Ação não reconhecida', 400);
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Ação não reconhecida']);
+            exit;
     }
+} catch (PDOException $e) {
+    error_log('Erro no banco de dados (portfolio.php): ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erro ao conectar com o banco de dados'
+    ]);
+    exit;
 } catch (Exception $e) {
     error_log('Erro no serviço de portfólio: ' . $e->getMessage());
-    errorResponse('Erro interno do servidor', 500);
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erro interno do servidor: ' . (ENVIRONMENT === 'development' ? $e->getMessage() : 'Tente novamente mais tarde')
+    ]);
+    exit;
 }
 
 /**
@@ -105,10 +125,17 @@ function listPortfolioItems(PDO $pdo, int $decoratorId): void {
 
     $normalized = array_map('normalizePortfolioRow', $items);
 
-    successResponse([
-        'items' => $normalized,
-        'total' => count($normalized)
-    ], 'Portfólio carregado com sucesso.');
+    if (function_exists('successResponse')) {
+        successResponse([
+            'items' => $normalized,
+            'total' => count($normalized)
+        ], 'Portfólio carregado com sucesso.');
+    } else {
+        portfolioSuccessResponse([
+            'items' => $normalized,
+            'total' => count($normalized)
+        ], 'Portfólio carregado com sucesso.');
+    }
 }
 
 /**
@@ -118,14 +145,24 @@ function getPortfolioItem(PDO $pdo, int $decoratorId, array $input): void {
     $itemId = (int) ($input['id'] ?? 0);
 
     if ($itemId <= 0) {
-        errorResponse('ID do item é obrigatório.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('ID do item é obrigatório.', 400);
+        } else {
+            portfolioErrorResponse('ID do item é obrigatório.', 400);
+        }
     }
 
     $item = fetchPortfolioItem($pdo, $decoratorId, $itemId);
 
-    successResponse([
-        'item' => normalizePortfolioRow($item)
-    ], 'Item carregado com sucesso.');
+    if (function_exists('successResponse')) {
+        successResponse([
+            'item' => normalizePortfolioRow($item)
+        ], 'Item carregado com sucesso.');
+    } else {
+        portfolioSuccessResponse([
+            'item' => normalizePortfolioRow($item)
+        ], 'Item carregado com sucesso.');
+    }
 }
 
 /**
@@ -139,7 +176,11 @@ function createPortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
     $arcSize = trim($input['arcSize'] ?? '');
 
     if ($type === '' || $title === '') {
-        errorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        } else {
+            portfolioErrorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        }
     }
 
     $imagePath = handlePortfolioImageUpload($decoratorId, $files['image'] ?? null);
@@ -177,11 +218,11 @@ function createPortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
 
     $stmt->execute([
         'decorator_id' => $decoratorId,
-        'service_type' => sanitizeInput($type),
-        'title' => sanitizeInput($title),
-        'description' => $description !== '' ? sanitizeInput($description) : null,
+        'service_type' => portfolioSanitizeInput($type),
+        'title' => portfolioSanitizeInput($title),
+        'description' => $description !== '' ? portfolioSanitizeInput($description) : null,
         'price' => $price,
-        'arc_size' => $arcSize !== '' ? sanitizeInput($arcSize) : null,
+        'arc_size' => $arcSize !== '' ? portfolioSanitizeInput($arcSize) : null,
         'image_path' => $imagePath,
         'display_order' => $displayOrder
     ]);
@@ -189,9 +230,15 @@ function createPortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
     $itemId = (int) $pdo->lastInsertId();
     $item = fetchPortfolioItem($pdo, $decoratorId, $itemId);
 
-    successResponse([
-        'item' => normalizePortfolioRow($item)
-    ], 'Serviço adicionado ao portfólio com sucesso!');
+    if (function_exists('successResponse')) {
+        successResponse([
+            'item' => normalizePortfolioRow($item)
+        ], 'Serviço adicionado ao portfólio com sucesso!');
+    } else {
+        portfolioSuccessResponse([
+            'item' => normalizePortfolioRow($item)
+        ], 'Serviço adicionado ao portfólio com sucesso!');
+    }
 }
 
 /**
@@ -221,7 +268,11 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
 
     if ($type === '' || $title === '') {
         error_log('Campos obrigatórios faltando. Type: ' . $type . ', Title: ' . $title);
-        errorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        } else {
+            portfolioErrorResponse('Tipo e título do serviço são obrigatórios.', 400);
+        }
     }
 
     $newImagePath = handlePortfolioImageUpload($decoratorId, $files['image'] ?? null, $existing['image_path'] ?? null);
@@ -241,11 +292,11 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
     ");
 
     $params = [
-        'service_type' => sanitizeInput($type),
-        'title' => sanitizeInput($title),
-        'description' => $description !== '' ? sanitizeInput($description) : null,
+        'service_type' => portfolioSanitizeInput($type),
+        'title' => portfolioSanitizeInput($title),
+        'description' => $description !== '' ? portfolioSanitizeInput($description) : null,
         'price' => $price,
-        'arc_size' => $arcSize !== '' ? sanitizeInput($arcSize) : null,
+        'arc_size' => $arcSize !== '' ? portfolioSanitizeInput($arcSize) : null,
         'image_path' => $newImagePath,
         'id' => $itemId,
         'decorator_id' => $decoratorId
@@ -260,15 +311,25 @@ function updatePortfolioItem(PDO $pdo, int $decoratorId, array $input, array $fi
 
     if ($rowsAffected === 0) {
         error_log('Nenhuma linha foi atualizada. Verificar se o item existe e pertence ao decorador.');
-        errorResponse('Nenhuma alteração foi feita. Verifique se o item existe.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Nenhuma alteração foi feita. Verifique se o item existe.', 400);
+        } else {
+            portfolioErrorResponse('Nenhuma alteração foi feita. Verifique se o item existe.', 400);
+        }
     }
 
     $updated = fetchPortfolioItem($pdo, $decoratorId, $itemId);
     error_log('Item atualizado: ' . json_encode($updated));
 
-    successResponse([
-        'item' => normalizePortfolioRow($updated)
-    ], 'Serviço atualizado com sucesso!');
+    if (function_exists('successResponse')) {
+        successResponse([
+            'item' => normalizePortfolioRow($updated)
+        ], 'Serviço atualizado com sucesso!');
+    } else {
+        portfolioSuccessResponse([
+            'item' => normalizePortfolioRow($updated)
+        ], 'Serviço atualizado com sucesso!');
+    }
 }
 
 /**
@@ -300,7 +361,11 @@ function deletePortfolioItem(PDO $pdo, int $decoratorId, array $input): void {
 
     if ($rowsAffected === 0) {
         error_log('Nenhuma linha foi excluída. Verificar se o item existe e pertence ao decorador.');
-        errorResponse('Não foi possível excluir o item. Verifique se ele existe.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Não foi possível excluir o item. Verifique se ele existe.', 400);
+        } else {
+            portfolioErrorResponse('Não foi possível excluir o item. Verifique se ele existe.', 400);
+        }
     }
 
     if (!empty($item['image_path'])) {
@@ -309,7 +374,11 @@ function deletePortfolioItem(PDO $pdo, int $decoratorId, array $input): void {
     }
 
     error_log('Item excluído com sucesso. ID: ' . $itemId);
-    successResponse(null, 'Serviço removido do portfólio.');
+    if (function_exists('successResponse')) {
+        successResponse(null, 'Serviço removido do portfólio.');
+    } else {
+        portfolioSuccessResponse(null, 'Serviço removido do portfólio.');
+    }
 }
 
 /**
@@ -336,7 +405,11 @@ function clearPortfolio(PDO $pdo, int $decoratorId): void {
         }
     }
 
-    successResponse(null, 'Portfólio removido com sucesso.');
+    if (function_exists('successResponse')) {
+        successResponse(null, 'Portfólio removido com sucesso.');
+    } else {
+        portfolioSuccessResponse(null, 'Portfólio removido com sucesso.');
+    }
 }
 
 /**
@@ -366,7 +439,11 @@ function fetchPortfolioItem(PDO $pdo, int $decoratorId, int $itemId): array {
     $item = $stmt->fetch();
 
     if (!$item) {
-        errorResponse('Item não encontrado.', 404);
+        if (function_exists('errorResponse')) {
+            errorResponse('Item não encontrado.', 404);
+        } else {
+            portfolioErrorResponse('Item não encontrado.', 404);
+        }
     }
 
     return $item;
@@ -435,11 +512,19 @@ function handlePortfolioImageUpload(int $decoratorId, ?array $file, ?string $exi
     }
 
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        errorResponse('Não foi possível enviar a imagem. Código de erro: ' . $file['error'], 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Não foi possível enviar a imagem. Código de erro: ' . $file['error'], 400);
+        } else {
+            portfolioErrorResponse('Não foi possível enviar a imagem. Código de erro: ' . $file['error'], 400);
+        }
     }
 
     if ($file['size'] > 5 * 1024 * 1024) {
-        errorResponse('Imagem excede o tamanho máximo de 5MB.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Imagem excede o tamanho máximo de 5MB.', 400);
+        } else {
+            portfolioErrorResponse('Imagem excede o tamanho máximo de 5MB.', 400);
+        }
     }
 
     $allowedMime = [
@@ -451,7 +536,11 @@ function handlePortfolioImageUpload(int $decoratorId, ?array $file, ?string $exi
 
     $detectedMime = mime_content_type($file['tmp_name']);
     if (!$detectedMime || !array_key_exists($detectedMime, $allowedMime)) {
-        errorResponse('Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.', 400);
+        if (function_exists('errorResponse')) {
+            errorResponse('Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.', 400);
+        } else {
+            portfolioErrorResponse('Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.', 400);
+        }
     }
 
     $uploadDir = realpath(__DIR__ . '/../uploads');
@@ -472,7 +561,11 @@ function handlePortfolioImageUpload(int $decoratorId, ?array $file, ?string $exi
     $destination = $portfolioDir . '/' . $filename;
 
     if (!move_uploaded_file($file['tmp_name'], $destination)) {
-        errorResponse('Não foi possível salvar a imagem enviada.', 500);
+        if (function_exists('errorResponse')) {
+            errorResponse('Não foi possível salvar a imagem enviada.', 500);
+        } else {
+            portfolioErrorResponse('Não foi possível salvar a imagem enviada.', 500);
+        }
     }
 
     if ($existingPath && $existingPath !== $filename) {
@@ -495,9 +588,13 @@ function deletePortfolioImage(string $relativePath): void {
 }
 
 /**
- * Função auxiliar para resposta de sucesso
+ * Função auxiliar para resposta de sucesso (usar a do config.php se disponível)
  */
-function successResponse($data = null, string $message = 'Operação realizada com sucesso.'): void {
+function portfolioSuccessResponse($data = null, string $message = 'Operação realizada com sucesso.'): void {
+    if (function_exists('successResponse')) {
+        successResponse($data, $message);
+        return;
+    }
     http_response_code(200);
     echo json_encode([
         'success' => true,
@@ -508,9 +605,13 @@ function successResponse($data = null, string $message = 'Operação realizada c
 }
 
 /**
- * Função auxiliar para resposta de erro
+ * Função auxiliar para resposta de erro (usar a do config.php se disponível)
  */
-function errorResponse(string $message, int $code = 400): void {
+function portfolioErrorResponse(string $message, int $code = 400): void {
+    if (function_exists('errorResponse')) {
+        errorResponse($message, $code);
+        return;
+    }
     http_response_code($code);
     echo json_encode([
         'success' => false,
@@ -520,9 +621,12 @@ function errorResponse(string $message, int $code = 400): void {
 }
 
 /**
- * Sanitizar entrada de dados
+ * Sanitizar entrada de dados (usar a do config.php se disponível)
  */
-function sanitizeInput(string $input): string {
+function portfolioSanitizeInput(string $input): string {
+    if (function_exists('sanitizeInput')) {
+        return sanitizeInput($input);
+    }
     return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
 }
 

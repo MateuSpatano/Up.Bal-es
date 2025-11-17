@@ -1449,7 +1449,21 @@ initHomepagePortfolio();
 // Carregar informações de contato
 async function loadContactInfo() {
     try {
-        const response = await fetch('services/contatos.php');
+        // Verificar se estamos em uma página dentro de /pages/ ou na raiz
+        const basePath = window.location.pathname.includes('/pages/') ? '../services/contatos.php' : 'services/contatos.php';
+        const response = await fetch(basePath);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Resposta não é JSON:', text.substring(0, 200));
+            throw new Error('Resposta do servidor não é JSON');
+        }
+        
         const result = await response.json();
         
         if (result.success && result.data) {

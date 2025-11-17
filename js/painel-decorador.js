@@ -4743,9 +4743,20 @@ Qualquer dúvida, estou à disposição! 😊`;
                 })
             });
             
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Resposta não é JSON do portfolio.php:', text.substring(0, 500));
+                throw new Error('Resposta do servidor não é JSON');
+            }
+            
             const result = await response.json();
             
-            if (response.ok && result.success) {
+            if (result.success) {
                 const items = Array.isArray(result.data?.items) ? result.data.items : [];
                 portfolioServices = items.map(normalizePortfolioItem);
             } else {
