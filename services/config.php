@@ -69,9 +69,28 @@ $pagination_config = [
     'max_limit' => 100
 ];
 
+// Função para garantir HTTPS em produção
+function ensureHttps($url) {
+    // Se estiver em desenvolvimento local, permitir HTTP
+    if (ENVIRONMENT === 'development' || strpos($url, 'localhost') !== false || strpos($url, '127.0.0.1') !== false) {
+        return $url;
+    }
+    
+    // Em produção, forçar HTTPS
+    if (strpos($url, 'http://') === 0) {
+        return str_replace('http://', 'https://', $url);
+    }
+    
+    // Se já for HTTPS ou protocolo relativo, retornar como está
+    return $url;
+}
+
 // URLs do sistema - Centralizadas
+$baseUrl = $_ENV['BASE_URL'] ?? 'http://localhost/Up.BaloesV3/';
+$baseUrl = ensureHttps($baseUrl);
+
 $urls = [
-    'base' => $_ENV['BASE_URL'] ?? 'http://localhost/Up.BaloesV3/',
+    'base' => $baseUrl,
     'login' => 'pages/login.html',
     'dashboard' => 'pages/dashboard.html',
     'reset_password' => 'pages/reset-password.html'

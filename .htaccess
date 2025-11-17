@@ -1,5 +1,10 @@
 RewriteEngine On
 
+# Forçar HTTPS em produção (descomente quando em produção)
+# RewriteCond %{HTTPS} off
+# RewriteCond %{HTTP:X-Forwarded-Proto} !https
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
 # Configuração da pasta raiz do projeto
 RewriteBase /Up.BaloesV3/
 
