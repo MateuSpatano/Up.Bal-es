@@ -725,6 +725,24 @@ class DecoratorService {
                 $customization['contact_email'] = $decoratorData['email_comunicacao'] ?? '';
                 $customization['contact_whatsapp'] = $decoratorData['whatsapp'] ?? '';
                 $customization['contact_instagram'] = $decoratorData['instagram'] ?? '';
+            } else {
+                // Se não houver personalização, retornar estrutura vazia com valores padrão
+                $customization = [
+                    'page_title' => '',
+                    'page_description' => '',
+                    'welcome_text' => '',
+                    'cover_image_url' => '',
+                    'primary_color' => '#667eea',
+                    'secondary_color' => '#764ba2',
+                    'accent_color' => '#f59e0b',
+                    'social_media' => [],
+                    'meta_title' => '',
+                    'meta_description' => '',
+                    'meta_keywords' => '',
+                    'contact_email' => $decoratorData['email_comunicacao'] ?? '',
+                    'contact_whatsapp' => $decoratorData['whatsapp'] ?? '',
+                    'contact_instagram' => $decoratorData['instagram'] ?? ''
+                ];
             }
             
             return [
@@ -746,10 +764,15 @@ class DecoratorService {
      */
     public function saveMyPageCustomization($decoratorId, $data) {
         try {
+            // Log para debug
+            error_log('Salvando personalização para decorador ID: ' . $decoratorId);
+            error_log('Dados recebidos: ' . json_encode($data));
+            
             // Verificar se o decorador existe e está ativo
             $stmt = $this->pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND perfil = 'decorator'");
             $stmt->execute([$decoratorId]);
             if (!$stmt->fetch()) {
+                error_log('Decorador não encontrado: ' . $decoratorId);
                 return [
                     'success' => false,
                     'message' => 'Decorador não encontrado'
@@ -758,10 +781,21 @@ class DecoratorService {
             
             // Validar dados obrigatórios
             if (empty($data['page_title']) || empty($data['page_description'])) {
+                error_log('Dados obrigatórios faltando: page_title=' . ($data['page_title'] ?? 'null') . ', page_description=' . ($data['page_description'] ?? 'null'));
                 return [
                     'success' => false,
                     'message' => 'Título e descrição são obrigatórios'
                 ];
+            }
+            
+            // Validar URL da imagem de capa se fornecida
+            if (!empty($data['cover_image_url'])) {
+                $coverImageUrl = trim($data['cover_image_url']);
+                if (!filter_var($coverImageUrl, FILTER_VALIDATE_URL) && !preg_match('/^\/[^\/]/', $coverImageUrl)) {
+                    // Se não for URL válida nem caminho relativo, limpar
+                    error_log('URL de imagem de capa inválida: ' . $coverImageUrl);
+                    $data['cover_image_url'] = null;
+                }
             }
             
             // Verificar se já existe personalização
@@ -805,13 +839,30 @@ class DecoratorService {
                 }
             }
             
+            // Validar cores hexadecimais
+            $primaryColor = !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea';
+            $secondaryColor = !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2';
+            $accentColor = !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b';
+            
+            // Validar formato de cor hexadecimal
+            $colorPattern = '/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/';
+            if (!preg_match($colorPattern, $primaryColor)) {
+                $primaryColor = '#667eea';
+            }
+            if (!preg_match($colorPattern, $secondaryColor)) {
+                $secondaryColor = '#764ba2';
+            }
+            if (!preg_match($colorPattern, $accentColor)) {
+                $accentColor = '#f59e0b';
+            }
+            
             // Preparar dados de redes sociais
             $socialMedia = json_encode([
                 'facebook' => $data['social_facebook'] ?? '',
                 'instagram' => $data['social_instagram'] ?? '',
                 'whatsapp' => $data['social_whatsapp'] ?? '',
                 'youtube' => $data['social_youtube'] ?? ''
-            ]);
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             
             if ($exists) {
                 // Atualizar
@@ -837,9 +888,9 @@ class DecoratorService {
                     trim($data['page_description']),
                     !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
                     !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
-                    !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea',
-                    !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2',
-                    !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b',
+                    $primaryColor,
+                    $secondaryColor,
+                    $accentColor,
                     $socialMedia,
                     !empty($data['meta_title']) ? trim($data['meta_title']) : null,
                     !empty($data['meta_description']) ? trim($data['meta_description']) : null,
@@ -863,15 +914,17 @@ class DecoratorService {
                     trim($data['page_description']),
                     !empty($data['welcome_text']) ? trim($data['welcome_text']) : null,
                     !empty($data['cover_image_url']) ? trim($data['cover_image_url']) : null,
-                    !empty($data['primary_color']) ? trim($data['primary_color']) : '#667eea',
-                    !empty($data['secondary_color']) ? trim($data['secondary_color']) : '#764ba2',
-                    !empty($data['accent_color']) ? trim($data['accent_color']) : '#f59e0b',
+                    $primaryColor,
+                    $secondaryColor,
+                    $accentColor,
                     $socialMedia,
                     !empty($data['meta_title']) ? trim($data['meta_title']) : null,
                     !empty($data['meta_description']) ? trim($data['meta_description']) : null,
                     !empty($data['meta_keywords']) ? trim($data['meta_keywords']) : null
                 ]);
             }
+            
+            error_log('Personalização salva com sucesso para decorador ID: ' . $decoratorId);
             
             return [
                 'success' => true,
@@ -880,9 +933,10 @@ class DecoratorService {
             
         } catch (Exception $e) {
             error_log('Erro ao salvar personalização: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
             return [
                 'success' => false,
-                'message' => 'Erro interno do servidor'
+                'message' => 'Erro ao salvar: ' . $e->getMessage()
             ];
         }
     }

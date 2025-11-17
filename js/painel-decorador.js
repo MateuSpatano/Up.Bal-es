@@ -262,6 +262,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showModule(moduleName) {
+        console.log('Mostrando módulo:', moduleName);
+        
         // Ocultar todos os módulos
         moduleContents.forEach(module => {
             module.classList.add('hidden');
@@ -272,6 +274,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (targetModule) {
             targetModule.classList.remove('hidden');
             targetModule.classList.add('content-enter');
+            console.log('Módulo exibido:', moduleName);
+        } else {
+            console.error('Módulo não encontrado:', `${moduleName}-module`);
         }
         
         // Atualizar título da página
@@ -283,8 +288,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Controlar visibilidade do botão flutuante
         toggleFloatingButton(moduleName);
         
-        // Simular carregamento de dados do módulo
-        loadModuleData(moduleName);
+        // Aguardar um pouco para garantir que o DOM está atualizado antes de carregar dados
+        setTimeout(() => {
+            // Simular carregamento de dados do módulo
+            loadModuleData(moduleName);
+        }, 100);
     }
     
     function toggleFloatingButton(moduleName) {
@@ -6221,38 +6229,89 @@ Qualquer dúvida, estou à disposição! 😊`;
     let currentCustomizationData = null;
     
     async function loadPersonalizarTelaData() {
+        console.log('Iniciando carregamento do módulo Personalizar Tela');
+        
         try {
             // Obter dados do usuário
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            console.log('Dados do usuário:', userData);
+            
             if (!userData.slug) {
-                showNotification('Slug do decorador não encontrado', 'error');
+                showNotification('Slug do decorador não encontrado. Faça login novamente.', 'error');
+                console.error('Slug não encontrado no userData');
                 return;
             }
             
+            // Aguardar um pouco para garantir que o DOM está pronto
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             // Carregar preview da página do decorador (via slug)
             const previewIframe = document.getElementById('decorator-page-preview');
-            if (previewIframe) {
-                // Carregar a página do decorador via slug (que usa pagina-decorador.php)
-                // A URL será processada pelo .htaccess e direcionada para services/pagina-decorador.php
-                previewIframe.src = `../${userData.slug}`;
-                
-                // Aguardar o iframe carregar completamente
-                previewIframe.onload = function() {
-                    console.log('Preview da página do decorador carregado:', previewIframe.src);
-                    // Pequeno delay para garantir que o conteúdo está renderizado
-                    setTimeout(() => {
-                        // Se o modo de edição estiver ativo, reativar
-                        if (editModeActive) {
-                            enableEditMode();
-                        }
-                    }, 500);
-                };
-                
-                previewIframe.onerror = function() {
-                    console.error('Erro ao carregar preview da página do decorador');
-                    showNotification('Erro ao carregar preview. Verifique se o slug está correto.', 'error');
-                };
+            const previewContainer = document.getElementById('page-preview-container');
+            
+            if (!previewIframe) {
+                console.error('Iframe não encontrado!');
+                showNotification('Erro: elemento de preview não encontrado', 'error');
+                return;
             }
+            
+            if (!previewContainer) {
+                console.error('Container de preview não encontrado!');
+            }
+            
+            // Construir URL correta - usar caminho absoluto baseado na estrutura do projeto
+            let previewUrl;
+            const currentPath = window.location.pathname;
+            
+            // Verificar se estamos em /pages/
+            if (currentPath.includes('/pages/')) {
+                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
+                previewUrl = `${basePath}/${userData.slug}`;
+            } else {
+                // Se não estiver em /pages/, usar caminho relativo
+                previewUrl = `../${userData.slug}`;
+            }
+            
+            // Garantir que a URL não tenha barras duplas
+            previewUrl = previewUrl.replace(/\/+/g, '/');
+            
+            console.log('Carregando preview da URL:', previewUrl);
+            console.log('Caminho atual:', currentPath);
+            
+            // Limpar src anterior e definir novo
+            previewIframe.src = '';
+            
+            // Aguardar um frame antes de definir novo src
+            setTimeout(() => {
+                previewIframe.src = previewUrl;
+                console.log('Iframe src definido para:', previewIframe.src);
+            }, 50);
+            
+            // Aguardar o iframe carregar completamente
+            previewIframe.onload = function() {
+                console.log('Preview da página do decorador carregado com sucesso:', previewIframe.src);
+                showNotification('Preview carregado com sucesso!', 'success');
+                
+                // Pequeno delay para garantir que o conteúdo está renderizado
+                setTimeout(() => {
+                    // Se o modo de edição estiver ativo, reativar
+                    if (editModeActive) {
+                        enableEditMode();
+                    }
+                }, 500);
+            };
+            
+            previewIframe.onerror = function() {
+                console.error('Erro ao carregar preview da página do decorador');
+                showNotification('Erro ao carregar preview. Verifique se o slug está correto e se a página existe.', 'error');
+            };
+            
+            // Timeout de segurança
+            setTimeout(() => {
+                if (!previewIframe.contentDocument && !previewIframe.contentWindow) {
+                    console.warn('Iframe ainda não carregou após 5 segundos');
+                }
+            }, 5000);
             
             // Carregar configurações
             const response = await fetch('../services/decorador.php', {
@@ -6341,26 +6400,33 @@ Qualquer dúvida, estou à disposição! 😊`;
                 setupPreviewUpdates();
             }
             
-            // Configurar tabs e eventos
-            setupDecoratorCustomizationTabs();
-            setupDecoratorColorInputs();
-            setupDecoratorCharCounters();
-            setupEditModeToggle();
-            setupSaveButton();
+            // Configurar tabs e eventos após um pequeno delay
+            setTimeout(() => {
+                console.log('Configurando eventos do módulo...');
+                setupDecoratorCustomizationTabs();
+                setupDecoratorColorInputs();
+                setupDecoratorCharCounters();
+                setupEditModeToggle();
+                setupSaveButton();
+                console.log('Eventos configurados com sucesso');
+            }, 200);
             
         } catch (error) {
             console.error('Erro ao carregar personalização:', error);
-            showNotification('Erro ao carregar configurações. Verifique a conexão com o servidor.', 'error');
+            showNotification('Erro ao carregar configurações: ' + error.message, 'error');
         }
     }
     
     function setupSaveButton() {
         const saveBtn = document.getElementById('decorator-save-customization');
         if (!saveBtn) {
+            console.warn('Botão de salvar não encontrado, tentando novamente...');
             // Tentar novamente após um pequeno delay
-            setTimeout(setupSaveButton, 100);
+            setTimeout(setupSaveButton, 200);
             return;
         }
+        
+        console.log('Configurando botão de salvar...');
         
         // Remover listener anterior se existir usando clone
         const newSaveBtn = saveBtn.cloneNode(true);
@@ -6370,6 +6436,7 @@ Qualquer dúvida, estou à disposição! 😊`;
         newSaveBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
+            console.log('Botão salvar clicado!');
             const form = document.getElementById('decorator-page-customization-form');
             if (!form) {
                 showNotification('Formulário não encontrado', 'error');
@@ -6481,17 +6548,28 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     function updatePreview() {
         const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe) return;
+        if (!previewIframe) {
+            console.warn('Iframe não encontrado para atualizar preview');
+            return;
+        }
         
         // Obter dados do usuário para recarregar com o slug correto
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
+            // Construir URL correta
+            const currentPath = window.location.pathname;
+            const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
+            const previewUrl = `${basePath}/${userData.slug}`;
+            
+            console.log('Atualizando preview com URL:', previewUrl);
+            
             // Recarregar iframe para aplicar mudanças
-            const currentSrc = previewIframe.src;
             previewIframe.src = '';
             setTimeout(() => {
-                previewIframe.src = `../${userData.slug}`;
+                previewIframe.src = previewUrl;
             }, 300);
+        } else {
+            console.warn('Slug não encontrado para atualizar preview');
         }
     }
     
@@ -6500,9 +6578,12 @@ Qualquer dúvida, estou à disposição! 😊`;
         const overlay = document.getElementById('edit-overlay');
         
         if (!toggleBtn) {
-            setTimeout(setupEditModeToggle, 100);
+            console.warn('Botão de modo edição não encontrado, tentando novamente...');
+            setTimeout(setupEditModeToggle, 200);
             return;
         }
+        
+        console.log('Configurando botão de modo edição...');
         
         // Remover listener anterior usando clone
         const newToggleBtn = toggleBtn.cloneNode(true);
@@ -6512,6 +6593,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             newToggleBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('Botão modo edição clicado! Modo ativo:', !editModeActive);
                 
                 editModeActive = !editModeActive;
                 
