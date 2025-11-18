@@ -705,6 +705,47 @@ class BudgetService {
     }
     
     /**
+     * Buscar clientes por nome
+     */
+    public function searchClients($name) {
+        try {
+            if (empty($name) || strlen($name) < 2) {
+                return [
+                    'success' => true,
+                    'clients' => []
+                ];
+            }
+            
+            // Buscar clientes (usuários com perfil 'user') por nome
+            $stmt = $this->pdo->prepare("
+                SELECT id, nome, email, telefone 
+                FROM usuarios 
+                WHERE perfil = 'user' 
+                AND ativo = 1 
+                AND nome LIKE ? 
+                ORDER BY nome ASC 
+                LIMIT 10
+            ");
+            
+            $searchTerm = '%' . $name . '%';
+            $stmt->execute([$searchTerm]);
+            $clients = $stmt->fetchAll();
+            
+            return [
+                'success' => true,
+                'clients' => $clients
+            ];
+            
+        } catch (Exception $e) {
+            error_log('Erro ao buscar clientes: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Erro ao buscar clientes.'
+            ];
+        }
+    }
+    
+    /**
      * Calcular tempo decorrido
      */
     private function getTimeAgo($datetime) {
@@ -1329,6 +1370,11 @@ try {
                     throw new Exception('ID do orçamento é obrigatório.');
                 }
                 $result = $budgetService->getClientBudget($id);
+                break;
+                
+            case 'search_clients':
+                $name = $input['name'] ?? '';
+                $result = $budgetService->searchClients($name);
                 break;
                 
             default:

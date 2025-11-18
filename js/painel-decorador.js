@@ -2660,6 +2660,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar upload de imagem
         setupBudgetImageUpload();
         
+        // Configurar validação de disponibilidade em tempo real
+        setupAvailabilityValidation();
+        
+        // Configurar busca automática de clientes
+        setupClientAutocomplete();
+        
         // Modal de detalhes do orçamento
         if (closeBudgetDetailsModal) {
             closeBudgetDetailsModal.addEventListener('click', closeBudgetDetailsModalFunc);
@@ -2688,6 +2694,16 @@ document.addEventListener('DOMContentLoaded', function() {
             createBudgetModal.classList.add('show');
             document.body.style.overflow = 'hidden';
             
+            // Garantir que a validação de disponibilidade esteja configurada
+            setTimeout(() => {
+                setupAvailabilityValidation();
+            }, 100);
+            
+            // Garantir que a busca de clientes esteja configurada
+            setTimeout(() => {
+                setupClientAutocomplete();
+            }, 100);
+            
             // Focar no primeiro campo
             setTimeout(() => {
                 const firstInput = createBudgetForm.querySelector('input');
@@ -2714,6 +2730,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (budgetPreviewImg) {
                     budgetPreviewImg.src = '';
                 }
+                
+                // Limpar sugestões de clientes e resetar estado
+                const suggestionsContainer = document.getElementById('client-suggestions');
+                if (suggestionsContainer) {
+                    suggestionsContainer.classList.add('hidden');
+                    suggestionsContainer.innerHTML = '';
+                }
+                const clientInput = document.getElementById('budget-client');
+                if (clientInput) {
+                    clientInput.classList.remove('border-blue-500');
+                }
+                selectedClientId = null;
             }
         }
     }
@@ -2730,7 +2758,7 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         // Validar formulário
-        if (!validateCreateBudgetForm()) {
+        if (!(await validateCreateBudgetForm())) {
             return;
         }
         
@@ -2816,6 +2844,229 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Inicializar estado do campo
         toggleArcSizeField();
+    }
+
+    // ========== VALIDAÇÃO DE DISPONIBILIDADE EM TEMPO REAL ==========
+    
+    let availabilityValidationTimeout = null;
+    let availabilityValidationSetup = false;
+    
+    function setupAvailabilityValidation() {
+        const eventDate = document.getElementById('budget-event-date');
+        const eventTime = document.getElementById('budget-event-time');
+        
+        if (!eventDate || !eventTime) return;
+        
+        // Evitar adicionar listeners múltiplas vezes
+        if (availabilityValidationSetup) return;
+        availabilityValidationSetup = true;
+        
+        // Função para validar disponibilidade quando ambos campos estiverem preenchidos
+        const validateAvailability = async () => {
+            if (!eventDate.value || !eventTime.value) {
+                return;
+            }
+            
+            // Limpar timeout anterior para evitar múltiplas chamadas
+            if (availabilityValidationTimeout) {
+                clearTimeout(availabilityValidationTimeout);
+            }
+            
+            // Aguardar um pouco após a digitação para evitar muitas requisições
+            availabilityValidationTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch('../services/disponibilidade.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'validate',
+                            event_date: eventDate.value,
+                            event_time: eventTime.value
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // Remover classes de validação anteriores
+                    eventDate.classList.remove('border-red-500', 'border-green-500');
+                    eventTime.classList.remove('border-red-500', 'border-green-500');
+                    
+                    if (!result.success) {
+                        // Adicionar classe de erro visual
+                        eventDate.classList.add('border-red-500');
+                        eventTime.classList.add('border-red-500');
+                        
+                        // Mostrar mensagem de erro de forma discreta
+                        const errorMessage = result.message || 'Horário não disponível';
+                        showNotification(errorMessage, 'error');
+                    } else {
+                        // Adicionar classe de sucesso visual
+                        eventDate.classList.add('border-green-500');
+                        eventTime.classList.add('border-green-500');
+                    }
+                } catch (error) {
+                    console.error('Erro ao validar disponibilidade:', error);
+                    // Não mostrar erro ao usuário em validação em tempo real
+                }
+            }, 500); // Aguardar 500ms após parar de digitar
+        };
+        
+        // Adicionar listeners nos campos
+        eventDate.addEventListener('change', validateAvailability);
+        eventTime.addEventListener('change', validateAvailability);
+        
+        // Também validar quando o usuário sair do campo (blur)
+        eventDate.addEventListener('blur', validateAvailability);
+        eventTime.addEventListener('blur', validateAvailability);
+    }
+
+    // ========== BUSCA AUTOMÁTICA DE CLIENTES ==========
+    
+    let clientSearchTimeout = null;
+    let clientAutocompleteSetup = false;
+    let selectedClientId = null;
+    
+    function setupClientAutocomplete() {
+        const clientInput = document.getElementById('budget-client');
+        const emailInput = document.getElementById('budget-email');
+        const phoneInput = document.getElementById('budget-phone');
+        
+        if (!clientInput || !emailInput || !phoneInput) return;
+        
+        // Evitar adicionar listeners múltiplas vezes
+        if (clientAutocompleteSetup) {
+            // Se já foi configurado, apenas garantir que o container existe
+            let existingContainer = document.getElementById('client-suggestions');
+            if (!existingContainer) {
+                const suggestionsContainer = document.createElement('div');
+                suggestionsContainer.id = 'client-suggestions';
+                suggestionsContainer.className = 'absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto hidden';
+                clientInput.parentElement.style.position = 'relative';
+                clientInput.parentElement.appendChild(suggestionsContainer);
+            }
+            return;
+        }
+        clientAutocompleteSetup = true;
+        
+        // Criar container para sugestões
+        const suggestionsContainer = document.createElement('div');
+        suggestionsContainer.id = 'client-suggestions';
+        suggestionsContainer.className = 'absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto hidden';
+        clientInput.parentElement.style.position = 'relative';
+        clientInput.parentElement.appendChild(suggestionsContainer);
+        
+        // Função para buscar clientes
+        const searchClients = async (name) => {
+            if (!name || name.length < 2) {
+                suggestionsContainer.classList.add('hidden');
+                return;
+            }
+            
+            // Limpar timeout anterior
+            if (clientSearchTimeout) {
+                clearTimeout(clientSearchTimeout);
+            }
+            
+            // Aguardar um pouco após a digitação
+            clientSearchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch('../services/orcamentos.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'search_clients',
+                            name: name
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.clients && result.clients.length > 0) {
+                        // Limpar sugestões anteriores
+                        suggestionsContainer.innerHTML = '';
+                        
+                        // Adicionar sugestões
+                        result.clients.forEach(client => {
+                            const suggestionItem = document.createElement('div');
+                            suggestionItem.className = 'px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0';
+                            suggestionItem.innerHTML = `
+                                <div class="font-medium text-gray-800">${client.nome}</div>
+                                <div class="text-sm text-gray-600">${client.email || ''} ${client.telefone ? '• ' + client.telefone : ''}</div>
+                            `;
+                            
+                            suggestionItem.addEventListener('click', () => {
+                                // Preencher campos automaticamente
+                                clientInput.value = client.nome;
+                                emailInput.value = client.email || '';
+                                phoneInput.value = client.telefone || '';
+                                selectedClientId = client.id;
+                                
+                                // Ocultar sugestões
+                                suggestionsContainer.classList.add('hidden');
+                                
+                                // Remover indicador visual de busca
+                                clientInput.classList.remove('border-blue-500');
+                            });
+                            
+                            suggestionsContainer.appendChild(suggestionItem);
+                        });
+                        
+                        // Mostrar sugestões
+                        suggestionsContainer.classList.remove('hidden');
+                        
+                        // Adicionar indicador visual
+                        clientInput.classList.add('border-blue-500');
+                    } else {
+                        // Nenhum cliente encontrado
+                        suggestionsContainer.classList.add('hidden');
+                        clientInput.classList.remove('border-blue-500');
+                        selectedClientId = null;
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar clientes:', error);
+                    suggestionsContainer.classList.add('hidden');
+                }
+            }, 300); // Aguardar 300ms após parar de digitar
+        };
+        
+        // Listener no campo de nome do cliente
+        clientInput.addEventListener('input', (e) => {
+            const name = e.target.value.trim();
+            selectedClientId = null; // Resetar quando o usuário digitar
+            
+            // Limpar campos se o nome foi apagado
+            if (!name) {
+                emailInput.value = '';
+                phoneInput.value = '';
+                suggestionsContainer.classList.add('hidden');
+                clientInput.classList.remove('border-blue-500');
+                return;
+            }
+            
+            searchClients(name);
+        });
+        
+        // Ocultar sugestões ao clicar fora
+        document.addEventListener('click', (e) => {
+            const isClickInside = clientInput === e.target || 
+                                 clientInput.parentElement.contains(e.target) ||
+                                 suggestionsContainer.contains(e.target);
+            
+            if (!isClickInside) {
+                suggestionsContainer.classList.add('hidden');
+            }
+        });
+        
+        // Ocultar sugestões ao pressionar ESC
+        clientInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                suggestionsContainer.classList.add('hidden');
+            }
+        });
     }
 
     // ========== FUNCIONALIDADES DE UPLOAD DE IMAGEM ==========
@@ -3103,7 +3354,7 @@ Qualquer dúvida, estou à disposição! 😊`;
         return true;
     }
     
-    function validateCreateBudgetForm() {
+    async function validateCreateBudgetForm() {
         const client = document.getElementById('budget-client');
         const email = document.getElementById('budget-email');
         const eventDate = document.getElementById('budget-event-date');
@@ -3141,7 +3392,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             return false;
         }
         
-        if (!eventType || !eventType.value) {
+        if (!serviceType || !serviceType.value) {
             showNotification('Tipo de serviço é obrigatório', 'error');
             return false;
         }
@@ -3151,6 +3402,32 @@ Qualquer dúvida, estou à disposição! 😊`;
         if (eventDateTime < new Date()) {
             showNotification('Data do evento não pode ser no passado', 'error');
             return false;
+        }
+        
+        // Validar disponibilidade com a configuração cadastrada
+        try {
+            const availabilityResponse = await fetch('../services/disponibilidade.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'validate',
+                    event_date: eventDate.value,
+                    event_time: eventTime.value
+                })
+            });
+            
+            const availabilityResult = await availabilityResponse.json();
+            
+            if (!availabilityResult.success) {
+                showNotification(availabilityResult.message || 'Horário não disponível', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error('Erro ao validar disponibilidade:', error);
+            // Não bloquear o envio se houver erro na validação, apenas logar
+            // O backend também validará a disponibilidade
         }
         
         return true;
