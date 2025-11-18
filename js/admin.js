@@ -1880,17 +1880,47 @@ class AdminSystem {
     // ========== SISTEMA DE SUPORTE ==========
     
     // Carregar chamados de suporte
-    loadSupportTickets() {
-        // Carregar do localStorage
-        const saved = localStorage.getItem('support_tickets');
-        this.supportTickets = saved ? JSON.parse(saved) : [];
-        this.filteredTickets = [...this.supportTickets];
-        
-        // Ordenar por data (mais recentes primeiro)
-        this.filteredTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        
-        this.renderSupportTickets();
-        this.updateSupportStats();
+    async loadSupportTickets() {
+        try {
+            const response = await fetch('../services/suporte.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'list'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.supportTickets = result.tickets || [];
+                this.filteredTickets = [...this.supportTickets];
+                
+                // Ordenar por data (mais recentes primeiro)
+                this.filteredTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                
+                this.renderSupportTickets();
+                this.updateSupportStats();
+            } else {
+                console.error('Erro ao carregar tickets:', result.message);
+                // Fallback para localStorage se houver erro
+                const saved = localStorage.getItem('support_tickets');
+                this.supportTickets = saved ? JSON.parse(saved) : [];
+                this.filteredTickets = [...this.supportTickets];
+                this.renderSupportTickets();
+                this.updateSupportStats();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar tickets:', error);
+            // Fallback para localStorage em caso de erro
+            const saved = localStorage.getItem('support_tickets');
+            this.supportTickets = saved ? JSON.parse(saved) : [];
+            this.filteredTickets = [...this.supportTickets];
+            this.renderSupportTickets();
+            this.updateSupportStats();
+        }
     }
     
     // Renderizar chamados de suporte
@@ -2048,45 +2078,81 @@ class AdminSystem {
         document.getElementById('ticket-details-modal').classList.remove('hidden');
     }
     
-    // Salvar status do chamado
-    saveTicketStatus() {
+    async saveTicketStatus() {
         if (!this.currentTicket) return;
         
         const newStatus = document.getElementById('ticket-new-status').value;
-        const ticketIndex = this.supportTickets.findIndex(t => t.id === this.currentTicket.id);
+        const adminResponse = document.getElementById('ticket-admin-response')?.value || null;
         
-        if (ticketIndex !== -1) {
-            this.supportTickets[ticketIndex].status = newStatus;
-            this.supportTickets[ticketIndex].updated_at = new Date().toISOString();
+        try {
+            const response = await fetch('../services/suporte.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'update_status',
+                    ticket_id: this.currentTicket.id,
+                    status: newStatus,
+                    admin_response: adminResponse
+                })
+            });
             
-            // Salvar no localStorage
-            localStorage.setItem('support_tickets', JSON.stringify(this.supportTickets));
+            const result = await response.json();
             
-            // Atualizar visualização
-            this.filterSupportTickets();
-            
-            // Fechar modal
-            this.closeTicketDetails();
-            
-            this.showNotification('Status do chamado atualizado com sucesso!', 'success');
+            if (result.success) {
+                // Recarregar tickets do servidor
+                await this.loadSupportTickets();
+                
+                // Fechar modal
+                this.closeTicketDetails();
+                
+                this.showNotification('Status do chamado atualizado com sucesso!', 'success');
+            } else {
+                throw new Error(result.message || 'Erro ao atualizar status');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar status:', error);
+            this.showNotification('Erro ao atualizar status do chamado', 'error');
         }
     }
     
     // Excluir chamado
-    deleteTicket() {
+    async deleteTicket() {
         if (!this.currentTicket) return;
         
         if (!confirm('Tem certeza que deseja excluir este chamado?')) {
             return;
         }
         
-        this.supportTickets = this.supportTickets.filter(t => t.id !== this.currentTicket.id);
-        localStorage.setItem('support_tickets', JSON.stringify(this.supportTickets));
-        
-        this.filterSupportTickets();
-        this.closeTicketDetails();
-        
-        this.showNotification('Chamado excluído com sucesso!', 'success');
+        try {
+            const response = await fetch('../services/suporte.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    ticket_id: this.currentTicket.id
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Recarregar tickets do servidor
+                await this.loadSupportTickets();
+                
+                this.closeTicketDetails();
+                
+                this.showNotification('Chamado excluído com sucesso!', 'success');
+            } else {
+                throw new Error(result.message || 'Erro ao deletar ticket');
+            }
+        } catch (error) {
+            console.error('Erro ao deletar ticket:', error);
+            this.showNotification('Erro ao excluir chamado', 'error');
+        }
     }
     
     // Fechar modal de detalhes

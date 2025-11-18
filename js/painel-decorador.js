@@ -3904,7 +3904,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             return false;
         }
         
-        if (!eventType || !eventType.value) {
+        if (!serviceType || !serviceType.value) {
             showNotification('Tipo de serviço é obrigatório', 'error');
             return false;
         }
@@ -6619,42 +6619,51 @@ Qualquer dúvida, estou à disposição! 😊`;
                 });
             }
             
-            // Criar objeto do chamado
-            const ticket = {
-                id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-                title: title,
-                description: description,
-                attachment: attachmentData,
-                decorator_id: userData.id,
-                decorator_name: userData.nome,
-                decorator_email: userData.email || 'Não informado',
-                status: 'novo',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
-            
-            // Salvar no localStorage
-            const existingTickets = JSON.parse(localStorage.getItem('support_tickets') || '[]');
-            existingTickets.push(ticket);
-            localStorage.setItem('support_tickets', JSON.stringify(existingTickets));
-            
-            // Mostrar mensagem de sucesso
-            supportSuccessMessage.classList.remove('hidden');
-            
-            // Limpar formulário
-            supportForm.reset();
-            supportPreview.classList.add('hidden');
-            
-            // Mostrar toast
-            showSuccessToast('Feedback Enviado', 'Seu chamado foi registrado com sucesso! Nossa equipe entrará em contato em breve.');
-            
-            // Fechar modal após 3 segundos
-            setTimeout(() => {
-                closeSupportModalFunc();
-            }, 3000);
-            
-            // Log para debug
-            console.log('Chamado de suporte criado:', ticket);
+            // Enviar para o backend
+            try {
+                const response = await fetch('../services/suporte.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'create',
+                        title: title,
+                        description: description,
+                        attachment: attachmentData,
+                        decorator_id: userData.id,
+                        decorator_name: userData.nome,
+                        decorator_email: userData.email || 'Não informado'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Mostrar mensagem de sucesso
+                    supportSuccessMessage.classList.remove('hidden');
+                    
+                    // Limpar formulário
+                    supportForm.reset();
+                    supportPreview.classList.add('hidden');
+                    
+                    // Mostrar toast
+                    showSuccessToast('Feedback Enviado', 'Seu chamado foi registrado com sucesso! Nossa equipe entrará em contato em breve.');
+                    
+                    // Fechar modal após 3 segundos
+                    setTimeout(() => {
+                        closeSupportModalFunc();
+                    }, 3000);
+                    
+                    // Log para debug
+                    console.log('Chamado de suporte criado:', result.ticket);
+                } else {
+                    throw new Error(result.message || 'Erro ao criar chamado');
+                }
+            } catch (error) {
+                console.error('Erro ao enviar chamado:', error);
+                showErrorToast('Erro', 'Não foi possível enviar o chamado. Tente novamente.');
+            }
         });
     }
 
