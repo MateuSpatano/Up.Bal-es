@@ -493,8 +493,8 @@ function createDecorator($input) {
             $updateStmt->execute([$decoratorId]);
         }
         
-        // Construir URL do decorador (sem base URL, apenas o slug)
-        $decoratorUrl = '/' . urlencode($finalSlug);
+        // Construir URL completa do decorador usando a função helper
+        $decoratorUrl = buildDecoratorUrl($finalSlug);
         
         // Log da criação
         logAdminAction($_SESSION['admin_id'], 'create_decorator', $decoratorId, $pdo);
