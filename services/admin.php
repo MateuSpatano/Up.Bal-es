@@ -1361,31 +1361,33 @@ function createDefaultPageCustomization($pdo, $decoratorId, $decoratorName, $ema
         // Criar personalização padrão baseada no index.html
         $defaultTitle = "Bem-vindo à {$decoratorName}!";
         $defaultDescription = "Decoração profissional com balões para eventos. Transforme seus momentos especiais em memórias inesquecíveis.";
-        $defaultWelcomeText = "Olá! Somos a {$decoratorName} e estamos prontos para tornar seu evento único e especial. Oferecemos serviços de decoração com balões personalizados para todos os tipos de celebrações.";
+        // Texto de boas-vindas genérico conforme solicitado
+        $defaultWelcomeText = "Bem-vindo à minha página de decoração! Estamos prontos para tornar seu evento único e especial. Oferecemos serviços de decoração com balões personalizados para todos os tipos de celebrações.";
         
-        // Configuração padrão de redes sociais
+        // Configuração padrão de redes sociais (puxando WhatsApp e Email cadastrados)
         $defaultSocialMedia = json_encode([
             'whatsapp' => $whatsapp ?? '',
+            'email' => $email ?? '',
             'instagram' => '',
             'facebook' => '',
             'youtube' => ''
         ]);
         
-        // Configuração padrão de serviços (baseada no padrão do sistema)
+        // Configuração padrão de serviços (Arco Desconstruído primeiro, depois Arco Tradicional)
         $defaultServices = json_encode([
             [
                 'id' => 1,
-                'title' => 'Arco Tradicional',
-                'description' => 'Arcos de balões tradicionais para decoração de eventos',
-                'icon' => 'fas fa-archway',
+                'title' => 'Arco Desconstruído',
+                'description' => 'Arcos modernos com design desconstruído',
+                'icon' => 'fas fa-palette',
                 'price' => null,
                 'highlight' => false
             ],
             [
                 'id' => 2,
-                'title' => 'Arco Desconstruído',
-                'description' => 'Arcos modernos com design desconstruído',
-                'icon' => 'fas fa-palette',
+                'title' => 'Arco Tradicional',
+                'description' => 'Arcos de balões tradicionais para decoração de eventos',
+                'icon' => 'fas fa-archway',
                 'price' => null,
                 'highlight' => false
             ],
