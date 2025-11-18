@@ -68,8 +68,24 @@ class BudgetService {
                 ];
             }
             
-            // Validar disponibilidade antes de criar o orçamento
-            $availabilityCheck = $this->validateAvailability($data);
+            // Determinar decorador_id ANTES de validar disponibilidade
+            $decoradorId = null;
+            if (isset($data['decorador_id']) && $data['decorador_id']) {
+                // Decorador_id fornecido explicitamente (do carrinho)
+                $decoradorId = (int)$data['decorador_id'];
+            } elseif (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
+                // Decorador criando seu próprio orçamento
+                $decoradorId = $_SESSION['user_id'];
+            } else {
+                // Buscar primeiro decorador ativo como padrão
+                $stmtDefault = $this->pdo->prepare("SELECT id FROM usuarios WHERE perfil = 'decorator' AND ativo = 1 AND aprovado_por_admin = 1 LIMIT 1");
+                $stmtDefault->execute();
+                $defaultDecorator = $stmtDefault->fetch();
+                $decoradorId = $defaultDecorator ? (int)$defaultDecorator['id'] : 1;
+            }
+            
+            // Validar disponibilidade antes de criar o orçamento (passando o decorador_id correto)
+            $availabilityCheck = $this->validateAvailability($data, $decoradorId);
             if (!$availabilityCheck['success']) {
                 return [
                     'success' => false,
@@ -105,22 +121,6 @@ class BudgetService {
                     observacoes, status, decorador_id, created_via, imagem, tamanho_arco_m, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
-            
-            // Determinar decorador_id
-            $decoradorId = null;
-            if (isset($data['decorador_id']) && $data['decorador_id']) {
-                // Decorador_id fornecido explicitamente (do carrinho)
-                $decoradorId = (int)$data['decorador_id'];
-            } elseif (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
-                // Decorador criando seu próprio orçamento
-                $decoradorId = $_SESSION['user_id'];
-            } else {
-                // Buscar primeiro decorador ativo como padrão
-                $stmtDefault = $this->pdo->prepare("SELECT id FROM usuarios WHERE perfil = 'decorator' AND ativo = 1 AND aprovado_por_admin = 1 LIMIT 1");
-                $stmtDefault->execute();
-                $defaultDecorator = $stmtDefault->fetch();
-                $decoradorId = $defaultDecorator ? (int)$defaultDecorator['id'] : 1;
-            }
             
             $stmt->execute([
                 $data['client'],
@@ -842,9 +842,17 @@ class BudgetService {
     /**
      * Validar disponibilidade para um orçamento
      */
-    private function validateAvailability($data) {
+    private function validateAvailability($data, $decoradorId = null) {
         try {
-            $userId = $_SESSION['user_id'] ?? 1;
+            // Usar o decorador_id passado como parâmetro, ou tentar da sessão, ou usar padrão
+            if ($decoradorId !== null) {
+                $userId = $decoradorId;
+            } elseif (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
+                $userId = $_SESSION['user_id'];
+            } else {
+                $userId = 1; // Fallback apenas se não houver outra opção
+            }
+            
             $eventDate = $data['event_date'];
             $eventTime = $data['event_time'];
             $eventDateTime = $eventDate . ' ' . $eventTime;

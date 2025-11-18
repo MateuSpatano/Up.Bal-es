@@ -6620,8 +6620,15 @@ Qualquer dúvida, estou à disposição! 😊`;
             // Obter dados do usuário logado
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
             
-            if (!userData.nome) {
+            // Verificar se o usuário está identificado (usar 'name' ou 'nome' para compatibilidade)
+            if (!userData.name && !userData.nome) {
                 showErrorToast('Erro', 'Usuário não identificado. Faça login novamente.');
+                return;
+            }
+            
+            // Garantir que temos o ID do decorador
+            if (!userData.id) {
+                showErrorToast('Erro', 'ID do decorador não encontrado. Faça login novamente.');
                 return;
             }
             
@@ -6654,7 +6661,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                         description: description,
                         attachment: attachmentData,
                         decorator_id: userData.id,
-                        decorator_name: userData.nome,
+                        decorator_name: userData.name || userData.nome || 'Decorador',
                         decorator_email: userData.email || 'Não informado'
                     })
                 });
