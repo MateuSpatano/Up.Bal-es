@@ -20,6 +20,8 @@ class DecoratorService {
      */
     public function getDecoratorBySlug($slug) {
         try {
+            error_log("DecoratorService::getDecoratorBySlug - Buscando decorador com slug: " . $slug);
+            
             // Buscar decorador pelo slug
             $stmt = $this->pdo->prepare("
                 SELECT 
@@ -37,11 +39,28 @@ class DecoratorService {
             $decorator = $stmt->fetch();
             
             if (!$decorator) {
+                // Tentar buscar sem os filtros de ativo/aprovado para debug
+                $debugStmt = $this->pdo->prepare("
+                    SELECT id, nome, slug, perfil, ativo, aprovado_por_admin 
+                    FROM usuarios 
+                    WHERE slug = ? AND perfil = 'decorator'
+                ");
+                $debugStmt->execute([$slug]);
+                $debugDecorator = $debugStmt->fetch();
+                
+                if ($debugDecorator) {
+                    error_log("Decorador encontrado mas com status incorreto - ID: {$debugDecorator['id']}, Ativo: {$debugDecorator['ativo']}, Aprovado: {$debugDecorator['aprovado_por_admin']}");
+                } else {
+                    error_log("Nenhum decorador encontrado com slug: " . $slug);
+                }
+                
                 return [
                     'success' => false,
-                    'message' => 'Decorador não encontrado ou inativo'
+                    'message' => 'Decorador não encontrado ou aguardando aprovação'
                 ];
             }
+            
+            error_log("Decorador encontrado com sucesso - ID: {$decorator['id']}, Nome: {$decorator['name']}");
             
             // Buscar customização da página
             $stmt = $this->pdo->prepare("

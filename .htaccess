@@ -12,11 +12,12 @@ RewriteBase /Up.BaloesV3/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Ignora pastas de sistema
+# Ignora pastas de sistema e arquivos estáticos
 RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/(pages|services|css|js|Images|utils|database|uploads)/
+RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/.*\.(html|php|css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$
 
-# --- CORREÇÃO AQUI ---
-# Redireciona para 'pagina-decorador.php' (que é o template HTML), e não para 'decorador.php'
+# Redireciona slugs de decoradores para 'pagina-decorador.php'
+# Aceita apenas letras, números e hífens (slug válido)
 RewriteRule ^([a-zA-Z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
 
 # Segurança
