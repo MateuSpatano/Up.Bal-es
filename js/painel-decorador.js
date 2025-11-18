@@ -3376,12 +3376,13 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     async function validateCreateBudgetForm() {
+        // Obter elementos do formulário
         const client = document.getElementById('budget-client');
         const email = document.getElementById('budget-email');
         const eventDate = document.getElementById('budget-event-date');
         const eventTime = document.getElementById('budget-event-time');
         const eventLocation = document.getElementById('budget-event-location');
-        const serviceType = document.getElementById('budget-service-type');
+        const serviceType = document.getElementById('budget-service-type'); // CORRETO: serviceType, não eventType
         
         // Validar tamanho do arco
         if (!validateArcSize()) {
