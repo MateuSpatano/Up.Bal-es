@@ -202,35 +202,75 @@ function verifyPassword($password, $hash) {
     return password_verify($password, $hash);
 }
 
-// Enviar email simples (HTML) utilizando as configurações definidas
+// Enviar email usando PHPMailer com SMTP (suporta Gmail, Hotmail/Outlook, etc)
 function sendEmail($to, $subject, $htmlBody, $textBody = null) {
     global $email_config;
     
-    $fromEmail = $email_config['from_email'] ?? 'noreply@upbaloes.com';
-    $fromName = $email_config['from_name'] ?? 'Up.Baloes';
-    $replyTo = $email_config['reply_to'] ?? $fromEmail;
-    
-    $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
-    $headers = [
-        'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=UTF-8',
-        'From: ' . mb_encode_mimeheader($fromName, 'UTF-8') . " <{$fromEmail}>",
-        'Reply-To: ' . $replyTo,
-        'X-Mailer: PHP/' . phpversion()
-    ];
-    
-    $body = $htmlBody;
-    if ($textBody !== null && trim($textBody) !== '') {
-        $body .= "<br><br><pre style=\"font-family: 'Segoe UI', Arial, sans-serif; color: #6B7280;\">" . htmlspecialchars($textBody) . '</pre>';
+    // Verificar se PHPMailer está disponível e carregar autoload se necessário
+    $autoloadPath = __DIR__ . '/../vendor/autoload.php';
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
     }
     
-    $result = @mail($to, $encodedSubject, $body, implode("\r\n", $headers));
-    
-    if (!$result) {
-        error_log("Falha ao enviar email para {$to} com assunto '{$subject}'");
+    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        error_log("PHPMailer não encontrado. Execute: composer install");
+        return false;
     }
     
-    return $result;
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+    
+    try {
+        // Configurações do servidor SMTP
+        $mail->isSMTP();
+        $mail->Host = $email_config['smtp_host'] ?? 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = $email_config['smtp_username'] ?? '';
+        $mail->Password = $email_config['smtp_password'] ?? '';
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS; // TLS
+        $mail->Port = $email_config['smtp_port'] ?? 587;
+        $mail->CharSet = 'UTF-8';
+        
+        // Remover validação de certificado SSL em desenvolvimento (não recomendado em produção)
+        if (ENVIRONMENT === 'development') {
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ];
+        }
+        
+        // Remetente
+        $fromEmail = $email_config['from_email'] ?? 'noreply@upbaloes.com';
+        $fromName = $email_config['from_name'] ?? 'Up.Baloes';
+        $mail->setFrom($fromEmail, $fromName);
+        
+        // Destinatário
+        $mail->addAddress($to);
+        
+        // Responder para
+        $replyTo = $email_config['reply_to'] ?? $fromEmail;
+        $mail->addReplyTo($replyTo, $fromName);
+        
+        // Conteúdo
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body = $htmlBody;
+        
+        // Versão texto plano (opcional)
+        if ($textBody !== null && trim($textBody) !== '') {
+            $mail->AltBody = $textBody;
+        }
+        
+        // Enviar email
+        $mail->send();
+        return true;
+        
+    } catch (\PHPMailer\PHPMailer\Exception $e) {
+        error_log("Erro ao enviar email para {$to}: {$mail->ErrorInfo}");
+        return false;
+    }
 }
 
 // Resposta JSON padronizada
