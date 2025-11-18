@@ -48,6 +48,17 @@ class BudgetService {
      */
     public function createBudget($data) {
         try {
+            // Validar campos obrigatórios
+            $requiredFields = ['client', 'email', 'event_date', 'event_time', 'event_location', 'service_type'];
+            foreach ($requiredFields as $field) {
+                if (empty($data[$field])) {
+                    return [
+                        'success' => false,
+                        'message' => "Campo obrigatório não preenchido: {$field}"
+                    ];
+                }
+            }
+            
             // Validar dados específicos do tamanho do arco
             $arcSizeValidation = $this->validateArcSize($data);
             if (!$arcSizeValidation['success']) {
@@ -68,8 +79,16 @@ class BudgetService {
             
             // Processar upload de imagem se houver
             $imagePath = null;
+            // Verificar diferentes nomes possíveis para o campo de imagem
+            $imageFieldName = null;
             if (isset($_FILES['inspiration_image']) && $_FILES['inspiration_image']['error'] === UPLOAD_ERR_OK) {
-                $imageUpload = $this->handleImageUpload($_FILES['inspiration_image']);
+                $imageFieldName = 'inspiration_image';
+            } elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+                $imageFieldName = 'image';
+            }
+            
+            if ($imageFieldName) {
+                $imageUpload = $this->handleImageUpload($_FILES[$imageFieldName]);
                 if (!$imageUpload['success']) {
                     return [
                         'success' => false,
@@ -134,9 +153,11 @@ class BudgetService {
             
         } catch (Exception $e) {
             error_log('Erro ao criar orçamento: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
+            error_log('Dados recebidos: ' . print_r($data, true));
             return [
                 'success' => false,
-                'message' => 'Erro interno do servidor.'
+                'message' => 'Erro ao criar orçamento: ' . $e->getMessage()
             ];
         }
     }
@@ -1263,10 +1284,14 @@ try {
         // Verificar se é FormData (upload de arquivo) ou JSON
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         
-        if (strpos($contentType, 'multipart/form-data') !== false) {
+        // Verificar se há arquivos enviados ou se é multipart/form-data
+        if (!empty($_FILES) || strpos($contentType, 'multipart/form-data') !== false) {
             // Processar FormData
             $input = $_POST;
             $input['action'] = $_POST['action'] ?? '';
+            
+            // Log para debug
+            error_log('FormData recebido: ' . print_r($input, true));
         } else {
             // Processar JSON
             $input = json_decode(file_get_contents('php://input'), true);

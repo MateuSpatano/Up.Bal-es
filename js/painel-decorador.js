@@ -2741,6 +2741,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (clientInput) {
                     clientInput.classList.remove('border-blue-500');
                 }
+                // Resetar flag de autocomplete para permitir reconfiguração
+                clientAutocompleteSetup = false;
                 selectedClientId = null;
             }
         }
@@ -2793,7 +2795,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData // Usar FormData diretamente para suportar upload de arquivo
             });
             
+            // Verificar se a resposta é válida
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const result = await response.json();
+            
+            console.log('Resposta do servidor:', result);
             
             if (result.success) {
                 showNotification('Orçamento criado com sucesso!', 'success');
@@ -2802,12 +2811,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Recarregar orçamentos
                 await loadBudgets();
             } else {
-                showNotification('Erro ao criar orçamento: ' + result.message, 'error');
+                showNotification('Erro ao criar orçamento: ' + (result.message || 'Erro desconhecido'), 'error');
+                console.error('Erro do servidor:', result);
             }
             
         } catch (error) {
             showNotification('Erro de conexão. Tente novamente.', 'error');
             console.error('Erro ao criar orçamento:', error);
+            
+            // Log detalhado do erro
+            if (error instanceof TypeError && error.message.includes('JSON')) {
+                console.error('Erro ao parsear JSON. Verifique a resposta do servidor.');
+            }
         } finally {
             // Remover loading
             if (saveCreateBudget) {
@@ -2983,7 +2998,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         })
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const result = await response.json();
+                    
+                    console.log('Resultado da busca de clientes:', result);
                     
                     if (result.success && result.clients && result.clients.length > 0) {
                         // Limpar sugestões anteriores
