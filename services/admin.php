@@ -126,6 +126,11 @@ try {
             if (isset($GLOBALS['security_config']['session_name'])) {
                 ini_set('session.name', $GLOBALS['security_config']['session_name']);
             }
+            // Configurar tempo de vida da sessão (8 horas)
+            if (isset($GLOBALS['security_config']['session_lifetime'])) {
+                ini_set('session.cookie_lifetime', $GLOBALS['security_config']['session_lifetime']);
+                ini_set('session.gc_maxlifetime', $GLOBALS['security_config']['session_lifetime']);
+            }
             session_start();
         }
     } catch (Exception $e) {
@@ -480,10 +485,40 @@ function handleGetDashboardData() {
             $recentUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($recentUsers as $user) {
+                $perfil = $user['perfil'] ?? 'usuário';
+                $nome = $user['nome'] ?? 'Sem nome';
+                $createdAt = $user['created_at'] ?? date('Y-m-d H:i:s');
+                
+                // Formatar data para exibição
+                $dateTime = new DateTime($createdAt);
+                $now = new DateTime();
+                $diff = $now->diff($dateTime);
+                
+                $timeAgo = '';
+                if ($diff->days > 0) {
+                    $timeAgo = $diff->days . ' dia' . ($diff->days > 1 ? 's' : '') . ' atrás';
+                } elseif ($diff->h > 0) {
+                    $timeAgo = $diff->h . ' hora' . ($diff->h > 1 ? 's' : '') . ' atrás';
+                } elseif ($diff->i > 0) {
+                    $timeAgo = $diff->i . ' minuto' . ($diff->i > 1 ? 's' : '') . ' atrás';
+                } else {
+                    $timeAgo = 'Agora';
+                }
+                
+                // Determinar tipo de atividade baseado no perfil
+                $activityType = 'info';
+                if ($perfil === 'admin') {
+                    $activityType = 'success';
+                } elseif ($perfil === 'decorator') {
+                    $activityType = 'warning';
+                }
+                
                 $activities[] = [
-                    'type' => 'user_created',
-                    'message' => "Novo " . ($user['perfil'] ?? 'usuário') . ": " . ($user['nome'] ?? ''),
-                    'date' => $user['created_at'] ?? date('Y-m-d H:i:s')
+                    'type' => $activityType,
+                    'action' => "Novo " . ucfirst($perfil) . " cadastrado",
+                    'user' => $nome,
+                    'time' => $timeAgo,
+                    'date' => $createdAt // Manter para compatibilidade
                 ];
             }
         } catch (PDOException $e) {

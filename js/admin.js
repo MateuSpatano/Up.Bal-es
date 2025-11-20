@@ -934,25 +934,33 @@ class AdminSystem {
             return;
         }
 
-        container.innerHTML = activities.map(activity => `
+        container.innerHTML = activities.map(activity => {
+            // Garantir que todas as propriedades existam
+            const type = activity.type || 'info';
+            const action = activity.action || activity.message || 'Atividade';
+            const user = activity.user || activity.nome || 'Usuário';
+            const time = activity.time || activity.date || 'Agora';
+            
+            return `
             <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center ${
-                    activity.type === 'success' ? 'bg-green-100 text-green-600' :
-                    activity.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+                    type === 'success' ? 'bg-green-100 text-green-600' :
+                    type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
                     'bg-blue-100 text-blue-600'
                 }">
                     <i class="fas ${
-                        activity.type === 'success' ? 'fa-check' :
-                        activity.type === 'warning' ? 'fa-exclamation' :
+                        type === 'success' ? 'fa-check' :
+                        type === 'warning' ? 'fa-exclamation' :
                         'fa-info'
                     } text-sm"></i>
                 </div>
                 <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-800">${activity.action}</p>
-                    <p class="text-xs text-gray-500">${activity.user} • ${activity.time}</p>
+                    <p class="text-sm font-medium text-gray-800">${action}</p>
+                    <p class="text-xs text-gray-500">${user} • ${time}</p>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Inicializar gráficos

@@ -53,7 +53,7 @@ if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
 // Configurações de segurança
 $security_config = [
     'session_name' => 'UPBALOES_SESSION',
-    'session_lifetime' => 3600,
+    'session_lifetime' => 28800, // 8 horas (8 * 60 * 60 = 28800 segundos)
     'remember_lifetime' => 2592000,
     'password_reset_lifetime' => 3600,
     'max_login_attempts' => 5,
@@ -334,6 +334,7 @@ if (!function_exists('successResponse')) {
 if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     ini_set('session.name', $security_config['session_name']);
     ini_set('session.cookie_lifetime', $security_config['session_lifetime']);
+    ini_set('session.gc_maxlifetime', $security_config['session_lifetime']); // Tempo de vida dos dados da sessão no servidor
     ini_set('session.cookie_secure', ENVIRONMENT === 'production');
     ini_set('session.cookie_httponly', true);
     session_start();
