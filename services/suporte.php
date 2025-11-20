@@ -180,10 +180,34 @@ function createTicket($pdo, $data) {
  */
 function listTickets($pdo, $data) {
     // Verificar se é admin
-    if (!isset($_SESSION['admin_id'])) {
+    // Verificar tanto admin_id quanto user_id com role admin
+    $isAdmin = false;
+    
+    if (isset($_SESSION['admin_id'])) {
+        $isAdmin = true;
+    } elseif (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
+        $isAdmin = true;
+    } elseif (isset($_SESSION['user_id'])) {
+        // Verificar no banco se o usuário é admin
+        try {
+            $checkStmt = $pdo->prepare("SELECT perfil FROM usuarios WHERE id = ?");
+            $checkStmt->execute([$_SESSION['user_id']]);
+            $user = $checkStmt->fetch();
+            if ($user && $user['perfil'] === 'admin') {
+                $isAdmin = true;
+                $_SESSION['admin_id'] = $_SESSION['user_id'];
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao verificar admin: ' . $e->getMessage());
+        }
+    }
+    
+    if (!$isAdmin) {
         // Se não for admin, retornar apenas tickets do decorador logado
         if (!isset($_SESSION['user_id'])) {
-            throw new Exception('Não autorizado');
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Não autorizado']);
+            exit();
         }
         
         $stmt = $pdo->prepare("
@@ -212,13 +236,16 @@ function listTickets($pdo, $data) {
         }
     }
     
-    $tickets = $stmt->fetchAll();
+    $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Garantir que sempre retorna JSON válido
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success' => true,
-        'tickets' => $tickets,
+        'tickets' => $tickets ? $tickets : [],
         'count' => count($tickets)
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
 /**

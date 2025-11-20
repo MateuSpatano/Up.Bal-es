@@ -174,14 +174,17 @@ class AdminSystem {
             const result = await this.safeJsonParse(response, { success: false });
             
             if (result && result.success) {
-                this.users = result.data?.users || [];
+                // Ajustar para a estrutura de resposta do admin.php
+                this.users = result.data?.users || result.users || [];
                 // Inicializar filteredUsers com todos os usuários carregados
                 this.filteredUsers = [...this.users];
                 this.refreshUsersChart();
                 // Usar renderUsersTable para manter consistência com o sistema de filtros
                 this.renderUsersTable();
             } else {
-                this.showNotification('Erro ao carregar usuários: ' + result.message, 'error');
+                const errorMsg = result?.message || 'Erro desconhecido ao carregar usuários';
+                console.error('Erro ao carregar usuários:', errorMsg);
+                this.showNotification('Erro ao carregar usuários: ' + errorMsg, 'error');
             }
         } catch (error) {
             console.error('Erro ao carregar usuários:', error);
@@ -784,13 +787,15 @@ class AdminSystem {
                 return;
             }
 
-            if (result.success && result.data) {
-                this.dashboardData = result.data;
-                this.updateDashboardMetrics(result.data);
-                this.loadRecentActivities(result.data.activities || []);
+            if (result.success) {
+                // result.data pode conter os dados diretamente ou result pode ter os dados na raiz
+                const data = result.data || result;
+                this.dashboardData = data;
+                this.updateDashboardMetrics(data);
+                this.loadRecentActivities(data.activities || []);
                 return;
             } else {
-                console.warn('Resposta do dashboard não teve sucesso:', result);
+                console.warn('Resposta do dashboard não teve sucesso:', result.message || result);
             }
 
             console.warn('Não foi possível carregar dados atualizados do dashboard.', result);
