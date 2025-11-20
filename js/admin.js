@@ -2100,7 +2100,22 @@ class AdminSystem {
                     hasTickets: Array.isArray(result.tickets) && result.tickets.length > 0
                 });
                 
-                this.supportTickets = result.tickets || [];
+                // Normalizar tickets: garantir que todos tenham IDs válidos
+                const normalizedTickets = (result.tickets || []).map(ticket => {
+                    // Garantir que o ID seja sempre um número ou string válido
+                    if (ticket && ticket.id !== undefined && ticket.id !== null) {
+                        return {
+                            ...ticket,
+                            id: ticket.id // Manter o tipo original (número ou string)
+                        };
+                    }
+                    return null;
+                }).filter(t => t !== null);
+                
+                console.log('🔄 Tickets normalizados:', normalizedTickets.length);
+                console.log('📝 Primeiro ticket normalizado:', normalizedTickets[0]);
+                
+                this.supportTickets = normalizedTickets;
                 this.filteredTickets = [...this.supportTickets];
                 
                 console.log('🔄 Tickets após cópia:', {
@@ -2216,6 +2231,13 @@ class AdminSystem {
         
         const ticketsHTML = this.filteredTickets.map((ticket, index) => {
             try {
+                console.log(`🔍 Processando ticket ${index}:`, {
+                    ticket: ticket,
+                    id: ticket?.id,
+                    idType: typeof ticket?.id,
+                    idValue: ticket?.id
+                });
+                
                 // Validar dados do ticket
                 if (!ticket) {
                     console.warn('⚠️ Ticket nulo encontrado no índice:', index);
@@ -2227,6 +2249,15 @@ class AdminSystem {
                     console.warn('⚠️ Ticket sem ID encontrado no índice:', index, ticket);
                     return '';
                 }
+                
+                // Log detalhado do ID antes de processar
+                console.log(`📌 Ticket ${index} - ID antes de processar:`, {
+                    raw: ticket.id,
+                    type: typeof ticket.id,
+                    isNumber: typeof ticket.id === 'number',
+                    isString: typeof ticket.id === 'string',
+                    value: ticket.id
+                });
                 
                 const statusColors = {
                 'novo': 'bg-yellow-100 text-yellow-800 border-yellow-300',
@@ -2258,9 +2289,33 @@ class AdminSystem {
             const decoratorName = ticket.decorator_name || 'Desconhecido';
             const createdAt = ticket.created_at ? this.formatDateTime(ticket.created_at) : 'Data não disponível';
             
-            // Garantir que ticket.id seja uma string
-            const ticketId = String(ticket.id || '');
-            const ticketIdDisplay = ticketId.substring(0, 8);
+            // Garantir que ticket.id seja uma string de forma absolutamente segura
+            let ticketId = '';
+            try {
+                if (ticket.id !== undefined && ticket.id !== null) {
+                    // Converter para string de forma segura
+                    const idValue = ticket.id;
+                    // Verificar se é um número, string, ou pode ser convertido
+                    if (typeof idValue === 'number' || typeof idValue === 'string') {
+                        ticketId = String(idValue);
+                    } else {
+                        // Tentar converter de qualquer forma
+                        ticketId = String(idValue);
+                    }
+                    // Garantir que é uma string válida
+                    if (typeof ticketId !== 'string') {
+                        ticketId = '';
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao converter ticket.id para string:', e, ticket);
+                ticketId = '';
+            }
+            
+            // Garantir que ticketIdDisplay seja sempre uma string válida
+            const ticketIdDisplay = (ticketId && typeof ticketId === 'string' && ticketId.length > 0) 
+                ? ticketId.substring(0, Math.min(8, ticketId.length)) 
+                : 'N/A';
             
             return `
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticketId}')">
@@ -2356,8 +2411,19 @@ class AdminSystem {
         
         this.currentTicket = ticket;
         
-        // Preencher modal - garantir que ticket.id seja string
-        const ticketIdDisplay = String(ticket.id || '').substring(0, 8);
+        // Preencher modal - garantir que ticket.id seja string de forma segura
+        let ticketIdDisplay = 'N/A';
+        try {
+            if (ticket.id !== undefined && ticket.id !== null) {
+                const idStr = String(ticket.id);
+                if (typeof idStr === 'string' && idStr.length > 0) {
+                    ticketIdDisplay = idStr.substring(0, Math.min(8, idStr.length));
+                }
+            }
+        } catch (e) {
+            console.error('Erro ao formatar ticket ID:', e);
+            ticketIdDisplay = 'N/A';
+        }
         document.getElementById('ticket-details-id').textContent = `Chamado #${ticketIdDisplay}`;
         document.getElementById('ticket-decorator-name').textContent = ticket.decorator_name || 'Desconhecido';
         document.getElementById('ticket-decorator-contact').textContent = ticket.decorator_email || 'Não informado';
