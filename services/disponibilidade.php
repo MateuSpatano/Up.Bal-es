@@ -63,6 +63,7 @@ try {
             break;
             
         case 'validate':
+            error_log('Chamando validateAvailability com action=validate');
             validateAvailability($input);
             break;
             
@@ -79,25 +80,36 @@ try {
             break;
             
         default:
-            throw new Exception('Ação não reconhecida');
+            throw new Exception('Ação não reconhecida: ' . $action);
     }
 } catch (Exception $e) {
     http_response_code(500);
     $errorMessage = $e->getMessage();
-    error_log('Erro em disponibilidade.php: ' . $errorMessage . ' | Trace: ' . $e->getTraceAsString());
+    error_log('Erro em disponibilidade.php (Exception): ' . $errorMessage . ' | Trace: ' . $e->getTraceAsString());
     echo json_encode([
         'success' => false,
-        'message' => $errorMessage
+        'message' => $errorMessage,
+        'type' => 'Exception'
     ]);
 } catch (Error $e) {
     http_response_code(500);
     $errorMessage = 'Erro fatal: ' . $e->getMessage();
-    error_log('Erro fatal em disponibilidade.php: ' . $errorMessage . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
+    error_log('Erro fatal em disponibilidade.php (Error): ' . $errorMessage . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString());
     echo json_encode([
         'success' => false,
         'message' => $errorMessage,
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine(),
+        'type' => 'Error'
+    ]);
+} catch (Throwable $e) {
+    http_response_code(500);
+    $errorMessage = 'Erro inesperado: ' . $e->getMessage();
+    error_log('Erro Throwable em disponibilidade.php: ' . $errorMessage . ' | Tipo: ' . get_class($e) . ' | Trace: ' . $e->getTraceAsString());
+    echo json_encode([
+        'success' => false,
+        'message' => $errorMessage,
+        'type' => get_class($e)
     ]);
 }
 
@@ -303,45 +315,61 @@ function loadAvailabilitySettings() {
 function validateAvailability($data) {
     global $pdo;
     
+    // Log inicial para debug
+    error_log('validateAvailability chamada com dados: ' . json_encode($data));
+    
     try {
         // Validar entrada
         if (empty($data['event_date']) || empty($data['event_time'])) {
+            error_log('validateAvailability: Data ou hora vazia');
             throw new Exception('Data e hora do evento são obrigatórias');
-        }
-        
-        // Obter ID do usuário
-        try {
-            $userId = getCurrentUserId();
-        } catch (Exception $e) {
-            error_log('Erro ao obter ID do usuário: ' . $e->getMessage());
-            throw new Exception('Usuário não autenticado. Faça login novamente.');
         }
         
         $eventDate = $data['event_date'];
         $eventTime = $data['event_time'];
-        $eventDateTime = $eventDate . ' ' . $eventTime;
+        error_log("validateAvailability: Validando data={$eventDate}, hora={$eventTime}");
         
         // Validar formato de data
         if (!strtotime($eventDate)) {
+            error_log("validateAvailability: Data inválida: {$eventDate}");
             throw new Exception('Data inválida: ' . $eventDate);
         }
         
         // Validar formato de hora
         if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
+            error_log("validateAvailability: Hora inválida: {$eventTime}");
             throw new Exception('Hora inválida: ' . $eventTime);
         }
         
-        // Obter configurações de disponibilidade
-        $stmt = $pdo->prepare("
-            SELECT available_days, time_schedules, service_intervals, max_daily_services 
-            FROM decorator_availability 
-            WHERE user_id = ? 
-            ORDER BY updated_at DESC 
-            LIMIT 1
-        ");
+        // Obter ID do usuário
+        try {
+            $userId = getCurrentUserId();
+            error_log("validateAvailability: User ID obtido: {$userId}");
+        } catch (Exception $e) {
+            error_log('Erro ao obter ID do usuário: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            throw new Exception('Usuário não autenticado. Faça login novamente.');
+        }
         
-        $stmt->execute([$userId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $eventDateTime = $eventDate . ' ' . $eventTime;
+        
+        // Obter configurações de disponibilidade
+        try {
+            $stmt = $pdo->prepare("
+                SELECT available_days, time_schedules, service_intervals, max_daily_services 
+                FROM decorator_availability 
+                WHERE user_id = ? 
+                ORDER BY updated_at DESC 
+                LIMIT 1
+            ");
+            
+            $stmt->execute([$userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            error_log("validateAvailability: Resultado da query: " . ($result ? 'encontrado' : 'não encontrado'));
+        } catch (PDOException $e) {
+            error_log('Erro ao buscar configurações: ' . $e->getMessage());
+            // Se houver erro na query, usar valores padrão
+            $result = false;
+        }
         
         // Se não houver configurações, usar valores padrão
         if (!$result) {
@@ -502,14 +530,20 @@ function validateAvailability($data) {
             'message' => 'Horário disponível para agendamento',
             'available' => true
         ]);
+        return; // Garantir que a função termine aqui
     } catch (PDOException $e) {
         $errorMsg = 'Erro de banco de dados: ' . $e->getMessage();
         error_log('Erro de banco de dados em validateAvailability: ' . $e->getMessage() . ' | SQL State: ' . $e->getCode());
         throw new Exception($errorMsg);
     } catch (Exception $e) {
         // Se já é uma Exception, apenas logar e relançar
-        error_log('Erro em validateAvailability: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
-        throw $e;
+        $errorMsg = $e->getMessage();
+        error_log('Erro em validateAvailability (Exception): ' . $errorMsg . ' | Trace: ' . $e->getTraceAsString());
+        // Garantir que a mensagem não seja genérica demais
+        if (strpos($errorMsg, 'Erro ao validar disponibilidade') === 0 && strlen($errorMsg) < 60) {
+            $errorMsg = $errorMsg . ' (Verifique os logs do servidor para mais detalhes)';
+        }
+        throw new Exception($errorMsg);
     } catch (Error $e) {
         // Erros fatais do PHP (erros de sintaxe, etc)
         $errorMsg = 'Erro ao validar disponibilidade: ' . $e->getMessage() . ' (Arquivo: ' . basename($e->getFile()) . ', Linha: ' . $e->getLine() . ')';
@@ -554,16 +588,27 @@ function checkIfDateIsBlocked($userId, $date) {
  * Obter ID do usuário atual
  */
 function getCurrentUserId() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    try {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (isset($_SESSION['user_id'])) {
+            $userId = (int) $_SESSION['user_id'];
+            error_log('getCurrentUserId: User ID encontrado na sessão: ' . $userId);
+            return $userId;
+        }
+        
+        // Se não houver sessão, retornar erro
+        error_log('getCurrentUserId: Sessão não contém user_id. Sessão: ' . json_encode($_SESSION));
+        throw new Exception('Usuário não autenticado. Faça login novamente.');
+    } catch (Exception $e) {
+        error_log('getCurrentUserId: Exceção: ' . $e->getMessage());
+        throw $e;
+    } catch (Error $e) {
+        error_log('getCurrentUserId: Erro fatal: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
+        throw new Exception('Erro ao obter ID do usuário: ' . $e->getMessage());
     }
-    
-    if (isset($_SESSION['user_id'])) {
-        return (int) $_SESSION['user_id'];
-    }
-    
-    // Se não houver sessão, retornar erro
-    throw new Exception('Usuário não autenticado');
 }
 
 /**
