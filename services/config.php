@@ -288,40 +288,46 @@ function sendEmail($to, $subject, $htmlBody, $textBody = null) {
     }
 }
 
-// Resposta JSON padronizada
-function jsonResponse($data, $status_code = 200) {
-    http_response_code($status_code);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    exit;
+// Resposta JSON padronizada (apenas se não existir)
+if (!function_exists('jsonResponse')) {
+    function jsonResponse($data, $status_code = 200) {
+        http_response_code($status_code);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
-// Resposta de erro
-function errorResponse($message, $status_code = 400, $code = null) {
-    $response = [
-        'success' => false,
-        'message' => $message
-    ];
-    
-    if ($code !== null) {
-        $response['code'] = $code;
+// Resposta de erro (apenas se não existir)
+if (!function_exists('errorResponse')) {
+    function errorResponse($message, $status_code = 400, $code = null) {
+        $response = [
+            'success' => false,
+            'message' => $message
+        ];
+        
+        if ($code !== null) {
+            $response['code'] = $code;
+        }
+        
+        jsonResponse($response, $status_code);
     }
-    
-    jsonResponse($response, $status_code);
 }
 
-// Resposta de sucesso
-function successResponse($data = null, $message = 'Operação realizada com sucesso.') {
-    $response = [
-        'success' => true,
-        'message' => $message
-    ];
-    
-    if ($data !== null) {
-        $response['data'] = $data;
+// Resposta de sucesso (apenas se não existir)
+if (!function_exists('successResponse')) {
+    function successResponse($data = null, $message = 'Operação realizada com sucesso.') {
+        $response = [
+            'success' => true,
+            'message' => $message
+        ];
+        
+        if ($data !== null) {
+            $response['data'] = $data;
+        }
+        
+        jsonResponse($response);
     }
-    
-    jsonResponse($response);
 }
 
 // Inicializar configurações globais (apenas se não for CLI)
