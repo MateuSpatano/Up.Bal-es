@@ -2150,19 +2150,39 @@ class AdminSystem {
                 this.updateSupportStats();
             }
         } catch (error) {
-            console.error('Erro ao carregar tickets:', error.message || error);
+            console.error('❌ Erro ao carregar tickets:', error.message || error);
             console.error('Stack trace:', error.stack);
-            // Fallback para localStorage em caso de erro
-            const saved = localStorage.getItem('support_tickets');
+            console.error('Tipo do erro:', error.constructor.name);
+            
+            // Não tentar renderizar se houver erro crítico
+            // Apenas mostrar mensagem de erro
+            this.showNotification('Erro ao carregar tickets de suporte. Verifique o console para mais detalhes.', 'error');
+            
+            // Fallback para localStorage em caso de erro (mas com proteção)
             try {
-                this.supportTickets = this.safeLocalStorageGet('support_tickets', []);
+                const saved = localStorage.getItem('support_tickets');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) {
+                        // Validar cada ticket antes de usar
+                        this.supportTickets = parsed.filter(t => t && t.id !== undefined && t.id !== null);
+                        this.filteredTickets = [...this.supportTickets];
+                        console.log('📦 Carregados', this.supportTickets.length, 'tickets do localStorage');
+                        this.renderSupportTickets();
+                        this.updateSupportStats();
+                    } else {
+                        this.supportTickets = [];
+                        this.filteredTickets = [];
+                    }
+                } else {
+                    this.supportTickets = [];
+                    this.filteredTickets = [];
+                }
             } catch (e) {
                 console.error('Erro ao fazer parse do localStorage:', e);
                 this.supportTickets = [];
+                this.filteredTickets = [];
             }
-            this.filteredTickets = [...this.supportTickets];
-            this.renderSupportTickets();
-            this.updateSupportStats();
         }
     }
     
@@ -2194,14 +2214,21 @@ class AdminSystem {
         
         if (emptyState) emptyState.classList.add('hidden');
         
-        const ticketsHTML = this.filteredTickets.map(ticket => {
-            // Validar dados do ticket
-            if (!ticket || !ticket.id) {
-                console.warn('⚠️ Ticket inválido encontrado:', ticket);
-                return '';
-            }
-            
-            const statusColors = {
+        const ticketsHTML = this.filteredTickets.map((ticket, index) => {
+            try {
+                // Validar dados do ticket
+                if (!ticket) {
+                    console.warn('⚠️ Ticket nulo encontrado no índice:', index);
+                    return '';
+                }
+                
+                // Garantir que ticket.id existe e pode ser convertido para string
+                if (ticket.id === undefined || ticket.id === null) {
+                    console.warn('⚠️ Ticket sem ID encontrado no índice:', index, ticket);
+                    return '';
+                }
+                
+                const statusColors = {
                 'novo': 'bg-yellow-100 text-yellow-800 border-yellow-300',
                 'em_analise': 'bg-blue-100 text-blue-800 border-blue-300',
                 'resolvido': 'bg-green-100 text-green-800 border-green-300',
@@ -2261,6 +2288,11 @@ class AdminSystem {
                     </div>
                 </div>
             `;
+            } catch (error) {
+                console.error(`❌ Erro ao renderizar ticket no índice ${index}:`, error);
+                console.error('Ticket que causou erro:', ticket);
+                return '';
+            }
         }).filter(html => html !== '').join('');
         
         if (ticketsHTML.length === 0 && this.filteredTickets.length > 0) {
@@ -2269,8 +2301,14 @@ class AdminSystem {
         }
         
         console.log('🎨 HTML gerado:', ticketsHTML.length, 'caracteres');
-        container.innerHTML = ticketsHTML;
-        console.log('✅ Tickets renderizados no DOM');
+        
+        try {
+            container.innerHTML = ticketsHTML;
+            console.log('✅ Tickets renderizados no DOM');
+        } catch (error) {
+            console.error('❌ Erro ao inserir HTML no container:', error);
+            console.error('HTML que causou erro:', ticketsHTML.substring(0, 500));
+        }
     }
     
     // Filtrar chamados
@@ -2308,7 +2346,9 @@ class AdminSystem {
     
     // Ver detalhes do chamado
     viewTicketDetails(ticketId) {
-        const ticket = this.supportTickets.find(t => t.id === ticketId);
+        // Converter ticketId para string para comparação
+        const ticketIdStr = String(ticketId);
+        const ticket = this.supportTickets.find(t => String(t.id) === ticketIdStr);
         if (!ticket) {
             this.showNotification('Chamado não encontrado', 'error');
             return;
@@ -2316,14 +2356,15 @@ class AdminSystem {
         
         this.currentTicket = ticket;
         
-        // Preencher modal
-        document.getElementById('ticket-details-id').textContent = `Chamado #${ticket.id.substring(0, 8)}`;
-        document.getElementById('ticket-decorator-name').textContent = ticket.decorator_name;
+        // Preencher modal - garantir que ticket.id seja string
+        const ticketIdDisplay = String(ticket.id || '').substring(0, 8);
+        document.getElementById('ticket-details-id').textContent = `Chamado #${ticketIdDisplay}`;
+        document.getElementById('ticket-decorator-name').textContent = ticket.decorator_name || 'Desconhecido';
         document.getElementById('ticket-decorator-contact').textContent = ticket.decorator_email || 'Não informado';
         document.getElementById('ticket-datetime').textContent = this.formatDateTime(ticket.created_at);
-        document.getElementById('ticket-title').textContent = ticket.title;
-        document.getElementById('ticket-description').textContent = ticket.description;
-        document.getElementById('ticket-new-status').value = ticket.status;
+        document.getElementById('ticket-title').textContent = ticket.title || 'Sem título';
+        document.getElementById('ticket-description').textContent = ticket.description || 'Sem descrição';
+        document.getElementById('ticket-new-status').value = ticket.status || 'novo';
         
         // Badge de status
         const statusColors = {
