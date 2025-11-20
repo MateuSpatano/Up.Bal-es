@@ -3,14 +3,17 @@
  * Serviço de Administração - Up.Baloes
  * Gerencia todas as operações administrativas
  * 
- * VERSÃO ROBUSTA COM TRATAMENTO COMPLETO DE ERROS
+ * VERSÃO ULTRA-ROBUSTA - SEMPRE RETORNA JSON VÁLIDO
  */
+
+// Iniciar output buffering para capturar qualquer saída indesejada
+ob_start();
 
 // Desabilitar exibição de erros na saída (mas manter logs)
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-// Configurações de segurança e headers
+// Configurações de segurança e headers ANTES de qualquer saída
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -18,12 +21,18 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 // Permitir requisições OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    ob_end_clean();
     http_response_code(200);
     exit();
 }
 
-// Função para garantir resposta JSON válida sempre
+// Função para garantir resposta JSON válida sempre (chamada antes de qualquer saída)
 function ensureJsonResponse($data, $statusCode = 200) {
+    // Limpar qualquer output buffer anterior
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
     http_response_code($statusCode);
     header('Content-Type: application/json; charset=utf-8');
     
@@ -55,7 +64,7 @@ function ensureJsonResponse($data, $statusCode = 200) {
 // Função de resposta de sucesso
 function successResponse($data = null, $message = 'Sucesso') {
     $response = ['success' => true];
-    if ($message) {
+    if ($message && $message !== 'Sucesso') {
         $response['message'] = $message;
     }
     if ($data !== null) {
@@ -72,10 +81,11 @@ function errorResponse($message, $code = 400) {
     ], $code);
 }
 
-// Tratamento de erros fatais
+// Tratamento de erros fatais - DEVE ser registrado ANTES de qualquer código que possa falhar
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log('ERRO FATAL: ' . $error['message'] . ' em ' . $error['file'] . ':' . $error['line']);
         ensureJsonResponse([
             'success' => false,
             'message' => 'Erro fatal no servidor',
@@ -84,42 +94,42 @@ register_shutdown_function(function() {
     }
 });
 
-// Incluir configurações
+// TRY-CATCH GLOBAL para capturar QUALQUER erro
 try {
-    require_once __DIR__ . '/config.php';
-} catch (Exception $e) {
-    error_log('Erro ao carregar config.php: ' . $e->getMessage());
-    errorResponse('Erro de configuração do servidor', 500);
-}
-
-// Iniciar sessão com tratamento de erro
-try {
-    if (session_status() === PHP_SESSION_NONE) {
-        // Usar o mesmo nome de sessão do config.php
-        if (isset($GLOBALS['security_config']['session_name'])) {
-            ini_set('session.name', $GLOBALS['security_config']['session_name']);
-        }
-        session_start();
-        
-        // Log para debug (apenas em desenvolvimento)
-        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-            error_log('Sessão iniciada. ID: ' . session_id());
-            error_log('Dados da sessão: ' . json_encode($_SESSION));
-        }
+    // Incluir configurações
+    try {
+        require_once __DIR__ . '/config.php';
+    } catch (Exception $e) {
+        error_log('Erro ao carregar config.php: ' . $e->getMessage());
+        errorResponse('Erro de configuração do servidor', 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao carregar config.php: ' . $e->getMessage());
+        errorResponse('Erro fatal de configuração', 500);
     }
-} catch (Exception $e) {
-    error_log('Erro ao iniciar sessão: ' . $e->getMessage());
-    // Continuar mesmo se a sessão falhar, mas retornar erro
-    errorResponse('Erro ao iniciar sessão', 500);
-}
-
-// Verificar método HTTP
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    errorResponse('Método não permitido. Use POST.', 405);
-}
-
-// Obter e validar dados da requisição
-try {
+    
+    // Iniciar sessão com tratamento de erro
+    try {
+        if (session_status() === PHP_SESSION_NONE) {
+            // Usar o mesmo nome de sessão do config.php
+            if (isset($GLOBALS['security_config']['session_name'])) {
+                ini_set('session.name', $GLOBALS['security_config']['session_name']);
+            }
+            session_start();
+        }
+    } catch (Exception $e) {
+        error_log('Erro ao iniciar sessão: ' . $e->getMessage());
+        errorResponse('Erro ao iniciar sessão', 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao iniciar sessão: ' . $e->getMessage());
+        errorResponse('Erro fatal ao iniciar sessão', 500);
+    }
+    
+    // Verificar método HTTP
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        errorResponse('Método não permitido. Use POST.', 405);
+    }
+    
+    // Obter e validar dados da requisição
     $rawInput = file_get_contents('php://input');
     
     if (empty($rawInput)) {
@@ -130,7 +140,7 @@ try {
     
     if (json_last_error() !== JSON_ERROR_NONE) {
         error_log('Erro ao decodificar JSON: ' . json_last_error_msg());
-        error_log('Input recebido: ' . substr($rawInput, 0, 500));
+        error_log('Input recebido (primeiros 500 chars): ' . substr($rawInput, 0, 500));
         errorResponse('Dados JSON inválidos: ' . json_last_error_msg(), 400);
     }
     
@@ -144,159 +154,153 @@ try {
         errorResponse('Ação não especificada', 400);
     }
     
-} catch (Exception $e) {
-    error_log('Erro ao processar requisição: ' . $e->getMessage());
-    errorResponse('Erro ao processar requisição: ' . $e->getMessage(), 500);
-}
-
-// Função para verificar autenticação admin de forma robusta
-function checkAdminAuth() {
-    // Log da sessão para debug
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        error_log('Verificando autenticação admin. Sessão ID: ' . session_id());
-        error_log('Dados da sessão: ' . json_encode($_SESSION));
-    }
-    
-    // Verificar múltiplas formas de autenticação
-    $isAdmin = false;
-    $adminId = null;
-    
-    // Forma 1: admin_id na sessão
-    if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
-        $isAdmin = true;
-        $adminId = $_SESSION['admin_id'];
-        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-            error_log('Admin autenticado via admin_id: ' . $adminId);
+    // Função para verificar autenticação admin de forma robusta
+    function checkAdminAuth() {
+        // Verificar múltiplas formas de autenticação
+        $isAdmin = false;
+        $adminId = null;
+        
+        // Forma 1: admin_id na sessão
+        if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
+            $isAdmin = true;
+            $adminId = $_SESSION['admin_id'];
         }
-    }
-    // Forma 2: user_role admin na sessão
-    elseif (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin' && isset($_SESSION['user_id'])) {
-        $isAdmin = true;
-        $adminId = $_SESSION['user_id'];
-        $_SESSION['admin_id'] = $adminId; // Sincronizar
-        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-            error_log('Admin autenticado via user_role: ' . $adminId);
+        // Forma 2: user_role admin na sessão
+        elseif (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin' && isset($_SESSION['user_id'])) {
+            $isAdmin = true;
+            $adminId = $_SESSION['user_id'];
+            $_SESSION['admin_id'] = $adminId; // Sincronizar
         }
-    }
-    // Forma 3: Verificar no banco se user_id tem perfil admin
-    elseif (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
-        try {
-            $pdo = getDatabaseConnection($GLOBALS['database_config']);
-            $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
-            $stmt->execute([$_SESSION['user_id']]);
-            $user = $stmt->fetch();
-            
-            if ($user) {
-                $isAdmin = true;
-                $adminId = $user['id'];
-                $_SESSION['admin_id'] = $adminId;
-                $_SESSION['admin_role'] = 'admin';
-                if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-                    error_log('Admin autenticado via banco de dados: ' . $adminId);
+        // Forma 3: Verificar no banco se user_id tem perfil admin
+        elseif (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+            try {
+                $pdo = getDatabaseConnection($GLOBALS['database_config']);
+                $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+                $stmt->execute([$_SESSION['user_id']]);
+                $user = $stmt->fetch();
+                
+                if ($user) {
+                    $isAdmin = true;
+                    $adminId = $user['id'];
+                    $_SESSION['admin_id'] = $adminId;
+                    $_SESSION['admin_role'] = 'admin';
                 }
+            } catch (Exception $e) {
+                error_log('Erro ao verificar admin no banco: ' . $e->getMessage());
+            } catch (Error $e) {
+                error_log('Erro fatal ao verificar admin no banco: ' . $e->getMessage());
             }
+        }
+        
+        if (!$isAdmin) {
+            $sessionInfo = [
+                'session_id' => session_id(),
+                'has_admin_id' => isset($_SESSION['admin_id']),
+                'has_user_id' => isset($_SESSION['user_id']),
+                'user_role' => $_SESSION['user_role'] ?? 'não definido'
+            ];
+            error_log('Tentativa de acesso não autorizado. Info: ' . json_encode($sessionInfo));
+            errorResponse('Não autorizado. Faça login como administrador.', 401);
+        }
+        
+        return $adminId;
+    }
+    
+    // Verificar autenticação admin para ações que requerem
+    $requiresAuth = ['get_users', 'get_dashboard_data', 'get_user', 'update_user', 
+                     'create_decorator', 'approve_decorator', 'toggle_user_status', 
+                     'delete_user', 'get_admin_profile', 'update_admin_profile', 
+                     'update_admin_password', 'get_settings', 'update_settings'];
+    
+    if (in_array($action, $requiresAuth)) {
+        try {
+            checkAdminAuth();
         } catch (Exception $e) {
-            error_log('Erro ao verificar admin no banco: ' . $e->getMessage());
+            // Já foi tratado em checkAdminAuth, mas garantir que não continue
+            exit();
+        } catch (Error $e) {
+            error_log('Erro fatal em checkAdminAuth: ' . $e->getMessage());
+            errorResponse('Erro fatal na autenticação', 500);
         }
     }
     
-    if (!$isAdmin) {
-        $sessionInfo = [
-            'session_id' => session_id(),
-            'has_admin_id' => isset($_SESSION['admin_id']),
-            'admin_id_value' => $_SESSION['admin_id'] ?? null,
-            'has_user_id' => isset($_SESSION['user_id']),
-            'user_id_value' => $_SESSION['user_id'] ?? null,
-            'user_role' => $_SESSION['user_role'] ?? 'não definido'
-        ];
-        error_log('Tentativa de acesso não autorizado. Info: ' . json_encode($sessionInfo));
-        errorResponse('Não autorizado. Faça login como administrador.', 401);
-    }
-    
-    return $adminId;
-}
-
-// Verificar autenticação admin para ações que requerem
-$requiresAuth = ['get_users', 'get_dashboard_data', 'get_user', 'update_user', 
-                 'create_decorator', 'approve_decorator', 'toggle_user_status', 
-                 'delete_user', 'get_admin_profile', 'update_admin_profile', 
-                 'update_admin_password', 'get_settings', 'update_settings'];
-
-if (in_array($action, $requiresAuth)) {
+    // Processar ação com try-catch individual
     try {
-        checkAdminAuth();
+        switch ($action) {
+            case 'get_users':
+                handleGetUsers($input);
+                break;
+                
+            case 'get_dashboard_data':
+                handleGetDashboardData();
+                break;
+                
+            case 'get_user':
+                handleGetUser($input);
+                break;
+                
+            case 'update_user':
+                handleUpdateUser($input);
+                break;
+                
+            case 'create_decorator':
+                handleCreateDecorator($input);
+                break;
+                
+            case 'approve_decorator':
+                handleApproveDecorator($input);
+                break;
+                
+            case 'toggle_user_status':
+                handleToggleUserStatus($input);
+                break;
+                
+            case 'delete_user':
+                handleDeleteUser($input);
+                break;
+                
+            case 'get_admin_profile':
+                handleGetAdminProfile();
+                break;
+                
+            case 'update_admin_profile':
+                handleUpdateAdminProfile($input);
+                break;
+                
+            case 'update_admin_password':
+                handleUpdateAdminPassword($input);
+                break;
+                
+            case 'get_settings':
+                handleGetSettings();
+                break;
+                
+            case 'update_settings':
+                handleUpdateSettings($input);
+                break;
+                
+            default:
+                errorResponse('Ação não reconhecida: ' . $action, 400);
+        }
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO na ação ' . $action . ': ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
-        // Já foi tratado em checkAdminAuth, mas garantir que não continue
-        exit();
-    }
-}
-
-// Processar ação
-try {
-    switch ($action) {
-        case 'get_users':
-            handleGetUsers($input);
-            break;
-            
-        case 'get_dashboard_data':
-            handleGetDashboardData();
-            break;
-            
-        case 'get_user':
-            handleGetUser($input);
-            break;
-            
-        case 'update_user':
-            handleUpdateUser($input);
-            break;
-            
-        case 'create_decorator':
-            handleCreateDecorator($input);
-            break;
-            
-        case 'approve_decorator':
-            handleApproveDecorator($input);
-            break;
-            
-        case 'toggle_user_status':
-            handleToggleUserStatus($input);
-            break;
-            
-        case 'delete_user':
-            handleDeleteUser($input);
-            break;
-            
-        case 'get_admin_profile':
-            handleGetAdminProfile();
-            break;
-            
-        case 'update_admin_profile':
-            handleUpdateAdminProfile($input);
-            break;
-            
-        case 'update_admin_password':
-            handleUpdateAdminPassword($input);
-            break;
-            
-        case 'get_settings':
-            handleGetSettings();
-            break;
-            
-        case 'update_settings':
-            handleUpdateSettings($input);
-            break;
-            
-        default:
-            errorResponse('Ação não reconhecida: ' . $action, 400);
+        error_log('Erro ao processar ação ' . $action . ': ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
+        errorResponse('Erro ao processar ação: ' . $e->getMessage(), 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao processar ação ' . $action . ': ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
+        errorResponse('Erro fatal no servidor', 500);
     }
     
 } catch (Exception $e) {
-    error_log('Erro ao processar ação ' . $action . ': ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
-    errorResponse('Erro ao processar ação: ' . $e->getMessage(), 500);
+    error_log('Erro global não capturado: ' . $e->getMessage());
+    errorResponse('Erro interno do servidor', 500);
 } catch (Error $e) {
-    error_log('Erro fatal ao processar ação ' . $action . ': ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
+    error_log('Erro fatal global não capturado: ' . $e->getMessage());
     errorResponse('Erro fatal no servidor', 500);
 }
 
@@ -345,7 +349,8 @@ function handleGetUsers($input) {
         $countSql = "SELECT COUNT(*) as total FROM usuarios {$whereClause}";
         $countStmt = $pdo->prepare($countSql);
         $countStmt->execute($params);
-        $total = (int)$countStmt->fetch()['total'];
+        $totalResult = $countStmt->fetch();
+        $total = (int)($totalResult['total'] ?? 0);
         
         // Buscar usuários
         $sql = "SELECT id, nome, email, perfil, ativo, aprovado_por_admin, created_at, slug 
@@ -365,14 +370,14 @@ function handleGetUsers($input) {
         $formattedUsers = [];
         foreach ($users as $user) {
             $formattedUsers[] = [
-                'id' => (int)$user['id'],
-                'name' => $user['nome'],
-                'email' => $user['email'],
-                'type' => $user['perfil'],
-                'status' => $user['ativo'] ? 'active' : 'inactive',
-                'approved' => (bool)$user['aprovado_por_admin'],
-                'created_at' => $user['created_at'],
-                'url' => $user['perfil'] === 'decorator' && !empty($user['slug']) 
+                'id' => (int)($user['id'] ?? 0),
+                'name' => $user['nome'] ?? '',
+                'email' => $user['email'] ?? '',
+                'type' => $user['perfil'] ?? '',
+                'status' => ($user['ativo'] ?? 0) ? 'active' : 'inactive',
+                'approved' => (bool)($user['aprovado_por_admin'] ?? false),
+                'created_at' => $user['created_at'] ?? date('Y-m-d H:i:s'),
+                'url' => ($user['perfil'] ?? '') === 'decorator' && !empty($user['slug'] ?? '') 
                     ? '/' . $user['slug'] 
                     : null
             ];
@@ -383,15 +388,18 @@ function handleGetUsers($input) {
             'total' => $total,
             'page' => $page,
             'limit' => $limit,
-            'total_pages' => ceil($total / $limit)
+            'total_pages' => $limit > 0 ? ceil($total / $limit) : 0
         ]);
         
     } catch (PDOException $e) {
         error_log('Erro PDO ao buscar usuários: ' . $e->getMessage());
-        errorResponse('Erro ao conectar com o banco de dados', 500);
+        errorResponse('Erro ao conectar com o banco de dados: ' . $e->getMessage(), 500);
     } catch (Exception $e) {
         error_log('Erro ao buscar usuários: ' . $e->getMessage());
         errorResponse('Erro ao buscar usuários: ' . $e->getMessage(), 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao buscar usuários: ' . $e->getMessage());
+        errorResponse('Erro fatal ao buscar usuários', 500);
     }
 }
 
@@ -402,19 +410,37 @@ function handleGetDashboardData() {
     try {
         $pdo = getDatabaseConnection($GLOBALS['database_config']);
         
+        // Inicializar valores padrão
+        $totalClients = 0;
+        $activeDecorators = 0;
+        $totalRequests = 0;
+        $totalServices = 0;
+        $pendingApprovals = 0;
+        $activities = [];
+        
         // Contar clientes
-        $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'client'");
-        $totalClients = (int)$stmt->fetch()['total'];
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'client'");
+            $result = $stmt->fetch();
+            $totalClients = (int)($result['total'] ?? 0);
+        } catch (PDOException $e) {
+            error_log('Erro ao contar clientes: ' . $e->getMessage());
+        }
         
         // Contar decoradores ativos
-        $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'decorator' AND ativo = 1 AND aprovado_por_admin = 1");
-        $activeDecorators = (int)$stmt->fetch()['total'];
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'decorator' AND ativo = 1 AND aprovado_por_admin = 1");
+            $result = $stmt->fetch();
+            $activeDecorators = (int)($result['total'] ?? 0);
+        } catch (PDOException $e) {
+            error_log('Erro ao contar decoradores: ' . $e->getMessage());
+        }
         
         // Contar pedidos (se houver tabela de pedidos)
-        $totalRequests = 0;
         try {
             $stmt = $pdo->query("SELECT COUNT(*) as total FROM orcamentos");
-            $totalRequests = (int)$stmt->fetch()['total'];
+            $result = $stmt->fetch();
+            $totalRequests = (int)($result['total'] ?? 0);
         } catch (PDOException $e) {
             // Tabela pode não existir ainda - não é crítico
         }
@@ -423,25 +449,33 @@ function handleGetDashboardData() {
         $totalServices = $activeDecorators;
         
         // Contar aprovações pendentes
-        $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'decorator' AND aprovado_por_admin = 0");
-        $pendingApprovals = (int)$stmt->fetch()['total'];
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'decorator' AND aprovado_por_admin = 0");
+            $result = $stmt->fetch();
+            $pendingApprovals = (int)($result['total'] ?? 0);
+        } catch (PDOException $e) {
+            error_log('Erro ao contar aprovações pendentes: ' . $e->getMessage());
+        }
         
         // Atividades recentes (últimos 5 usuários criados)
-        $stmt = $pdo->query("
-            SELECT id, nome, email, perfil, created_at 
-            FROM usuarios 
-            ORDER BY created_at DESC 
-            LIMIT 5
-        ");
-        $recentUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        $activities = [];
-        foreach ($recentUsers as $user) {
-            $activities[] = [
-                'type' => 'user_created',
-                'message' => "Novo {$user['perfil']}: {$user['nome']}",
-                'date' => $user['created_at']
-            ];
+        try {
+            $stmt = $pdo->query("
+                SELECT id, nome, email, perfil, created_at 
+                FROM usuarios 
+                ORDER BY created_at DESC 
+                LIMIT 5
+            ");
+            $recentUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($recentUsers as $user) {
+                $activities[] = [
+                    'type' => 'user_created',
+                    'message' => "Novo " . ($user['perfil'] ?? 'usuário') . ": " . ($user['nome'] ?? ''),
+                    'date' => $user['created_at'] ?? date('Y-m-d H:i:s')
+                ];
+            }
+        } catch (PDOException $e) {
+            error_log('Erro ao buscar atividades: ' . $e->getMessage());
         }
         
         successResponse([
@@ -459,6 +493,9 @@ function handleGetDashboardData() {
     } catch (Exception $e) {
         error_log('Erro ao buscar dados do dashboard: ' . $e->getMessage());
         errorResponse('Erro ao buscar dados do dashboard: ' . $e->getMessage(), 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao buscar dados do dashboard: ' . $e->getMessage());
+        errorResponse('Erro fatal ao buscar dados do dashboard', 500);
     }
 }
 
@@ -483,6 +520,9 @@ function handleGetUser($input) {
         
         successResponse($user);
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar usuário: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao buscar usuário: ' . $e->getMessage());
         errorResponse('Erro ao buscar usuário', 500);
@@ -525,6 +565,9 @@ function handleUpdateUser($input) {
         
         successResponse(null, 'Usuário atualizado com sucesso');
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao atualizar usuário: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao atualizar usuário: ' . $e->getMessage());
         errorResponse('Erro ao atualizar usuário', 500);
@@ -556,6 +599,9 @@ function handleApproveDecorator($input) {
         
         successResponse(null, $approved ? 'Decorador aprovado com sucesso' : 'Aprovação removida');
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao aprovar decorador: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao aprovar decorador: ' . $e->getMessage());
         errorResponse('Erro ao aprovar decorador', 500);
@@ -589,6 +635,9 @@ function handleToggleUserStatus($input) {
         
         successResponse(null, 'Status atualizado com sucesso');
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao alterar status: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao alterar status: ' . $e->getMessage());
         errorResponse('Erro ao alterar status', 500);
@@ -611,6 +660,9 @@ function handleDeleteUser($input) {
         
         successResponse(null, 'Usuário deletado com sucesso');
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao deletar usuário: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao deletar usuário: ' . $e->getMessage());
         errorResponse('Erro ao deletar usuário', 500);
@@ -635,6 +687,9 @@ function handleGetAdminProfile() {
         
         successResponse($admin);
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar perfil admin: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao buscar perfil admin: ' . $e->getMessage());
         errorResponse('Erro ao buscar perfil', 500);

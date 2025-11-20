@@ -63,7 +63,36 @@ class AdminSystem {
             const contentType = response.headers.get('content-type');
             const text = await response.text();
             
+            // Log detalhado para debug
             if (!text || text.trim() === '') {
+                console.error('Resposta vazia do servidor. Status:', response.status, response.statusText);
+                console.error('URL:', response.url);
+                console.error('Headers:', Object.fromEntries(response.headers.entries()));
+                
+                // Se for erro 401, retornar objeto de erro estruturado
+                if (response.status === 401) {
+                    return {
+                        success: false,
+                        message: 'Não autorizado. Faça login novamente.'
+                    };
+                }
+                
+                // Se for erro 500, retornar erro genérico
+                if (response.status >= 500) {
+                    return {
+                        success: false,
+                        message: 'Erro interno do servidor. Tente novamente mais tarde.'
+                    };
+                }
+                
+                // Para outros casos, retornar erro genérico baseado no status
+                if (response.status >= 400) {
+                    return {
+                        success: false,
+                        message: `Erro ${response.status}: ${response.statusText || 'Erro na requisição'}`
+                    };
+                }
+                
                 return defaultValue;
             }
 
@@ -84,6 +113,22 @@ class AdminSystem {
                     return {
                         success: false,
                         message: 'Não autorizado. Faça login novamente.'
+                    };
+                }
+                
+                // Tentar extrair mensagem de erro do HTML/texto se possível
+                if (text.includes('Não autorizado') || text.includes('não autorizado') || text.toLowerCase().includes('unauthorized')) {
+                    return {
+                        success: false,
+                        message: 'Não autorizado. Faça login novamente.'
+                    };
+                }
+                
+                // Se for erro 500, retornar erro genérico
+                if (response.status >= 500) {
+                    return {
+                        success: false,
+                        message: 'Erro interno do servidor. Tente novamente mais tarde.'
                     };
                 }
                 
@@ -201,10 +246,22 @@ class AdminSystem {
             } else {
                 const errorMsg = result?.message || 'Erro desconhecido ao carregar usuários';
                 console.error('Erro ao carregar usuários:', errorMsg);
+                console.error('Result completo:', result);
+                
+                // Se for erro de autenticação, redirecionar para login
+                if (result?.message && (result.message.includes('Não autorizado') || result.message.includes('não autorizado'))) {
+                    this.showNotification('Sessão expirada. Redirecionando para login...', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'admin-login.html';
+                    }, 2000);
+                    return;
+                }
+                
                 this.showNotification('Erro ao carregar usuários: ' + errorMsg, 'error');
             }
         } catch (error) {
             console.error('Erro ao carregar usuários:', error);
+            console.error('Stack trace:', error.stack);
             this.showNotification('Erro de conexão ao carregar usuários', 'error');
         }
     }
@@ -814,12 +871,23 @@ class AdminSystem {
                 this.loadRecentActivities(data.activities || []);
                 return;
             } else {
-                console.warn('Resposta do dashboard não teve sucesso:', result.message || result);
+                const errorMsg = result?.message || 'Erro desconhecido';
+                console.warn('Resposta do dashboard não teve sucesso:', errorMsg);
+                
+                // Se for erro de autenticação, redirecionar para login
+                if (result?.message && (result.message.includes('Não autorizado') || result.message.includes('não autorizado'))) {
+                    this.showNotification('Sessão expirada. Redirecionando para login...', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'admin-login.html';
+                    }, 2000);
+                    return;
+                }
             }
 
             console.warn('Não foi possível carregar dados atualizados do dashboard.', result);
         } catch (error) {
             console.error('Erro ao carregar dados do dashboard:', error);
+            console.error('Stack trace:', error.stack);
         }
 
         this.dashboardData = null;
@@ -2020,9 +2088,20 @@ class AdminSystem {
                 this.renderSupportTickets();
                 this.updateSupportStats();
             } else {
-                console.error('Erro ao carregar tickets:', result.message || 'Erro desconhecido');
+                const errorMsg = result?.message || 'Erro desconhecido';
+                console.error('Erro ao carregar tickets:', errorMsg);
+                console.error('Result completo:', result);
+                
+                // Se for erro de autenticação, redirecionar para login
+                if (result?.message && (result.message.includes('Não autorizado') || result.message.includes('não autorizado'))) {
+                    this.showNotification('Sessão expirada. Redirecionando para login...', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'admin-login.html';
+                    }, 2000);
+                    return;
+                }
+                
                 // Fallback para localStorage se houver erro
-                const saved = localStorage.getItem('support_tickets');
                 try {
                     this.supportTickets = this.safeLocalStorageGet('support_tickets', []);
                 } catch (e) {
@@ -2035,6 +2114,7 @@ class AdminSystem {
             }
         } catch (error) {
             console.error('Erro ao carregar tickets:', error.message || error);
+            console.error('Stack trace:', error.stack);
             // Fallback para localStorage em caso de erro
             const saved = localStorage.getItem('support_tickets');
             try {

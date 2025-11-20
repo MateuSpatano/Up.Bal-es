@@ -2,44 +2,166 @@
 /**
  * Serviço de Gerenciamento de Tickets de Suporte
  * Up.Baloes - Sistema de Gestão de Decoração com Balões
+ * 
+ * VERSÃO ULTRA-ROBUSTA - SEMPRE RETORNA JSON VÁLIDO
  */
 
-// Configurações de CORS
-header('Content-Type: application/json');
+// Iniciar output buffering para capturar qualquer saída indesejada
+ob_start();
+
+// Desabilitar exibição de erros na saída
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// Configurações de CORS e headers ANTES de qualquer saída
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 // Permitir requisições OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    ob_end_clean();
     http_response_code(200);
     exit();
 }
 
-// Configurações de sessão
-session_start();
-
-// Incluir configuração do banco de dados
-require_once __DIR__ . '/config.php';
-
-// Inicializar conexão com banco de dados
-$pdo = getDatabaseConnection($database_config);
-
-// Criar tabela se não existir
-createSupportTicketsTable($pdo);
-
-// Verificar método da requisição
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (!$input) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Dados inválidos']);
-        exit();
+// Função para garantir resposta JSON válida sempre
+function ensureJsonResponse($data, $statusCode = 200) {
+    // Limpar qualquer output buffer anterior
+    while (ob_get_level() > 0) {
+        ob_end_clean();
     }
     
-    $action = $input['action'] ?? '';
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
     
+    // Garantir que $data seja um array
+    if (!is_array($data)) {
+        $data = ['success' => false, 'message' => 'Resposta inválida do servidor'];
+    }
+    
+    // Garantir que sempre tenha success
+    if (!isset($data['success'])) {
+        $data['success'] = isset($data['message']) ? false : true;
+    }
+    
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    // Se falhar o encode, retornar erro básico
+    if ($json === false) {
+        $json = json_encode([
+            'success' => false,
+            'message' => 'Erro ao processar resposta do servidor',
+            'error' => json_last_error_msg()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    
+    echo $json;
+    exit();
+}
+
+// Tratamento de erros fatais
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log('ERRO FATAL em suporte.php: ' . $error['message'] . ' em ' . $error['file'] . ':' . $error['line']);
+        ensureJsonResponse([
+            'success' => false,
+            'message' => 'Erro fatal no servidor',
+            'error_type' => 'fatal_error'
+        ], 500);
+    }
+});
+
+// TRY-CATCH GLOBAL
+try {
+    // Incluir configuração do banco de dados
+    try {
+        require_once __DIR__ . '/config.php';
+    } catch (Exception $e) {
+        error_log('Erro ao carregar config.php: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro de configuração do servidor'], 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao carregar config.php: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro fatal de configuração'], 500);
+    }
+    
+    // Iniciar sessão
+    try {
+        if (session_status() === PHP_SESSION_NONE) {
+            // Usar o mesmo nome de sessão do config.php
+            if (isset($GLOBALS['security_config']['session_name'])) {
+                ini_set('session.name', $GLOBALS['security_config']['session_name']);
+            }
+            session_start();
+        }
+    } catch (Exception $e) {
+        error_log('Erro ao iniciar sessão: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao iniciar sessão'], 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao iniciar sessão: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro fatal ao iniciar sessão'], 500);
+    }
+    
+    // Inicializar conexão com banco de dados
+    try {
+        $pdo = getDatabaseConnection($database_config);
+    } catch (Exception $e) {
+        error_log('Erro ao conectar ao banco: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao conectar com o banco de dados'], 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao conectar ao banco: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro fatal ao conectar com o banco de dados'], 500);
+    }
+    
+    // Criar tabela se não existir
+    try {
+        createSupportTicketsTable($pdo);
+    } catch (Exception $e) {
+        error_log('Erro ao criar tabela de tickets: ' . $e->getMessage());
+        // Não bloquear se a tabela já existir
+    }
+    
+    // Verificar método da requisição
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        ensureJsonResponse(['success' => false, 'message' => 'Método não permitido'], 405);
+    }
+    
+    // Obter e validar dados da requisição
+    try {
+        $rawInput = file_get_contents('php://input');
+        
+        if (empty($rawInput)) {
+            ensureJsonResponse(['success' => false, 'message' => 'Dados da requisição estão vazios'], 400);
+        }
+        
+        $input = json_decode($rawInput, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('Erro ao decodificar JSON: ' . json_last_error_msg());
+            ensureJsonResponse(['success' => false, 'message' => 'Dados JSON inválidos'], 400);
+        }
+        
+        if (!is_array($input)) {
+            ensureJsonResponse(['success' => false, 'message' => 'Dados da requisição devem ser um objeto JSON'], 400);
+        }
+        
+        $action = $input['action'] ?? '';
+        
+        if (empty($action)) {
+            ensureJsonResponse(['success' => false, 'message' => 'Ação não especificada'], 400);
+        }
+        
+    } catch (Exception $e) {
+        error_log('Erro ao processar requisição: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao processar requisição'], 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao processar requisição: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro fatal ao processar requisição'], 500);
+    }
+    
+    // Processar ação
     try {
         switch ($action) {
             case 'create':
@@ -63,18 +185,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             default:
-                throw new Exception('Ação não reconhecida');
+                ensureJsonResponse(['success' => false, 'message' => 'Ação não reconhecida: ' . $action], 400);
         }
+    } catch (PDOException $e) {
+        error_log('Erro PDO na ação ' . $action . ': ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao conectar com o banco de dados'], 500);
     } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
+        error_log('Erro na ação ' . $action . ': ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 400);
+    } catch (Error $e) {
+        error_log('Erro fatal na ação ' . $action . ': ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro fatal no servidor'], 500);
     }
-} else {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Método não permitido']);
+    
+} catch (Exception $e) {
+    error_log('Erro global não capturado: ' . $e->getMessage());
+    ensureJsonResponse(['success' => false, 'message' => 'Erro interno do servidor'], 500);
+} catch (Error $e) {
+    error_log('Erro fatal global não capturado: ' . $e->getMessage());
+    ensureJsonResponse(['success' => false, 'message' => 'Erro fatal no servidor'], 500);
 }
 
 /**
@@ -97,248 +226,316 @@ function createSupportTicketsTable($pdo) {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_decorator_id (decorator_id),
                 INDEX idx_status (status),
-                INDEX idx_created_at (created_at),
-                FOREIGN KEY (decorator_id) REFERENCES usuarios(id) ON DELETE CASCADE
+                INDEX idx_created_at (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ";
         
         $pdo->exec($sql);
     } catch (PDOException $e) {
-        error_log('Erro ao criar tabela de tickets: ' . $e->getMessage());
+        // Se a tabela já existir, não é erro crítico
+        if (strpos($e->getMessage(), 'already exists') === false) {
+            error_log('Erro ao criar tabela de tickets: ' . $e->getMessage());
+        }
     }
+}
+
+/**
+ * Verificar autenticação admin de forma robusta (mesma lógica do admin.php)
+ */
+function checkAdminAuth() {
+    $isAdmin = false;
+    $adminId = null;
+    
+    // Forma 1: admin_id na sessão
+    if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
+        $isAdmin = true;
+        $adminId = $_SESSION['admin_id'];
+    }
+    // Forma 2: user_role admin na sessão
+    elseif (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin' && isset($_SESSION['user_id'])) {
+        $isAdmin = true;
+        $adminId = $_SESSION['user_id'];
+        $_SESSION['admin_id'] = $adminId; // Sincronizar
+    }
+    // Forma 3: Verificar no banco se user_id tem perfil admin
+    elseif (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        try {
+            global $pdo;
+            if (!isset($pdo)) {
+                $pdo = getDatabaseConnection($GLOBALS['database_config']);
+            }
+            $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch();
+            
+            if ($user) {
+                $isAdmin = true;
+                $adminId = $user['id'];
+                $_SESSION['admin_id'] = $adminId;
+                $_SESSION['admin_role'] = 'admin';
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao verificar admin no banco: ' . $e->getMessage());
+        }
+    }
+    
+    return ['isAdmin' => $isAdmin, 'adminId' => $adminId];
 }
 
 /**
  * Criar novo ticket
  */
 function createTicket($pdo, $data) {
-    // Validar dados obrigatórios
-    if (empty($data['title'])) {
-        throw new Exception('Título é obrigatório');
+    try {
+        // Validar dados obrigatórios
+        if (empty($data['title'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'Título é obrigatório'], 400);
+        }
+        
+        if (empty($data['description'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'Descrição é obrigatória'], 400);
+        }
+        
+        // Obter ID do decorador da sessão ou dos dados
+        $decoratorId = null;
+        if (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
+            $decoratorId = $_SESSION['user_id'];
+        } elseif (isset($data['decorator_id'])) {
+            $decoratorId = $data['decorator_id'];
+        } else {
+            ensureJsonResponse(['success' => false, 'message' => 'Decorador não identificado'], 400);
+        }
+        
+        // Obter dados do decorador
+        $stmt = $pdo->prepare("SELECT nome, email FROM usuarios WHERE id = ?");
+        $stmt->execute([$decoratorId]);
+        $decorator = $stmt->fetch();
+        
+        if (!$decorator) {
+            ensureJsonResponse(['success' => false, 'message' => 'Decorador não encontrado'], 404);
+        }
+        
+        // Inserir ticket
+        $stmt = $pdo->prepare("
+            INSERT INTO support_tickets (
+                title, description, attachment, decorator_id, 
+                decorator_name, decorator_email, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'novo')
+        ");
+        
+        $stmt->execute([
+            $data['title'],
+            $data['description'],
+            $data['attachment'] ?? null,
+            $decoratorId,
+            $data['decorator_name'] ?? $decorator['nome'],
+            $data['decorator_email'] ?? $decorator['email']
+        ]);
+        
+        $ticketId = $pdo->lastInsertId();
+        
+        // Buscar ticket criado
+        $stmt = $pdo->prepare("SELECT * FROM support_tickets WHERE id = ?");
+        $stmt->execute([$ticketId]);
+        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        ensureJsonResponse([
+            'success' => true,
+            'message' => 'Ticket criado com sucesso',
+            'ticket' => $ticket
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao criar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao criar ticket'], 500);
+    } catch (Exception $e) {
+        error_log('Erro ao criar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
     }
-    
-    if (empty($data['description'])) {
-        throw new Exception('Descrição é obrigatória');
-    }
-    
-    // Obter ID do decorador da sessão ou dos dados
-    $decoratorId = null;
-    if (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'decorator') {
-        $decoratorId = $_SESSION['user_id'];
-    } elseif (isset($data['decorator_id'])) {
-        $decoratorId = $data['decorator_id'];
-    } else {
-        throw new Exception('Decorador não identificado');
-    }
-    
-    // Obter dados do decorador
-    $stmt = $pdo->prepare("SELECT nome, email FROM usuarios WHERE id = ?");
-    $stmt->execute([$decoratorId]);
-    $decorator = $stmt->fetch();
-    
-    if (!$decorator) {
-        throw new Exception('Decorador não encontrado');
-    }
-    
-    // Inserir ticket
-    $stmt = $pdo->prepare("
-        INSERT INTO support_tickets (
-            title, description, attachment, decorator_id, 
-            decorator_name, decorator_email, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'novo')
-    ");
-    
-    $stmt->execute([
-        $data['title'],
-        $data['description'],
-        $data['attachment'] ?? null,
-        $decoratorId,
-        $data['decorator_name'] ?? $decorator['nome'],
-        $data['decorator_email'] ?? $decorator['email']
-    ]);
-    
-    $ticketId = $pdo->lastInsertId();
-    
-    // Buscar ticket criado
-    $stmt = $pdo->prepare("SELECT * FROM support_tickets WHERE id = ?");
-    $stmt->execute([$ticketId]);
-    $ticket = $stmt->fetch();
-    
-    // Formatar resposta
-    $ticket['created_at'] = $ticket['created_at'];
-    $ticket['updated_at'] = $ticket['updated_at'];
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Ticket criado com sucesso',
-        'ticket' => $ticket
-    ]);
 }
 
 /**
  * Listar tickets
  */
 function listTickets($pdo, $data) {
-    // Verificar se é admin
-    // Verificar tanto admin_id quanto user_id com role admin
-    $isAdmin = false;
-    
-    if (isset($_SESSION['admin_id'])) {
-        $isAdmin = true;
-    } elseif (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
-        $isAdmin = true;
-    } elseif (isset($_SESSION['user_id'])) {
-        // Verificar no banco se o usuário é admin
-        try {
-            $checkStmt = $pdo->prepare("SELECT perfil FROM usuarios WHERE id = ?");
-            $checkStmt->execute([$_SESSION['user_id']]);
-            $user = $checkStmt->fetch();
-            if ($user && $user['perfil'] === 'admin') {
-                $isAdmin = true;
-                $_SESSION['admin_id'] = $_SESSION['user_id'];
+    try {
+        // Verificar autenticação admin usando a mesma lógica do admin.php
+        $auth = checkAdminAuth();
+        $isAdmin = $auth['isAdmin'];
+        
+        if (!$isAdmin) {
+            // Se não for admin, retornar apenas tickets do decorador logado
+            if (!isset($_SESSION['user_id'])) {
+                ensureJsonResponse(['success' => false, 'message' => 'Não autorizado'], 401);
             }
-        } catch (Exception $e) {
-            error_log('Erro ao verificar admin: ' . $e->getMessage());
-        }
-    }
-    
-    if (!$isAdmin) {
-        // Se não for admin, retornar apenas tickets do decorador logado
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Não autorizado']);
-            exit();
-        }
-        
-        $stmt = $pdo->prepare("
-            SELECT * FROM support_tickets 
-            WHERE decorator_id = ? 
-            ORDER BY created_at DESC
-        ");
-        $stmt->execute([$_SESSION['user_id']]);
-    } else {
-        // Admin vê todos os tickets
-        $statusFilter = $data['status'] ?? null;
-        
-        if ($statusFilter) {
+            
             $stmt = $pdo->prepare("
                 SELECT * FROM support_tickets 
-                WHERE status = ? 
+                WHERE decorator_id = ? 
                 ORDER BY created_at DESC
             ");
-            $stmt->execute([$statusFilter]);
+            $stmt->execute([$_SESSION['user_id']]);
         } else {
-            $stmt = $pdo->prepare("
-                SELECT * FROM support_tickets 
-                ORDER BY created_at DESC
-            ");
-            $stmt->execute();
+            // Admin vê todos os tickets
+            $statusFilter = $data['status'] ?? null;
+            
+            if ($statusFilter) {
+                $stmt = $pdo->prepare("
+                    SELECT * FROM support_tickets 
+                    WHERE status = ? 
+                    ORDER BY created_at DESC
+                ");
+                $stmt->execute([$statusFilter]);
+            } else {
+                $stmt = $pdo->prepare("
+                    SELECT * FROM support_tickets 
+                    ORDER BY created_at DESC
+                ");
+                $stmt->execute();
+            }
         }
+        
+        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Garantir que sempre retorna array
+        if (!is_array($tickets)) {
+            $tickets = [];
+        }
+        
+        ensureJsonResponse([
+            'success' => true,
+            'tickets' => $tickets,
+            'count' => count($tickets)
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao listar tickets: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao conectar com o banco de dados'], 500);
+    } catch (Exception $e) {
+        error_log('Erro ao listar tickets: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao listar tickets'], 500);
     }
-    
-    $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Garantir que sempre retorna JSON válido
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'success' => true,
-        'tickets' => $tickets ? $tickets : [],
-        'count' => count($tickets)
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
 }
 
 /**
  * Atualizar status do ticket
  */
 function updateTicketStatus($pdo, $data) {
-    // Verificar se é admin
-    if (!isset($_SESSION['admin_id'])) {
-        throw new Exception('Apenas administradores podem atualizar status');
+    try {
+        // Verificar se é admin
+        $auth = checkAdminAuth();
+        if (!$auth['isAdmin']) {
+            ensureJsonResponse(['success' => false, 'message' => 'Apenas administradores podem atualizar status'], 403);
+        }
+        
+        if (empty($data['ticket_id'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'ID do ticket é obrigatório'], 400);
+        }
+        
+        if (empty($data['status'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'Status é obrigatório'], 400);
+        }
+        
+        $validStatuses = ['novo', 'em_analise', 'resolvido', 'cancelado'];
+        if (!in_array($data['status'], $validStatuses)) {
+            ensureJsonResponse(['success' => false, 'message' => 'Status inválido'], 400);
+        }
+        
+        $stmt = $pdo->prepare("
+            UPDATE support_tickets 
+            SET status = ?, 
+                admin_response = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        
+        $stmt->execute([
+            $data['status'],
+            $data['admin_response'] ?? null,
+            $data['ticket_id']
+        ]);
+        
+        ensureJsonResponse([
+            'success' => true,
+            'message' => 'Status atualizado com sucesso'
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao atualizar status: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao atualizar status'], 500);
+    } catch (Exception $e) {
+        error_log('Erro ao atualizar status: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
     }
-    
-    if (empty($data['ticket_id'])) {
-        throw new Exception('ID do ticket é obrigatório');
-    }
-    
-    if (empty($data['status'])) {
-        throw new Exception('Status é obrigatório');
-    }
-    
-    $validStatuses = ['novo', 'em_analise', 'resolvido', 'cancelado'];
-    if (!in_array($data['status'], $validStatuses)) {
-        throw new Exception('Status inválido');
-    }
-    
-    $stmt = $pdo->prepare("
-        UPDATE support_tickets 
-        SET status = ?, 
-            admin_response = ?,
-            updated_at = NOW()
-        WHERE id = ?
-    ");
-    
-    $stmt->execute([
-        $data['status'],
-        $data['admin_response'] ?? null,
-        $data['ticket_id']
-    ]);
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Status atualizado com sucesso'
-    ]);
 }
 
 /**
  * Deletar ticket
  */
 function deleteTicket($pdo, $data) {
-    // Verificar se é admin
-    if (!isset($_SESSION['admin_id'])) {
-        throw new Exception('Apenas administradores podem deletar tickets');
+    try {
+        // Verificar se é admin
+        $auth = checkAdminAuth();
+        if (!$auth['isAdmin']) {
+            ensureJsonResponse(['success' => false, 'message' => 'Apenas administradores podem deletar tickets'], 403);
+        }
+        
+        if (empty($data['ticket_id'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'ID do ticket é obrigatório'], 400);
+        }
+        
+        $stmt = $pdo->prepare("DELETE FROM support_tickets WHERE id = ?");
+        $stmt->execute([$data['ticket_id']]);
+        
+        ensureJsonResponse([
+            'success' => true,
+            'message' => 'Ticket deletado com sucesso'
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao deletar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao deletar ticket'], 500);
+    } catch (Exception $e) {
+        error_log('Erro ao deletar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
     }
-    
-    if (empty($data['ticket_id'])) {
-        throw new Exception('ID do ticket é obrigatório');
-    }
-    
-    $stmt = $pdo->prepare("DELETE FROM support_tickets WHERE id = ?");
-    $stmt->execute([$data['ticket_id']]);
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Ticket deletado com sucesso'
-    ]);
 }
 
 /**
  * Obter ticket específico
  */
 function getTicket($pdo, $data) {
-    if (empty($data['ticket_id'])) {
-        throw new Exception('ID do ticket é obrigatório');
-    }
-    
-    $stmt = $pdo->prepare("SELECT * FROM support_tickets WHERE id = ?");
-    $stmt->execute([$data['ticket_id']]);
-    $ticket = $stmt->fetch();
-    
-    if (!$ticket) {
-        throw new Exception('Ticket não encontrado');
-    }
-    
-    // Verificar permissão
-    if (!isset($_SESSION['admin_id'])) {
-        if (!isset($_SESSION['user_id']) || $ticket['decorator_id'] != $_SESSION['user_id']) {
-            throw new Exception('Não autorizado');
+    try {
+        if (empty($data['ticket_id'])) {
+            ensureJsonResponse(['success' => false, 'message' => 'ID do ticket é obrigatório'], 400);
         }
+        
+        $stmt = $pdo->prepare("SELECT * FROM support_tickets WHERE id = ?");
+        $stmt->execute([$data['ticket_id']]);
+        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$ticket) {
+            ensureJsonResponse(['success' => false, 'message' => 'Ticket não encontrado'], 404);
+        }
+        
+        // Verificar permissão
+        $auth = checkAdminAuth();
+        if (!$auth['isAdmin']) {
+            if (!isset($_SESSION['user_id']) || $ticket['decorator_id'] != $_SESSION['user_id']) {
+                ensureJsonResponse(['success' => false, 'message' => 'Não autorizado'], 401);
+            }
+        }
+        
+        ensureJsonResponse([
+            'success' => true,
+            'ticket' => $ticket
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => 'Erro ao buscar ticket'], 500);
+    } catch (Exception $e) {
+        error_log('Erro ao buscar ticket: ' . $e->getMessage());
+        ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
     }
-    
-    echo json_encode([
-        'success' => true,
-        'ticket' => $ticket
-    ]);
 }
-?>
-
