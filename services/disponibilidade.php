@@ -127,19 +127,22 @@ function saveAvailabilitySettings($data) {
         }
     }
     
-    // Validar intervalos por dia
-    if (empty($data['service_intervals']) || !is_array($data['service_intervals'])) {
-        throw new Exception('Intervalos entre serviços são obrigatórios');
+    // Validar intervalos por dia (permitir array vazio, mas se houver intervalos, validar)
+    if (!isset($data['service_intervals']) || !is_array($data['service_intervals'])) {
+        throw new Exception('Intervalos entre serviços devem ser um array');
     }
     
-    foreach ($data['service_intervals'] as $interval) {
-        if (empty($interval['day']) || !isset($interval['interval']) || empty($interval['unit'])) {
-            throw new Exception('Todos os campos do intervalo são obrigatórios');
-        }
-        
-        $intervalValue = intval($interval['interval']);
-        if ($intervalValue < 0 || ($interval['unit'] === 'hours' && $intervalValue > 24) || ($interval['unit'] === 'minutes' && $intervalValue > 1440)) {
-            throw new Exception('Intervalo entre serviços deve ser válido');
+    // Se houver intervalos, validar cada um
+    if (!empty($data['service_intervals'])) {
+        foreach ($data['service_intervals'] as $index => $interval) {
+            if (empty($interval['day']) || !isset($interval['interval']) || empty($interval['unit'])) {
+                throw new Exception("Intervalo #{$index}: Todos os campos são obrigatórios (dia, intervalo e unidade)");
+            }
+            
+            $intervalValue = intval($interval['interval']);
+            if ($intervalValue < 0 || ($interval['unit'] === 'hours' && $intervalValue > 24) || ($interval['unit'] === 'minutes' && $intervalValue > 1440)) {
+                throw new Exception("Intervalo #{$index}: Valor inválido (deve estar entre 0 e 24 horas ou 0 e 1440 minutos)");
+            }
         }
     }
     
@@ -453,11 +456,14 @@ function validateAvailability($data) {
             'message' => 'Horário disponível para agendamento',
             'available' => true
         ]);
+    } catch (PDOException $e) {
+        error_log('Erro de banco de dados em validateAvailability: ' . $e->getMessage());
+        throw new Exception('Erro ao acessar banco de dados: ' . $e->getMessage());
     } catch (Exception $e) {
-        error_log('Erro em validateAvailability: ' . $e->getMessage());
+        error_log('Erro em validateAvailability: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
         throw $e;
     } catch (Error $e) {
-        error_log('Erro fatal em validateAvailability: ' . $e->getMessage());
+        error_log('Erro fatal em validateAvailability: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
         throw new Exception('Erro ao validar disponibilidade: ' . $e->getMessage());
     }
 }

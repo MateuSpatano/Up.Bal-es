@@ -1936,9 +1936,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const endTime = schedule.querySelector('input[name="end_time"]');
             
             // Coletar valores mesmo se os campos estiverem desabilitados
+            // Remover disabled temporariamente para garantir que os valores sejam coletados
+            let dayWasDisabled = false;
+            let startTimeWasDisabled = false;
+            let endTimeWasDisabled = false;
+            
+            if (day && day.disabled) {
+                dayWasDisabled = true;
+                day.disabled = false;
+            }
+            if (startTime && startTime.disabled) {
+                startTimeWasDisabled = true;
+                startTime.disabled = false;
+            }
+            if (endTime && endTime.disabled) {
+                endTimeWasDisabled = true;
+                endTime.disabled = false;
+            }
+            
             const dayValue = day ? day.value : '';
             const startTimeValue = startTime ? startTime.value : '';
             const endTimeValue = endTime ? endTime.value : '';
+            
+            // Restaurar estado disabled se necessário
+            if (dayWasDisabled && day) day.disabled = true;
+            if (startTimeWasDisabled && startTime) startTime.disabled = true;
+            if (endTimeWasDisabled && endTime) endTime.disabled = true;
             
             if (dayValue && startTimeValue && endTimeValue) {
                 data.time_schedules.push({
@@ -1956,20 +1979,50 @@ document.addEventListener('DOMContentLoaded', function() {
             const intervalValue = interval.querySelector('input[name="interval_value"]');
             const unit = interval.querySelector('select[name="interval_unit"]');
             
-            if (day && day.value && intervalValue && intervalValue.value && unit && unit.value) {
+            // Remover disabled temporariamente se necessário
+            let dayWasDisabled = false;
+            let intervalValueWasDisabled = false;
+            let unitWasDisabled = false;
+            
+            if (day && day.disabled) {
+                dayWasDisabled = true;
+                day.disabled = false;
+            }
+            if (intervalValue && intervalValue.disabled) {
+                intervalValueWasDisabled = true;
+                intervalValue.disabled = false;
+            }
+            if (unit && unit.disabled) {
+                unitWasDisabled = true;
+                unit.disabled = false;
+            }
+            
+            const dayVal = day ? day.value : '';
+            const intervalVal = intervalValue ? intervalValue.value : '';
+            const unitVal = unit ? unit.value : '';
+            
+            // Restaurar estado disabled se necessário
+            if (dayWasDisabled && day) day.disabled = true;
+            if (intervalValueWasDisabled && intervalValue) intervalValue.disabled = true;
+            if (unitWasDisabled && unit) unit.disabled = true;
+            
+            if (dayVal && intervalVal && unitVal) {
                 data.service_intervals.push({
-                    day: day.value,
-                    interval: parseInt(intervalValue.value),
-                    unit: unit.value
+                    day: dayVal,
+                    interval: parseInt(intervalVal) || 0,
+                    unit: unitVal
                 });
             }
         });
         
+        console.log('Dados coletados para salvar:', data);
         return data;
     }
     
     async function saveAvailabilitySettings(data) {
         try {
+            console.log('Enviando dados para salvar:', data);
+            
             const response = await fetch('../services/disponibilidade.php', {
                 method: 'POST',
                 headers: {
@@ -1981,7 +2034,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
-            const result = await response.json();
+            // Verificar se a resposta é JSON válido
+            const text = await response.text();
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (parseError) {
+                console.error('Erro ao parsear resposta do servidor:', text);
+                throw new Error('Resposta inválida do servidor: ' + text.substring(0, 100));
+            }
+            
+            console.log('Resposta do servidor:', result);
             
             if (!response.ok) {
                 throw new Error(result.message || 'Erro ao salvar configurações');
@@ -3031,7 +3094,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         })
                     });
                     
-                    const result = await response.json();
+                    // Verificar se a resposta é JSON válido
+                    const text = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(text);
+                    } catch (parseError) {
+                        console.error('Erro ao parsear resposta de validação:', text);
+                        return;
+                    }
+                    
+                    console.log('Resultado da validação em tempo real:', result);
                     
                     // Remover classes de validação anteriores
                     eventDate.classList.remove('border-red-500', 'border-green-500');
@@ -3042,9 +3115,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         eventDate.classList.add('border-red-500');
                         eventTime.classList.add('border-red-500');
                         
-                        // Mostrar mensagem de erro de forma discreta
-                        const errorMessage = result.message || 'Horário não disponível';
-                        showNotification(errorMessage, 'error');
+                        // Não mostrar notificação em validação em tempo real para não incomodar
+                        console.warn('Validação falhou:', result.message || 'Horário não disponível');
                     } else {
                         // Adicionar classe de sucesso visual
                         eventDate.classList.add('border-green-500');
@@ -3565,7 +3637,18 @@ Qualquer dúvida, estou à disposição! 😊`;
                 })
             });
             
-            const availabilityResult = await availabilityResponse.json();
+            // Verificar se a resposta é JSON válido
+            const text = await availabilityResponse.text();
+            let availabilityResult;
+            try {
+                availabilityResult = JSON.parse(text);
+            } catch (parseError) {
+                console.error('Erro ao parsear resposta de validação:', text);
+                showNotification('Erro ao validar disponibilidade. Tente novamente.', 'error');
+                return false;
+            }
+            
+            console.log('Resultado da validação:', availabilityResult);
             
             if (!availabilityResult.success) {
                 showNotification(availabilityResult.message || 'Horário não disponível', 'error');
@@ -3573,8 +3656,8 @@ Qualquer dúvida, estou à disposição! 😊`;
             }
         } catch (error) {
             console.error('Erro ao validar disponibilidade:', error);
-            // Não bloquear o envio se houver erro na validação, apenas logar
-            // O backend também validará a disponibilidade
+            showNotification('Erro ao validar disponibilidade. Verifique sua conexão e tente novamente.', 'error');
+            return false;
         }
         
         return true;
