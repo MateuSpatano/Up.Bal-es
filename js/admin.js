@@ -820,7 +820,11 @@ class AdminSystem {
                 this.renderUsersTable();
             }
         } else if (pageId === 'support') {
-            this.loadSupportTickets();
+            console.log('🔔 Módulo de suporte ativado - carregando tickets...');
+            // Garantir que o container existe antes de renderizar
+            setTimeout(() => {
+                this.loadSupportTickets();
+            }, 100);
         } else if (pageId === 'settings') {
             this.loadAdminProfile(!this.adminSettingsLoaded);
         }
@@ -2087,11 +2091,22 @@ class AdminSystem {
             }
             
             if (result.success) {
-                console.log('Tickets carregados com sucesso:', result.tickets?.length || 0);
-                console.log('Dados dos tickets:', result.tickets);
+                console.log('✅ Tickets carregados com sucesso:', result.tickets?.length || 0);
+                console.log('📋 Dados dos tickets:', result.tickets);
+                console.log('📊 Estrutura da resposta:', {
+                    success: result.success,
+                    tickets: result.tickets,
+                    count: result.count,
+                    hasTickets: Array.isArray(result.tickets) && result.tickets.length > 0
+                });
                 
                 this.supportTickets = result.tickets || [];
                 this.filteredTickets = [...this.supportTickets];
+                
+                console.log('🔄 Tickets após cópia:', {
+                    supportTickets: this.supportTickets.length,
+                    filteredTickets: this.filteredTickets.length
+                });
                 
                 // Ordenar por data (mais recentes primeiro)
                 this.filteredTickets.sort((a, b) => {
@@ -2100,7 +2115,12 @@ class AdminSystem {
                     return dateB - dateA;
                 });
                 
-                console.log('Tickets após ordenação:', this.filteredTickets.length);
+                console.log('📅 Tickets após ordenação:', this.filteredTickets.length);
+                console.log('🎯 Primeiro ticket:', this.filteredTickets[0]);
+                
+                // Verificar se o módulo de suporte está visível
+                const supportContent = document.getElementById('support-content');
+                console.log('📄 Módulo de suporte visível:', supportContent && !supportContent.classList.contains('hidden'));
                 
                 this.renderSupportTickets();
                 this.updateSupportStats();
@@ -2148,60 +2168,88 @@ class AdminSystem {
     
     // Renderizar chamados de suporte
     renderSupportTickets() {
+        console.log('renderSupportTickets: Iniciando renderização');
+        console.log('renderSupportTickets: Tickets filtrados:', this.filteredTickets.length);
+        console.log('renderSupportTickets: Tickets totais:', this.supportTickets.length);
+        
         const container = document.getElementById('support-tickets-container');
         const emptyState = document.getElementById('support-empty');
         
-        if (!container) return;
+        console.log('renderSupportTickets: Container encontrado:', !!container);
+        console.log('renderSupportTickets: Empty state encontrado:', !!emptyState);
+        
+        if (!container) {
+            console.error('renderSupportTickets: Container não encontrado!');
+            return;
+        }
         
         if (this.filteredTickets.length === 0) {
+            console.log('renderSupportTickets: Nenhum ticket para renderizar');
             container.innerHTML = '';
             if (emptyState) emptyState.classList.remove('hidden');
             return;
         }
         
+        console.log('renderSupportTickets: Renderizando', this.filteredTickets.length, 'tickets');
+        
         if (emptyState) emptyState.classList.add('hidden');
         
-        container.innerHTML = this.filteredTickets.map(ticket => {
+        const ticketsHTML = this.filteredTickets.map(ticket => {
+            // Validar dados do ticket
+            if (!ticket || !ticket.id) {
+                console.warn('⚠️ Ticket inválido encontrado:', ticket);
+                return '';
+            }
+            
             const statusColors = {
                 'novo': 'bg-yellow-100 text-yellow-800 border-yellow-300',
                 'em_analise': 'bg-blue-100 text-blue-800 border-blue-300',
                 'resolvido': 'bg-green-100 text-green-800 border-green-300',
-                'fechado': 'bg-gray-100 text-gray-800 border-gray-300'
+                'fechado': 'bg-gray-100 text-gray-800 border-gray-300',
+                'cancelado': 'bg-gray-100 text-gray-800 border-gray-300'
             };
             
             const statusLabels = {
                 'novo': 'Novo',
                 'em_analise': 'Em Análise',
                 'resolvido': 'Resolvido',
-                'fechado': 'Fechado'
+                'fechado': 'Fechado',
+                'cancelado': 'Cancelado'
             };
             
             const statusIcons = {
                 'novo': 'fa-exclamation-circle',
                 'em_analise': 'fa-sync',
                 'resolvido': 'fa-check-circle',
-                'fechado': 'fa-times-circle'
+                'fechado': 'fa-times-circle',
+                'cancelado': 'fa-ban'
             };
+            
+            const ticketStatus = ticket.status || 'novo';
+            const ticketTitle = ticket.title || 'Sem título';
+            const ticketDescription = ticket.description || 'Sem descrição';
+            const decoratorName = ticket.decorator_name || 'Desconhecido';
+            const createdAt = ticket.created_at ? this.formatDateTime(ticket.created_at) : 'Data não disponível';
             
             return `
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticket.id}')">
                     <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
-                            <h4 class="text-lg font-semibold text-gray-800 mb-1">${ticket.title}</h4>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-1">${this.escapeHtml(ticketTitle)}</h4>
                             <div class="flex items-center space-x-4 text-sm text-gray-600">
-                                <span><i class="fas fa-user mr-1 text-blue-600"></i>${ticket.decorator_name}</span>
-                                <span><i class="fas fa-calendar mr-1 text-purple-600"></i>${this.formatDateTime(ticket.created_at)}</span>
+                                <span><i class="fas fa-user mr-1 text-blue-600"></i>${this.escapeHtml(decoratorName)}</span>
+                                <span><i class="fas fa-calendar mr-1 text-purple-600"></i>${createdAt}</span>
                             </div>
                         </div>
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[ticket.status] || statusColors['novo']}">
-                            <i class="fas ${statusIcons[ticket.status] || statusIcons['novo']} mr-1"></i>${statusLabels[ticket.status] || statusLabels['novo']}
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[ticketStatus] || statusColors['novo']}">
+                            <i class="fas ${statusIcons[ticketStatus] || statusIcons['novo']} mr-1"></i>${statusLabels[ticketStatus] || statusLabels['novo']}
                         </span>
                     </div>
-                    <p class="text-gray-700 text-sm line-clamp-2 mb-3">${ticket.description || 'Sem descrição'}</p>
+                    <p class="text-gray-700 text-sm line-clamp-2 mb-3">${this.escapeHtml(ticketDescription)}</p>
                     <div class="flex items-center justify-between text-xs text-gray-500">
                         <div class="flex items-center space-x-3">
                             ${ticket.attachment ? '<span><i class="fas fa-paperclip mr-1"></i>Anexo</span>' : ''}
-                            <span>ID: #${String(ticket.id || '').substring(0, 8)}</span>
+                            <span>ID: #${String(ticket.id).substring(0, 8)}</span>
                         </div>
                         <button class="text-indigo-600 hover:text-indigo-800 font-medium">
                             Ver Detalhes <i class="fas fa-arrow-right ml-1"></i>
@@ -2209,7 +2257,11 @@ class AdminSystem {
                     </div>
                 </div>
             `;
-        }).join('');
+        }).filter(html => html !== '').join('');
+        
+        console.log('🎨 HTML gerado:', ticketsHTML.length, 'caracteres');
+        container.innerHTML = ticketsHTML;
+        console.log('✅ Tickets renderizados no DOM');
     }
     
     // Filtrar chamados
@@ -2414,8 +2466,17 @@ class AdminSystem {
     }
     
     // Formatar data e hora
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     formatDateTime(dateString) {
+        if (!dateString) return 'Data não disponível';
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Data inválida';
         return date.toLocaleString('pt-BR', {
             day: '2-digit',
             month: '2-digit',

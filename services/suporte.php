@@ -465,18 +465,37 @@ function listTickets($pdo, $data) {
         
         error_log('listTickets: Encontrados ' . count($tickets) . ' ticket(s)');
         
+        // Log detalhado dos tickets encontrados
+        if (count($tickets) > 0) {
+            error_log('listTickets: Primeiro ticket: ' . json_encode($tickets[0]));
+        } else {
+            error_log('listTickets: NENHUM TICKET ENCONTRADO NO BANCO DE DADOS');
+            // Verificar se a tabela existe e tem dados
+            $checkStmt = $pdo->query("SELECT COUNT(*) as total FROM support_tickets");
+            $totalCount = $checkStmt->fetch()['total'];
+            error_log('listTickets: Total de tickets na tabela: ' . $totalCount);
+        }
+        
         // Normalizar status: converter 'cancelado' para 'fechado' se necessário
         foreach ($tickets as &$ticket) {
             if ($ticket['status'] === 'cancelado') {
                 $ticket['status'] = 'fechado';
             }
+            // Garantir que todos os campos necessários existam
+            if (!isset($ticket['id'])) {
+                error_log('listTickets: AVISO - Ticket sem ID: ' . json_encode($ticket));
+            }
         }
         
-        ensureJsonResponse([
+        $response = [
             'success' => true,
             'tickets' => $tickets,
             'count' => count($tickets)
-        ]);
+        ];
+        
+        error_log('listTickets: Resposta JSON: ' . json_encode($response));
+        
+        ensureJsonResponse($response);
         
     } catch (PDOException $e) {
         error_log('Erro PDO ao listar tickets: ' . $e->getMessage());
