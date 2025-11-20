@@ -21,6 +21,29 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 try {
+    // Verificar se $database_config está disponível
+    if (!isset($database_config)) {
+        // Se não estiver disponível, tentar obter do escopo global ou recriar
+        if (isset($GLOBALS['database_config'])) {
+            $database_config = $GLOBALS['database_config'];
+        } else {
+            // Recriar configuração se necessário
+            $database_config = [
+                'host' => $_ENV['DB_HOST'] ?? 'localhost',
+                'dbname' => $_ENV['DB_NAME'] ?? 'up_baloes',
+                'username' => $_ENV['DB_USER'] ?? 'root',
+                'password' => $_ENV['DB_PASS'] ?? '',
+                'charset' => 'utf8mb4',
+                'port' => (int)($_ENV['DB_PORT'] ?? 3306),
+                'options' => [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            ];
+        }
+    }
+    
     // Conectar ao banco de dados usando função centralizada
     $pdo = getDatabaseConnection($database_config);
 

@@ -1530,10 +1530,19 @@ async function loadContactInfo() {
     try {
         // Verificar se estamos em uma página dentro de /pages/ ou na raiz
         const basePath = window.location.pathname.includes('/pages/') ? '../services/contatos.php' : 'services/contatos.php';
+        
+        // Verificar se estamos na página do painel decorador (não carregar contatos lá)
+        if (window.location.pathname.includes('painel-decorador')) {
+            console.log('Página do painel decorador detectada, pulando carregamento de contatos');
+            return;
+        }
+        
         const response = await fetch(basePath);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Não lançar erro, apenas logar e continuar
+            console.warn(`Erro ao carregar contatos: HTTP ${response.status}`);
+            return;
         }
         
         const contentType = response.headers.get('content-type');
@@ -1598,9 +1607,10 @@ async function loadContactInfo() {
             console.warn('Nenhuma informação de contato disponível');
         }
     } catch (error) {
-        console.error('Erro ao carregar informações de contato:', error);
+        // Não logar erro como crítico, apenas avisar (não deve bloquear a página)
+        console.warn('Não foi possível carregar informações de contato:', error.message);
         // Em caso de erro, manter os textos "Carregando..." ou mostrar mensagem de erro
-        const errorText = 'Erro ao carregar';
+        const errorText = 'Não disponível';
         const elements = ['contact-email-text', 'contact-whatsapp-text', 'contact-instagram-text'];
         elements.forEach(id => {
             const element = document.getElementById(id);
@@ -1609,5 +1619,14 @@ async function loadContactInfo() {
     }
 }
 
-// Carregar contatos quando a página carregar
-loadContactInfo();
+// Carregar contatos quando a página carregar (apenas se não estiver no painel decorador)
+// Executar de forma assíncrona para não bloquear o carregamento da página
+if (!window.location.pathname.includes('painel-decorador')) {
+    // Aguardar um pouco para não interferir com o carregamento inicial
+    setTimeout(() => {
+        loadContactInfo().catch(error => {
+            // Erro não crítico, apenas logar como aviso
+            console.warn('Erro ao carregar contatos (não crítico):', error.message);
+        });
+    }, 1000);
+}

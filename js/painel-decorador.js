@@ -201,48 +201,113 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variáveis para validação de disponibilidade
     let availabilityValidationTimeout = null;
     let availabilityValidationSetup = false;
+    
+    // Variáveis para busca automática de clientes (declaradas no escopo global do DOMContentLoaded)
+    let clientSearchTimeout = null;
+    let clientAutocompleteSetup = false;
+    let selectedClientId = null;
 
     // ========== INICIALIZAÇÃO ==========
     
+    // PRIMEIRO: Garantir que o módulo painel-gerencial seja exibido imediatamente
+    // Isso evita tela em branco mesmo se houver erros na inicialização
+    function initializeDefaultModule() {
+        try {
+            const painelGerencialModule = document.getElementById('painel-gerencial-module');
+            if (painelGerencialModule) {
+                // Ocultar todos os módulos primeiro
+                document.querySelectorAll('.module-content').forEach(module => {
+                    module.classList.add('hidden');
+                    module.classList.remove('content-enter');
+                });
+                
+                // Mostrar painel gerencial
+                painelGerencialModule.classList.remove('hidden');
+                painelGerencialModule.classList.add('content-enter');
+                
+                // Atualizar navegação
+                navItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-module') === 'painel-gerencial') {
+                        item.classList.add('active');
+                    }
+                });
+                
+                currentModule = 'painel-gerencial';
+                console.log('Módulo painel-gerencial exibido inicialmente');
+            }
+        } catch (error) {
+            console.error('Erro ao inicializar módulo padrão:', error);
+        }
+    }
+    
+    // Executar imediatamente para evitar tela em branco
+    initializeDefaultModule();
+    
     // Verificar autenticação antes de continuar
     (async function() {
-        // Verificar se é decorador
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        if (userData.role !== 'decorator') {
-            window.location.replace('login.html');
-            return;
-        }
-        
-        // Verificar autenticação no backend se a proteção estiver disponível
-        if (window.authProtection) {
-            const isProtected = await window.authProtection.protectDecoratorPage();
-            if (!isProtected) {
+        try {
+            // Verificar se é decorador
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.role !== 'decorator') {
+                window.location.replace('login.html');
                 return;
             }
-            window.authProtection.protectBrowserNavigation('decorator');
+            
+            // Verificar autenticação no backend se a proteção estiver disponível
+            if (window.authProtection) {
+                const isProtected = await window.authProtection.protectDecoratorPage();
+                if (!isProtected) {
+                    return;
+                }
+                window.authProtection.protectBrowserNavigation('decorator');
+            }
+            
+            // Carregar dados do usuário
+            loadUserData();
+            
+            // Configurar event listeners
+            setupEventListeners();
+        } catch (error) {
+            console.error('Erro na inicialização:', error);
+            // Continuar mesmo com erro para não deixar tela em branco
         }
-        
-        // Carregar dados do usuário
-        loadUserData();
-        
-        // Configurar event listeners
-        setupEventListeners();
     })();
     
     // Configurar navegação
-    setupNavigation();
+    try {
+        setupNavigation();
+    } catch (error) {
+        console.error('Erro ao configurar navegação:', error);
+    }
     
     // Configurar modal de conta
-    setupAccountModal();
+    try {
+        setupAccountModal();
+    } catch (error) {
+        console.error('Erro ao configurar modal de conta:', error);
+    }
     
     // Configurar modais de orçamento
-    setupBudgetModals();
+    try {
+        setupBudgetModals();
+    } catch (error) {
+        console.error('Erro ao configurar modais de orçamento:', error);
+    }
     
     // Configurar modal de envio
-    setupSendBudgetModal();
+    try {
+        setupSendBudgetModal();
+    } catch (error) {
+        console.error('Erro ao configurar modal de envio:', error);
+    }
     
     // Configurar visualizações
-    setupViewControls();
+    try {
+        setupViewControls();
+    } catch (error) {
+        console.error('Erro ao configurar visualizações:', error);
+    }
     
     // SEMPRE iniciar com Painel Gerencial (ignorar hash da URL para garantir comportamento consistente)
     // Se o usuário quiser acessar outro módulo, pode usar a navegação
@@ -256,8 +321,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Atualizar variável global antes de mostrar o módulo
     currentModule = initialModule;
     
-    // Mostrar módulo inicial
-    showModule(initialModule);
+    // Mostrar módulo inicial (já foi exibido acima, mas garantir novamente)
+    setTimeout(() => {
+        try {
+            showModule(initialModule);
+        } catch (error) {
+            console.error('Erro ao mostrar módulo inicial:', error);
+            // Tentar exibir manualmente como fallback
+            initializeDefaultModule();
+        }
+    }, 100);
 
     // ========== FUNCIONALIDADES DO SIDEBAR ==========
     
@@ -2851,12 +2924,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ========== CONFIGURAÇÃO DOS MODAIS DE ORÇAMENTO ==========
-    
-    // Variáveis para busca automática de clientes (declaradas antes de setupBudgetModals)
-    let clientSearchTimeout = null;
-    let clientAutocompleteSetup = false;
-    let selectedClientId = null;
-    
     function setupBudgetModals() {
         // Botão flutuante de + - funcionalidade contextual
         if (floatingAddBtn) {
@@ -2901,14 +2968,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar validação de disponibilidade em tempo real
         setupAvailabilityValidation();
         
-        // Configurar busca automática de clientes (após garantir que variáveis estão inicializadas)
-        if (typeof clientAutocompleteSetup !== 'undefined') {
-            setupClientAutocomplete();
-        } else {
-            // Se variável não estiver definida, definir agora
-            clientAutocompleteSetup = false;
-            setupClientAutocomplete();
-        }
+        // Configurar busca automática de clientes
+        // As variáveis já estão declaradas no escopo global acima
+        setupClientAutocomplete();
         
         // Modal de detalhes do orçamento
         if (closeBudgetDetailsModal) {
@@ -2991,23 +3053,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     clientInput.classList.remove('border-blue-500');
                 }
                 // Resetar flag de autocomplete para permitir reconfiguração
+                // Usar try-catch para evitar erros se variável não estiver inicializada
                 try {
-                    if (typeof window.clientAutocompleteSetup !== 'undefined') {
-                        window.clientAutocompleteSetup = false;
-                    } else if (typeof clientAutocompleteSetup !== 'undefined') {
+                    if (typeof clientAutocompleteSetup !== 'undefined') {
                         clientAutocompleteSetup = false;
                     }
                 } catch (e) {
-                    // Ignorar erro se variável não estiver disponível
+                    // Variável ainda não inicializada, não há problema
+                    console.debug('clientAutocompleteSetup ainda não inicializada');
                 }
                 try {
-                    if (typeof window.selectedClientId !== 'undefined') {
-                        window.selectedClientId = null;
-                    } else if (typeof selectedClientId !== 'undefined') {
+                    if (typeof selectedClientId !== 'undefined') {
                         selectedClientId = null;
                     }
                 } catch (e) {
-                    // Ignorar erro se variável não estiver disponível
+                    // Variável ainda não inicializada, não há problema
+                    console.debug('selectedClientId ainda não inicializada');
                 }
             }
         }
@@ -3257,10 +3318,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== BUSCA AUTOMÁTICA DE CLIENTES ==========
     
     function setupClientAutocomplete() {
-        // Garantir que a variável está definida
+        // Garantir que a variável está definida e inicializada
         if (typeof clientAutocompleteSetup === 'undefined') {
-            clientAutocompleteSetup = false;
+            window.clientAutocompleteSetup = false;
         }
+        // Usar variável do escopo global do DOMContentLoaded
+        const isSetup = typeof clientAutocompleteSetup !== 'undefined' ? clientAutocompleteSetup : false;
         
         const clientInput = document.getElementById('budget-client');
         const emailInput = document.getElementById('budget-email');
@@ -3269,7 +3332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!clientInput || !emailInput || !phoneInput) return;
         
         // Evitar adicionar listeners múltiplas vezes
-        if (clientAutocompleteSetup) {
+        if (isSetup) {
             // Se já foi configurado, apenas garantir que o container existe
             let existingContainer = document.getElementById('client-suggestions');
             if (!existingContainer) {
@@ -3281,7 +3344,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return;
         }
-        clientAutocompleteSetup = true;
+        // Atualizar variável do escopo global
+        if (typeof clientAutocompleteSetup !== 'undefined') {
+            clientAutocompleteSetup = true;
+        } else {
+            window.clientAutocompleteSetup = true;
+        }
         
         // Criar container para sugestões
         const suggestionsContainer = document.createElement('div');
