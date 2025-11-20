@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     // Conectar ao banco de dados usando função centralizada
-    $pdo = getDatabaseConnection($GLOBALS['database_config']);
+    $pdo = getDatabaseConnection($database_config);
 
     // Buscar dados de contato do primeiro decorador ativo (ou admin)
     // Por padrão, buscar o primeiro decorador ativo ou admin

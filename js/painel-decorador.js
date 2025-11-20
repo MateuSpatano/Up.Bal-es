@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== VARIÁVEIS DE ESTADO ==========
     
     let isSidebarOpen = false;
-    let currentModule = 'dashboard';
+    let currentModule = 'painel-gerencial';
     let budgets = [];
     let filteredBudgets = [];
     let currentFilters = {};
@@ -2623,6 +2623,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== CONFIGURAÇÃO DOS MODAIS DE ORÇAMENTO ==========
     
+    // Variáveis para busca automática de clientes (declaradas antes de setupBudgetModals)
+    let clientSearchTimeout = null;
+    let clientAutocompleteSetup = false;
+    let selectedClientId = null;
+    
     function setupBudgetModals() {
         // Botão flutuante de + - funcionalidade contextual
         if (floatingAddBtn) {
@@ -2939,10 +2944,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ========== BUSCA AUTOMÁTICA DE CLIENTES ==========
-    
-    let clientSearchTimeout = null;
-    let clientAutocompleteSetup = false;
-    let selectedClientId = null;
     
     function setupClientAutocomplete() {
         const clientInput = document.getElementById('budget-client');
