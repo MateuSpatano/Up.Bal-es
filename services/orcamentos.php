@@ -114,6 +114,14 @@ class BudgetService {
                 $imagePath = $imageUpload['path'];
             }
             
+            // Processar tamanho do arco - apenas para tipos que requerem
+            $arcServiceTypes = ['arco-tradicional', 'arco-desconstruido'];
+            $tamanhoArco = null;
+            if (in_array($data['service_type'], $arcServiceTypes)) {
+                $tamanhoArco = !empty($data['tamanho_arco_m']) ? floatval($data['tamanho_arco_m']) : null;
+            }
+            // Para outros tipos, sempre NULL (ignorar se preenchido)
+            
             $stmt = $this->pdo->prepare("
                 INSERT INTO orcamentos (
                     cliente, email, telefone, data_evento, hora_evento, 
@@ -137,7 +145,7 @@ class BudgetService {
                 $decoradorId,
                 $data['created_via'] ?? 'decorator', // Origem da criação
                 $imagePath, // Caminho da imagem
-                $data['tamanho_arco_m'] ?? null // Tamanho do arco
+                $tamanhoArco // Tamanho do arco (NULL se não for tipo de arco)
             ]);
             
             $budgetId = $this->pdo->lastInsertId();
@@ -827,13 +835,9 @@ class BudgetService {
                 ];
             }
         } else {
-            // Para outros tipos de serviço, tamanho do arco deve estar vazio
-            if (!empty($arcSize) && $arcSize !== '') {
-                return [
-                    'success' => false,
-                    'message' => 'Tamanho do arco não é necessário para este tipo de serviço'
-                ];
-            }
+            // Para outros tipos de serviço, tamanho do arco é opcional
+            // Se estiver preenchido, simplesmente ignorar (não bloquear)
+            // Isso permite que o campo seja sempre visível sem causar problemas
         }
         
         return ['success' => true];
