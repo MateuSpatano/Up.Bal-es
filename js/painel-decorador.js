@@ -3651,12 +3651,24 @@ Qualquer dúvida, estou à disposição! 😊`;
             console.log('Resultado da validação:', availabilityResult);
             
             if (!availabilityResult.success) {
-                showNotification(availabilityResult.message || 'Horário não disponível', 'error');
+                const errorMsg = availabilityResult.message || 'Horário não disponível';
+                console.error('Validação falhou:', errorMsg);
+                showNotification(errorMsg, 'error');
                 return false;
             }
         } catch (error) {
             console.error('Erro ao validar disponibilidade:', error);
-            showNotification('Erro ao validar disponibilidade. Verifique sua conexão e tente novamente.', 'error');
+            console.error('Stack trace:', error.stack);
+            
+            // Tentar obter mais informações do erro
+            let errorMessage = 'Erro ao validar disponibilidade. ';
+            if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += 'Verifique sua conexão e tente novamente.';
+            }
+            
+            showNotification(errorMessage, 'error');
             return false;
         }
         

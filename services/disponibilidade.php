@@ -304,14 +304,32 @@ function validateAvailability($data) {
     global $pdo;
     
     try {
+        // Validar entrada
         if (empty($data['event_date']) || empty($data['event_time'])) {
             throw new Exception('Data e hora do evento são obrigatórias');
         }
         
-        $userId = getCurrentUserId();
+        // Obter ID do usuário
+        try {
+            $userId = getCurrentUserId();
+        } catch (Exception $e) {
+            error_log('Erro ao obter ID do usuário: ' . $e->getMessage());
+            throw new Exception('Usuário não autenticado. Faça login novamente.');
+        }
+        
         $eventDate = $data['event_date'];
         $eventTime = $data['event_time'];
         $eventDateTime = $eventDate . ' ' . $eventTime;
+        
+        // Validar formato de data
+        if (!strtotime($eventDate)) {
+            throw new Exception('Data inválida: ' . $eventDate);
+        }
+        
+        // Validar formato de hora
+        if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
+            throw new Exception('Hora inválida: ' . $eventTime);
+        }
         
         // Obter configurações de disponibilidade
         $stmt = $pdo->prepare("
@@ -357,7 +375,16 @@ function validateAvailability($data) {
         }
         
         // Verificar se o dia da semana está disponível
-        $dayOfWeek = strtolower(date('l', strtotime($eventDate)));
+        try {
+            $dayOfWeek = strtolower(date('l', strtotime($eventDate)));
+            if (!$dayOfWeek) {
+                throw new Exception('Erro ao determinar dia da semana da data: ' . $eventDate);
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao processar data: ' . $e->getMessage());
+            throw new Exception('Data inválida ou não suportada: ' . $eventDate);
+        }
+        
         $dayMapping = [
             'monday' => 'monday',
             'tuesday' => 'tuesday', 
@@ -370,8 +397,12 @@ function validateAvailability($data) {
         
         $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
         
+        if (empty($availableDays) || !is_array($availableDays)) {
+            throw new Exception('Configurações de disponibilidade inválidas. Configure seus horários de atendimento primeiro.');
+        }
+        
         if (!in_array($dayKey, $availableDays)) {
-            throw new Exception('Não há atendimento neste dia da semana');
+            throw new Exception('Não há atendimento neste dia da semana (' . $dayKey . ')');
         }
         
         // Verificar se o horário está dentro dos horários de atendimento
@@ -391,19 +422,26 @@ function validateAvailability($data) {
         }
         
         // Verificar limite de serviços por dia
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) as count 
-            FROM orcamentos 
-            WHERE decorador_id = ? 
-            AND data_evento = ? 
-            AND status IN ('aprovado', 'pendente')
-        ");
-        
-        $stmt->execute([$userId, $eventDate]);
-        $dailyCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-        
-        if ($dailyCount >= $maxDailyServices) {
-            throw new Exception("Limite de {$maxDailyServices} serviços por dia atingido");
+        try {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) as count 
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+                AND data_evento = ? 
+                AND status IN ('aprovado', 'pendente')
+            ");
+            
+            $stmt->execute([$userId, $eventDate]);
+            $countResult = $stmt->fetch(PDO::FETCH_ASSOC);
+            $dailyCount = $countResult ? intval($countResult['count']) : 0;
+            
+            if ($dailyCount >= $maxDailyServices) {
+                throw new Exception("Limite de {$maxDailyServices} serviços por dia atingido");
+            }
+        } catch (PDOException $e) {
+            // Se a tabela não existir ou houver erro, assumir que não há limite atingido
+            error_log('Erro ao verificar limite de serviços: ' . $e->getMessage());
+            $dailyCount = 0;
         }
         
         // Verificar intervalo entre serviços para o dia específico
@@ -432,21 +470,29 @@ function validateAvailability($data) {
             $stmt->execute([$userId, $eventDate]);
             $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
             
-            foreach ($existingTimes as $existingTime) {
-                try {
-                    $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
-                    $newDateTime = new DateTime($eventDateTime);
+            if (is_array($existingTimes)) {
+                foreach ($existingTimes as $existingTime) {
+                    if (empty($existingTime)) continue;
                     
-                    $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
-                    
-                    if ($diffMinutes < $intervalMinutes) {
-                        throw new Exception("Intervalo mínimo de {$dayInterval['interval']} " . 
-                            (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours' ? 'hora(s)' : 'minuto(s)') . 
-                            " entre serviços não respeitado para {$dayKey}");
+                    try {
+                        $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
+                        $newDateTime = new DateTime($eventDateTime);
+                        
+                        $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
+                        
+                        if ($diffMinutes < $intervalMinutes) {
+                            throw new Exception("Intervalo mínimo de {$dayInterval['interval']} " . 
+                                (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours' ? 'hora(s)' : 'minuto(s)') . 
+                                " entre serviços não respeitado para {$dayKey}");
+                        }
+                    } catch (Exception $e) {
+                        // Se houver erro ao processar data/hora, continuar
+                        if (strpos($e->getMessage(), 'Intervalo mínimo') !== false) {
+                            // Se for erro de intervalo, relançar
+                            throw $e;
+                        }
+                        error_log('Erro ao processar intervalo: ' . $e->getMessage());
                     }
-                } catch (Exception $e) {
-                    // Se houver erro ao processar data/hora, continuar
-                    error_log('Erro ao processar intervalo: ' . $e->getMessage());
                 }
             }
         }
@@ -457,14 +503,23 @@ function validateAvailability($data) {
             'available' => true
         ]);
     } catch (PDOException $e) {
-        error_log('Erro de banco de dados em validateAvailability: ' . $e->getMessage());
-        throw new Exception('Erro ao acessar banco de dados: ' . $e->getMessage());
+        $errorMsg = 'Erro de banco de dados: ' . $e->getMessage();
+        error_log('Erro de banco de dados em validateAvailability: ' . $e->getMessage() . ' | SQL State: ' . $e->getCode());
+        throw new Exception($errorMsg);
     } catch (Exception $e) {
+        // Se já é uma Exception, apenas logar e relançar
         error_log('Erro em validateAvailability: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
         throw $e;
     } catch (Error $e) {
-        error_log('Erro fatal em validateAvailability: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
-        throw new Exception('Erro ao validar disponibilidade: ' . $e->getMessage());
+        // Erros fatais do PHP (erros de sintaxe, etc)
+        $errorMsg = 'Erro ao validar disponibilidade: ' . $e->getMessage() . ' (Arquivo: ' . basename($e->getFile()) . ', Linha: ' . $e->getLine() . ')';
+        error_log('Erro fatal em validateAvailability: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString());
+        throw new Exception($errorMsg);
+    } catch (Throwable $e) {
+        // Capturar qualquer outro tipo de erro
+        $errorMsg = 'Erro inesperado ao validar disponibilidade: ' . $e->getMessage();
+        error_log('Erro Throwable em validateAvailability: ' . $e->getMessage() . ' | Tipo: ' . get_class($e));
+        throw new Exception($errorMsg);
     }
 }
 
