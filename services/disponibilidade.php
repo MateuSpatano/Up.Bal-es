@@ -83,16 +83,19 @@ try {
     }
 } catch (Exception $e) {
     http_response_code(500);
+    $errorMessage = $e->getMessage();
+    error_log('Erro em disponibilidade.php: ' . $errorMessage . ' | Trace: ' . $e->getTraceAsString());
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage(),
-        'error' => error_get_last() ? error_get_last()['message'] : null
+        'message' => $errorMessage
     ]);
 } catch (Error $e) {
     http_response_code(500);
+    $errorMessage = 'Erro fatal: ' . $e->getMessage();
+    error_log('Erro fatal em disponibilidade.php: ' . $errorMessage . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
     echo json_encode([
         'success' => false,
-        'message' => 'Erro fatal: ' . $e->getMessage(),
+        'message' => $errorMessage,
         'file' => $e->getFile(),
         'line' => $e->getLine()
     ]);
@@ -297,134 +300,166 @@ function loadAvailabilitySettings() {
 function validateAvailability($data) {
     global $pdo;
     
-    if (empty($data['event_date']) || empty($data['event_time'])) {
-        throw new Exception('Data e hora do evento são obrigatórias');
-    }
+    try {
+        if (empty($data['event_date']) || empty($data['event_time'])) {
+            throw new Exception('Data e hora do evento são obrigatórias');
+        }
+        
+        $userId = getCurrentUserId();
+        $eventDate = $data['event_date'];
+        $eventTime = $data['event_time'];
+        $eventDateTime = $eventDate . ' ' . $eventTime;
+        
+        // Obter configurações de disponibilidade
+        $stmt = $pdo->prepare("
+            SELECT available_days, time_schedules, service_intervals, max_daily_services 
+            FROM decorator_availability 
+            WHERE user_id = ? 
+            ORDER BY updated_at DESC 
+            LIMIT 1
+        ");
+        
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Se não houver configurações, usar valores padrão
+        if (!$result) {
+            $availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            $timeSchedules = [
+                ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+            ];
+            $serviceIntervals = [];
+            $maxDailyServices = 3;
+        } else {
+            $availableDays = json_decode($result['available_days'], true);
+            $timeSchedules = json_decode($result['time_schedules'], true);
+            $serviceIntervals = json_decode($result['service_intervals'], true);
+            $maxDailyServices = intval($result['max_daily_services']);
+            
+            // Garantir que são arrays válidos
+            if (!is_array($availableDays)) $availableDays = [];
+            if (!is_array($timeSchedules)) $timeSchedules = [];
+            if (!is_array($serviceIntervals)) $serviceIntervals = [];
+            if ($maxDailyServices < 1) $maxDailyServices = 3;
+        }
     
-    $userId = getCurrentUserId();
-    $eventDate = $data['event_date'];
-    $eventTime = $data['event_time'];
-    $eventDateTime = $eventDate . ' ' . $eventTime;
-    
-    // Obter configurações de disponibilidade
-    $stmt = $pdo->prepare("
-        SELECT available_days, time_schedules, service_intervals, max_daily_services 
-        FROM decorator_availability 
-        WHERE user_id = ? 
-        ORDER BY updated_at DESC 
-        LIMIT 1
-    ");
-    
-    $stmt->execute([$userId]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$result) {
-        throw new Exception('Configurações de disponibilidade não encontradas');
-    }
-    
-    $availableDays = json_decode($result['available_days'], true);
-    $timeSchedules = json_decode($result['time_schedules'], true);
-    $serviceIntervals = json_decode($result['service_intervals'], true);
-    $maxDailyServices = intval($result['max_daily_services']);
-    
-    // Verificar se a data está bloqueada
-    $isDateBlocked = checkIfDateIsBlocked($userId, $eventDate);
-    if ($isDateBlocked) {
-        throw new Exception('Esta data está bloqueada para atendimento');
-    }
-    
-    // Verificar se o dia da semana está disponível
-    $dayOfWeek = strtolower(date('l', strtotime($eventDate)));
-    $dayMapping = [
-        'monday' => 'monday',
-        'tuesday' => 'tuesday', 
-        'wednesday' => 'wednesday',
-        'thursday' => 'thursday',
-        'friday' => 'friday',
-        'saturday' => 'saturday',
-        'sunday' => 'sunday'
-    ];
-    
-    $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
-    
-    if (!in_array($dayKey, $availableDays)) {
-        throw new Exception('Não há atendimento neste dia da semana');
-    }
-    
-    // Verificar se o horário está dentro dos horários de atendimento
-    $isWithinSchedule = false;
-    foreach ($timeSchedules as $schedule) {
-        if ($schedule['day'] === $dayKey) {
-            if ($eventTime >= $schedule['start_time'] && $eventTime <= $schedule['end_time']) {
-                $isWithinSchedule = true;
-                break;
+        // Verificar se a data está bloqueada
+        $isDateBlocked = checkIfDateIsBlocked($userId, $eventDate);
+        if ($isDateBlocked) {
+            throw new Exception('Esta data está bloqueada para atendimento');
+        }
+        
+        // Verificar se o dia da semana está disponível
+        $dayOfWeek = strtolower(date('l', strtotime($eventDate)));
+        $dayMapping = [
+            'monday' => 'monday',
+            'tuesday' => 'tuesday', 
+            'wednesday' => 'wednesday',
+            'thursday' => 'thursday',
+            'friday' => 'friday',
+            'saturday' => 'saturday',
+            'sunday' => 'sunday'
+        ];
+        
+        $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
+        
+        if (!in_array($dayKey, $availableDays)) {
+            throw new Exception('Não há atendimento neste dia da semana');
+        }
+        
+        // Verificar se o horário está dentro dos horários de atendimento
+        $isWithinSchedule = false;
+        foreach ($timeSchedules as $schedule) {
+            if (isset($schedule['day']) && $schedule['day'] === $dayKey) {
+                if (isset($schedule['start_time']) && isset($schedule['end_time']) &&
+                    $eventTime >= $schedule['start_time'] && $eventTime <= $schedule['end_time']) {
+                    $isWithinSchedule = true;
+                    break;
+                }
             }
         }
-    }
-    
-    if (!$isWithinSchedule) {
-        throw new Exception('Horário fora do período de atendimento');
-    }
-    
-    // Verificar limite de serviços por dia
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as count 
-        FROM orcamentos 
-        WHERE decorador_id = ? 
-        AND data_evento = ? 
-        AND status IN ('aprovado', 'pendente')
-    ");
-    
-    $stmt->execute([$userId, $eventDate]);
-    $dailyCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-    
-    if ($dailyCount >= $maxDailyServices) {
-        throw new Exception("Limite de {$maxDailyServices} serviços por dia atingido");
-    }
-    
-    // Verificar intervalo entre serviços para o dia específico
-    $dayInterval = null;
-    foreach ($serviceIntervals as $interval) {
-        if ($interval['day'] === $dayKey) {
-            $dayInterval = $interval;
-            break;
-        }
-    }
-    
-    if ($dayInterval && $dayInterval['interval'] > 0) {
-        $intervalMinutes = $dayInterval['unit'] === 'hours' ? $dayInterval['interval'] * 60 : $dayInterval['interval'];
         
+        if (!$isWithinSchedule) {
+            throw new Exception('Horário fora do período de atendimento');
+        }
+        
+        // Verificar limite de serviços por dia
         $stmt = $pdo->prepare("
-            SELECT hora_evento 
+            SELECT COUNT(*) as count 
             FROM orcamentos 
             WHERE decorador_id = ? 
             AND data_evento = ? 
             AND status IN ('aprovado', 'pendente')
-            ORDER BY hora_evento
         ");
         
         $stmt->execute([$userId, $eventDate]);
-        $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $dailyCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
         
-        foreach ($existingTimes as $existingTime) {
-            $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
-            $newDateTime = new DateTime($eventDateTime);
-            
-            $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
-            
-            if ($diffMinutes < $intervalMinutes) {
-                throw new Exception("Intervalo mínimo de {$dayInterval['interval']} " . 
-                    ($dayInterval['unit'] === 'hours' ? 'hora(s)' : 'minuto(s)') . 
-                    " entre serviços não respeitado para {$dayKey}");
+        if ($dailyCount >= $maxDailyServices) {
+            throw new Exception("Limite de {$maxDailyServices} serviços por dia atingido");
+        }
+        
+        // Verificar intervalo entre serviços para o dia específico
+        $dayInterval = null;
+        foreach ($serviceIntervals as $interval) {
+            if (isset($interval['day']) && $interval['day'] === $dayKey) {
+                $dayInterval = $interval;
+                break;
             }
         }
+        
+        if ($dayInterval && isset($dayInterval['interval']) && $dayInterval['interval'] > 0) {
+            $intervalMinutes = (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours') 
+                ? $dayInterval['interval'] * 60 
+                : $dayInterval['interval'];
+            
+            $stmt = $pdo->prepare("
+                SELECT hora_evento 
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+                AND data_evento = ? 
+                AND status IN ('aprovado', 'pendente')
+                ORDER BY hora_evento
+            ");
+            
+            $stmt->execute([$userId, $eventDate]);
+            $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            foreach ($existingTimes as $existingTime) {
+                try {
+                    $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
+                    $newDateTime = new DateTime($eventDateTime);
+                    
+                    $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
+                    
+                    if ($diffMinutes < $intervalMinutes) {
+                        throw new Exception("Intervalo mínimo de {$dayInterval['interval']} " . 
+                            (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours' ? 'hora(s)' : 'minuto(s)') . 
+                            " entre serviços não respeitado para {$dayKey}");
+                    }
+                } catch (Exception $e) {
+                    // Se houver erro ao processar data/hora, continuar
+                    error_log('Erro ao processar intervalo: ' . $e->getMessage());
+                }
+            }
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Horário disponível para agendamento',
+            'available' => true
+        ]);
+    } catch (Exception $e) {
+        error_log('Erro em validateAvailability: ' . $e->getMessage());
+        throw $e;
+    } catch (Error $e) {
+        error_log('Erro fatal em validateAvailability: ' . $e->getMessage());
+        throw new Exception('Erro ao validar disponibilidade: ' . $e->getMessage());
     }
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Horário disponível para agendamento',
-        'available' => true
-    ]);
 }
 
 /**
@@ -433,18 +468,25 @@ function validateAvailability($data) {
 function checkIfDateIsBlocked($userId, $date) {
     global $pdo;
     
-    $stmt = $pdo->prepare("
-        SELECT id, reason, is_recurring
-        FROM decorator_blocked_dates 
-        WHERE user_id = ? 
-        AND (
-            blocked_date = ? 
-            OR (is_recurring = 1 AND DATE_FORMAT(blocked_date, '%m-%d') = DATE_FORMAT(?, '%m-%d'))
-        )
-    ");
-    
-    $stmt->execute([$userId, $date, $date]);
-    return $stmt->fetch() !== false;
+    try {
+        // Verificar se a tabela existe antes de consultar
+        $stmt = $pdo->prepare("
+            SELECT id, reason, is_recurring
+            FROM decorator_blocked_dates 
+            WHERE user_id = ? 
+            AND (
+                blocked_date = ? 
+                OR (is_recurring = 1 AND DATE_FORMAT(blocked_date, '%m-%d') = DATE_FORMAT(?, '%m-%d'))
+            )
+        ");
+        
+        $stmt->execute([$userId, $date, $date]);
+        return $stmt->fetch() !== false;
+    } catch (PDOException $e) {
+        // Se a tabela não existir ou houver erro, retornar false (data não bloqueada)
+        error_log('Erro ao verificar data bloqueada: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /**
