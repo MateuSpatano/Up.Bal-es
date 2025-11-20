@@ -318,52 +318,53 @@ function validateAvailability($data) {
     // Log inicial para debug
     error_log('validateAvailability chamada com dados: ' . json_encode($data));
     
-    // Validar entrada básica
-    if (empty($data['event_date']) || empty($data['event_time'])) {
-        error_log('validateAvailability: Data ou hora vazia');
-        throw new Exception('Data e hora do evento são obrigatórias');
-    }
-    
-    $eventDate = $data['event_date'];
-    $eventTime = $data['event_time'];
-    error_log("validateAvailability: Validando data={$eventDate}, hora={$eventTime}");
-    
-    // Validar formato de data
-    if (!strtotime($eventDate)) {
-        error_log("validateAvailability: Data inválida: {$eventDate}");
-        throw new Exception('Data inválida: ' . $eventDate);
-    }
-    
-    // Validar formato de hora
-    if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
-        error_log("validateAvailability: Hora inválida: {$eventTime}");
-        throw new Exception('Hora inválida: ' . $eventTime);
-    }
-    
-    // Obter ID do usuário com tratamento robusto
-    $userId = null;
     try {
-        $userId = getCurrentUserId();
-        error_log("validateAvailability: User ID obtido: {$userId}");
-    } catch (Exception $e) {
-        error_log('Erro ao obter ID do usuário: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
-        // Se não conseguir obter user_id, tentar usar sessão diretamente
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        // Validar entrada básica
+        if (empty($data['event_date']) || empty($data['event_time'])) {
+            error_log('validateAvailability: Data ou hora vazia');
+            throw new Exception('Data e hora do evento são obrigatórias');
         }
-        if (isset($_SESSION['user_id'])) {
-            $userId = (int) $_SESSION['user_id'];
-            error_log("validateAvailability: User ID obtido da sessão diretamente: {$userId}");
-        } else {
-            throw new Exception('Usuário não autenticado. Faça login novamente.');
+        
+        $eventDate = $data['event_date'];
+        $eventTime = $data['event_time'];
+        error_log("validateAvailability: Validando data={$eventDate}, hora={$eventTime}");
+        
+        // Validar formato de data
+        if (!strtotime($eventDate)) {
+            error_log("validateAvailability: Data inválida: {$eventDate}");
+            throw new Exception('Data inválida: ' . $eventDate);
         }
-    }
-    
-    if (!$userId || $userId < 1) {
-        throw new Exception('ID do usuário inválido. Faça login novamente.');
-    }
-    
-    $eventDateTime = $eventDate . ' ' . $eventTime;
+        
+        // Validar formato de hora
+        if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
+            error_log("validateAvailability: Hora inválida: {$eventTime}");
+            throw new Exception('Hora inválida: ' . $eventTime);
+        }
+        
+        // Obter ID do usuário com tratamento robusto
+        $userId = null;
+        try {
+            $userId = getCurrentUserId();
+            error_log("validateAvailability: User ID obtido: {$userId}");
+        } catch (Exception $e) {
+            error_log('Erro ao obter ID do usuário: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            // Se não conseguir obter user_id, tentar usar sessão diretamente
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            if (isset($_SESSION['user_id'])) {
+                $userId = (int) $_SESSION['user_id'];
+                error_log("validateAvailability: User ID obtido da sessão diretamente: {$userId}");
+            } else {
+                throw new Exception('Usuário não autenticado. Faça login novamente.');
+            }
+        }
+        
+        if (!$userId || $userId < 1) {
+            throw new Exception('ID do usuário inválido. Faça login novamente.');
+        }
+        
+        $eventDateTime = $eventDate . ' ' . $eventTime;
         
         // Obter configurações de disponibilidade com tratamento robusto
         $result = false;

@@ -2858,8 +2858,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar validação de disponibilidade em tempo real
         setupAvailabilityValidation();
         
-        // Configurar busca automática de clientes
-        setupClientAutocomplete();
+        // Configurar busca automática de clientes (após garantir que variáveis estão inicializadas)
+        if (typeof clientAutocompleteSetup !== 'undefined') {
+            setupClientAutocomplete();
+        } else {
+            // Se variável não estiver definida, definir agora
+            clientAutocompleteSetup = false;
+            setupClientAutocomplete();
+        }
         
         // Modal de detalhes do orçamento
         if (closeBudgetDetailsModal) {
@@ -2897,6 +2903,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Garantir que a busca de clientes esteja configurada
             setTimeout(() => {
                 setupClientAutocomplete();
+            }, 100);
+            
+            // Inicializar campo de tamanho do arco
+            setTimeout(() => {
+                toggleArcSizeField();
             }, 100);
             
             // Focar no primeiro campo
@@ -2937,8 +2948,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     clientInput.classList.remove('border-blue-500');
                 }
                 // Resetar flag de autocomplete para permitir reconfiguração
-                clientAutocompleteSetup = false;
-                selectedClientId = null;
+                if (typeof clientAutocompleteSetup !== 'undefined') {
+                    clientAutocompleteSetup = false;
+                }
+                if (typeof selectedClientId !== 'undefined') {
+                    selectedClientId = null;
+                }
             }
         }
     }
@@ -3141,6 +3156,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== BUSCA AUTOMÁTICA DE CLIENTES ==========
     
     function setupClientAutocomplete() {
+        // Garantir que a variável está definida
+        if (typeof clientAutocompleteSetup === 'undefined') {
+            clientAutocompleteSetup = false;
+        }
+        
         const clientInput = document.getElementById('budget-client');
         const emailInput = document.getElementById('budget-email');
         const phoneInput = document.getElementById('budget-phone');
