@@ -175,8 +175,37 @@ class BudgetService {
      */
     public function listBudgets($filters = []) {
         try {
-            $where = ['decorador_id = ?'];
-            $params = [$_SESSION['user_id'] ?? 1];
+            // Obter ID do decorador da sessão
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            
+            // Se não houver user_id na sessão, tentar obter do role
+            if (!$decoradorId && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'decorator') {
+                // Tentar buscar o ID do decorador logado de outra forma
+                $decoradorId = $_SESSION['user_id'] ?? null;
+            }
+            
+            // Se ainda não houver, usar 1 como fallback (apenas para debug)
+            if (!$decoradorId) {
+                $decoradorId = 1;
+                error_log('listBudgets: Usando decorador_id padrão (1) - sessão não contém user_id');
+            }
+            
+            error_log('listBudgets: Buscando orçamentos para decorador_id: ' . $decoradorId);
+            error_log('listBudgets: Sessão user_id: ' . ($_SESSION['user_id'] ?? 'não definido'));
+            error_log('listBudgets: Sessão user_role: ' . ($_SESSION['user_role'] ?? 'não definido'));
+            
+            // Buscar orçamentos do decorador logado
+            // Se não houver user_id na sessão (decorador_id = 1 por padrão), 
+            // buscar também orçamentos sem decorador_id para compatibilidade
+            if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] == null) {
+                // Se não há sessão válida, buscar todos os orçamentos (modo compatibilidade)
+                $where = ['(decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)'];
+                $params = [$decoradorId];
+            } else {
+                // Buscar apenas orçamentos do decorador logado
+                $where = ['decorador_id = ?'];
+                $params = [$decoradorId];
+            }
             
             // Filtros
             if (!empty($filters['status'])) {
@@ -207,15 +236,20 @@ class BudgetService {
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
+                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at, decorador_id
                 FROM orcamentos 
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY created_at DESC
             ";
             
+            error_log('listBudgets: SQL: ' . $sql);
+            error_log('listBudgets: Params: ' . json_encode($params));
+            
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             $budgets = $stmt->fetchAll();
+            
+            error_log('listBudgets: Encontrados ' . count($budgets) . ' orçamento(s)');
             
             // Formatar dados
             foreach ($budgets as &$budget) {
@@ -231,11 +265,16 @@ class BudgetService {
                 $budget['image'] = $budget['imagem'];
                 $budget['tamanho_arco_m'] = $budget['tamanho_arco_m'] ? (float) $budget['tamanho_arco_m'] : null;
                 $budget['created_at'] = $budget['created_at'];
+                $budget['decorador_id'] = $budget['decorador_id'] ?? $decoradorId;
             }
+            
+            error_log('listBudgets: Retornando ' . count($budgets) . ' orçamento(s) formatado(s)');
             
             return [
                 'success' => true,
-                'budgets' => $budgets
+                'budgets' => $budgets,
+                'count' => count($budgets),
+                'decorador_id' => $decoradorId // Para debug
             ];
             
         } catch (Exception $e) {

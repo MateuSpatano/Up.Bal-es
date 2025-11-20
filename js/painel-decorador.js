@@ -1223,9 +1223,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const result = await response.json();
             
+            console.log('Resposta do servidor (loadBudgets):', result);
+            
             if (result.success) {
                 budgets = result.budgets || [];
                 console.log('Orçamentos carregados:', budgets.length, 'orçamento(s)');
+                console.log('Detalhes dos orçamentos:', budgets);
+                
+                if (budgets.length === 0) {
+                    console.warn('Nenhum orçamento encontrado. Decorador ID usado:', result.decorador_id);
+                }
                 
                 // Garantir que o módulo painel gerencial esteja visível e atualizado
                 if (currentModule === 'painel-gerencial') {
@@ -1235,6 +1242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateBudgetsDisplay();
                 }
             } else {
+                console.error('Erro ao carregar orçamentos:', result.message);
                 showNotification('Erro ao carregar orçamentos: ' + result.message, 'error');
                 budgets = [];
                 updateBudgetsDisplay(); // Atualizar mesmo em caso de erro para limpar display
