@@ -1225,11 +1225,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 budgets = result.budgets || [];
-                updateBudgetsDisplay();
-                console.log('Orçamentos carregados:', budgets);
+                console.log('Orçamentos carregados:', budgets.length, 'orçamento(s)');
+                
+                // Garantir que o módulo painel gerencial esteja visível e atualizado
+                if (currentModule === 'painel-gerencial') {
+                    updateBudgetsDisplay();
+                } else {
+                    // Se não estiver no módulo correto, atualizar mesmo assim
+                    updateBudgetsDisplay();
+                }
             } else {
                 showNotification('Erro ao carregar orçamentos: ' + result.message, 'error');
                 budgets = [];
+                updateBudgetsDisplay(); // Atualizar mesmo em caso de erro para limpar display
             }
         } catch (error) {
             console.error('Erro ao carregar orçamentos:', error);
@@ -2948,11 +2956,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     clientInput.classList.remove('border-blue-500');
                 }
                 // Resetar flag de autocomplete para permitir reconfiguração
-                if (typeof clientAutocompleteSetup !== 'undefined') {
-                    clientAutocompleteSetup = false;
+                try {
+                    if (typeof window.clientAutocompleteSetup !== 'undefined') {
+                        window.clientAutocompleteSetup = false;
+                    } else if (typeof clientAutocompleteSetup !== 'undefined') {
+                        clientAutocompleteSetup = false;
+                    }
+                } catch (e) {
+                    // Ignorar erro se variável não estiver disponível
                 }
-                if (typeof selectedClientId !== 'undefined') {
-                    selectedClientId = null;
+                try {
+                    if (typeof window.selectedClientId !== 'undefined') {
+                        window.selectedClientId = null;
+                    } else if (typeof selectedClientId !== 'undefined') {
+                        selectedClientId = null;
+                    }
+                } catch (e) {
+                    // Ignorar erro se variável não estiver disponível
                 }
             }
         }
@@ -3016,10 +3036,27 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 showNotification('Orçamento criado com sucesso!', 'success');
-                closeCreateBudgetModalFunc();
                 
-                // Recarregar orçamentos
-                await loadBudgets();
+                // Fechar modal primeiro (com tratamento de erro)
+                try {
+                    closeCreateBudgetModalFunc();
+                } catch (error) {
+                    console.warn('Erro ao fechar modal (não crítico):', error);
+                    // Fechar modal manualmente se a função falhar
+                    if (createBudgetModal) {
+                        createBudgetModal.classList.add('hidden');
+                        createBudgetModal.classList.remove('show');
+                        document.body.style.overflow = 'auto';
+                    }
+                }
+                
+                // Recarregar orçamentos após fechar o modal
+                try {
+                    await loadBudgets();
+                } catch (error) {
+                    console.error('Erro ao recarregar orçamentos:', error);
+                    showNotification('Orçamento criado, mas houve erro ao recarregar a lista. Recarregue a página.', 'warning');
+                }
             } else {
                 showNotification('Erro ao criar orçamento: ' + (result.message || 'Erro desconhecido'), 'error');
                 console.error('Erro do servidor:', result);
