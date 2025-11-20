@@ -85,6 +85,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentView = 'list';
     let currentSendBudget = null;
     let selectedSendMethod = null;
+    
+    // Variáveis para validação de disponibilidade
+    let availabilityValidationTimeout = null;
+    let availabilityValidationSetup = false;
 
     // ========== INICIALIZAÇÃO ==========
     
@@ -2862,9 +2866,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ========== VALIDAÇÃO DE DISPONIBILIDADE EM TEMPO REAL ==========
-    
-    let availabilityValidationTimeout = null;
-    let availabilityValidationSetup = false;
     
     function setupAvailabilityValidation() {
         const eventDate = document.getElementById('budget-event-date');
