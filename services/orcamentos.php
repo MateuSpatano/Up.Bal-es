@@ -859,7 +859,7 @@ class BudgetService {
             
             // Obter configurações de disponibilidade
             $stmt = $this->pdo->prepare("
-                SELECT available_days, time_schedules, service_interval, interval_unit, max_daily_services 
+                SELECT available_days, time_schedules, service_intervals, max_daily_services 
                 FROM decorator_availability 
                 WHERE user_id = ? 
                 ORDER BY updated_at DESC 
@@ -869,16 +869,30 @@ class BudgetService {
             $stmt->execute([$userId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
+            // Se não há configurações, usar valores padrão permissivos
             if (!$result) {
-                // Se não há configurações, permitir criação (modo compatibilidade)
-                return ['success' => true];
+                $availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                $timeSchedules = [
+                    ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+                ];
+                $serviceIntervals = [];
+                $maxDailyServices = 10; // Limite alto por padrão
+            } else {
+                $availableDays = json_decode($result['available_days'], true);
+                $timeSchedules = json_decode($result['time_schedules'], true);
+                $serviceIntervals = json_decode($result['service_intervals'], true);
+                $maxDailyServices = intval($result['max_daily_services']);
+                
+                // Garantir que são arrays válidos
+                if (!is_array($availableDays)) $availableDays = [];
+                if (!is_array($timeSchedules)) $timeSchedules = [];
+                if (!is_array($serviceIntervals)) $serviceIntervals = [];
+                if ($maxDailyServices < 1) $maxDailyServices = 10;
             }
-            
-            $availableDays = json_decode($result['available_days'], true);
-            $timeSchedules = json_decode($result['time_schedules'], true);
-            $serviceInterval = intval($result['service_interval']);
-            $intervalUnit = $result['interval_unit'];
-            $maxDailyServices = intval($result['max_daily_services']);
             
             // Verificar se a data está bloqueada
             $isDateBlocked = $this->checkIfDateIsBlocked($userId, $eventDate);
@@ -903,22 +917,31 @@ class BudgetService {
             
             $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
             
-            if (!in_array($dayKey, $availableDays)) {
+            // Se não houver dias disponíveis configurados, permitir qualquer dia
+            if (empty($availableDays) || !is_array($availableDays)) {
+                // Permitir qualquer dia se não houver configuração
+            } else if (!in_array($dayKey, $availableDays)) {
                 return [
                     'success' => false,
-                    'message' => 'Não há atendimento neste dia da semana'
+                    'message' => 'Não há atendimento neste dia da semana (' . $dayKey . ')'
                 ];
             }
             
             // Verificar se o horário está dentro dos horários de atendimento
             $isWithinSchedule = false;
-            foreach ($timeSchedules as $schedule) {
-                if ($schedule['day'] === $dayKey) {
-                    if ($eventTime >= $schedule['start_time'] && $eventTime <= $schedule['end_time']) {
-                        $isWithinSchedule = true;
-                        break;
+            if (!empty($timeSchedules) && is_array($timeSchedules)) {
+                foreach ($timeSchedules as $schedule) {
+                    if (isset($schedule['day']) && $schedule['day'] === $dayKey) {
+                        if (isset($schedule['start_time']) && isset($schedule['end_time']) &&
+                            $eventTime >= $schedule['start_time'] && $eventTime <= $schedule['end_time']) {
+                            $isWithinSchedule = true;
+                            break;
+                        }
                     }
                 }
+            } else {
+                // Se não houver horários configurados, permitir qualquer horário
+                $isWithinSchedule = true;
             }
             
             if (!$isWithinSchedule) {
@@ -929,65 +952,103 @@ class BudgetService {
             }
             
             // Verificar limite de serviços por dia
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(*) as count 
-                FROM orcamentos 
-                WHERE decorador_id = ? 
-                AND data_evento = ? 
-                AND status IN ('aprovado', 'pendente')
-            ");
-            
-            $stmt->execute([$userId, $eventDate]);
-            $dailyCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-            
-            if ($dailyCount >= $maxDailyServices) {
-                return [
-                    'success' => false,
-                    'message' => "Limite de {$maxDailyServices} serviços por dia atingido"
-                ];
-            }
-            
-            // Verificar intervalo entre serviços
-            if ($serviceInterval > 0) {
-                $intervalMinutes = $intervalUnit === 'hours' ? $serviceInterval * 60 : $serviceInterval;
-                
+            try {
                 $stmt = $this->pdo->prepare("
-                    SELECT hora_evento 
+                    SELECT COUNT(*) as count 
                     FROM orcamentos 
                     WHERE decorador_id = ? 
                     AND data_evento = ? 
                     AND status IN ('aprovado', 'pendente')
-                    ORDER BY hora_evento
                 ");
                 
                 $stmt->execute([$userId, $eventDate]);
-                $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                $countResult = $stmt->fetch(PDO::FETCH_ASSOC);
+                $dailyCount = $countResult ? intval($countResult['count']) : 0;
                 
-                foreach ($existingTimes as $existingTime) {
-                    $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
-                    $newDateTime = new DateTime($eventDateTime);
+                if ($dailyCount >= $maxDailyServices) {
+                    return [
+                        'success' => false,
+                        'message' => "Limite de {$maxDailyServices} serviços por dia atingido"
+                    ];
+                }
+            } catch (PDOException $e) {
+                // Se houver erro, assumir que não há limite atingido
+                error_log('Erro ao verificar limite de serviços: ' . $e->getMessage());
+            }
+            
+            // Verificar intervalo entre serviços para o dia específico
+            if (!empty($serviceIntervals) && is_array($serviceIntervals)) {
+                $dayInterval = null;
+                foreach ($serviceIntervals as $interval) {
+                    if (isset($interval['day']) && $interval['day'] === $dayKey) {
+                        $dayInterval = $interval;
+                        break;
+                    }
+                }
+                
+                if ($dayInterval && isset($dayInterval['interval']) && $dayInterval['interval'] > 0) {
+                    $intervalMinutes = (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours') 
+                        ? $dayInterval['interval'] * 60 
+                        : $dayInterval['interval'];
                     
-                    $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
-                    
-                    if ($diffMinutes < $intervalMinutes) {
-                        return [
-                            'success' => false,
-                            'message' => "Intervalo mínimo de {$serviceInterval} " . 
-                                ($intervalUnit === 'hours' ? 'hora(s)' : 'minuto(s)') . 
-                                " entre serviços não respeitado"
-                        ];
+                    try {
+                        $stmt = $this->pdo->prepare("
+                            SELECT hora_evento 
+                            FROM orcamentos 
+                            WHERE decorador_id = ? 
+                            AND data_evento = ? 
+                            AND status IN ('aprovado', 'pendente')
+                            ORDER BY hora_evento
+                        ");
+                        
+                        $stmt->execute([$userId, $eventDate]);
+                        $existingTimes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        
+                        if (is_array($existingTimes)) {
+                            foreach ($existingTimes as $existingTime) {
+                                if (empty($existingTime)) continue;
+                                
+                                try {
+                                    $existingDateTime = new DateTime($eventDate . ' ' . $existingTime);
+                                    $newDateTime = new DateTime($eventDateTime);
+                                    
+                                    $diffMinutes = abs($newDateTime->getTimestamp() - $existingDateTime->getTimestamp()) / 60;
+                                    
+                                    if ($diffMinutes < $intervalMinutes) {
+                                        return [
+                                            'success' => false,
+                                            'message' => "Intervalo mínimo de {$dayInterval['interval']} " . 
+                                                (isset($dayInterval['unit']) && $dayInterval['unit'] === 'hours' ? 'hora(s)' : 'minuto(s)') . 
+                                                " entre serviços não respeitado para {$dayKey}"
+                                        ];
+                                    }
+                                } catch (Exception $e) {
+                                    // Continuar se houver erro ao processar data/hora
+                                    error_log('Erro ao processar intervalo: ' . $e->getMessage());
+                                }
+                            }
+                        }
+                    } catch (PDOException $e) {
+                        // Se houver erro, não bloquear por intervalo
+                        error_log('Erro ao verificar intervalo entre serviços: ' . $e->getMessage());
                     }
                 }
             }
             
             return ['success' => true];
             
+        } catch (PDOException $e) {
+            error_log('Erro de banco de dados ao validar disponibilidade: ' . $e->getMessage() . ' | SQL State: ' . $e->getCode());
+            // Em caso de erro de banco, permitir criação (modo compatibilidade)
+            return ['success' => true];
         } catch (Exception $e) {
-            error_log('Erro ao validar disponibilidade: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Erro ao validar disponibilidade'
-            ];
+            error_log('Erro ao validar disponibilidade: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            // Em caso de erro geral, permitir criação (modo compatibilidade)
+            return ['success' => true];
+        } catch (Error $e) {
+            error_log('Erro fatal ao validar disponibilidade: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
+            // Em caso de erro fatal, permitir criação (modo compatibilidade)
+            return ['success' => true];
         }
     }
 
