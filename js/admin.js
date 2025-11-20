@@ -2087,11 +2087,20 @@ class AdminSystem {
             }
             
             if (result.success) {
+                console.log('Tickets carregados com sucesso:', result.tickets?.length || 0);
+                console.log('Dados dos tickets:', result.tickets);
+                
                 this.supportTickets = result.tickets || [];
                 this.filteredTickets = [...this.supportTickets];
                 
                 // Ordenar por data (mais recentes primeiro)
-                this.filteredTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                this.filteredTickets.sort((a, b) => {
+                    const dateA = new Date(a.created_at || 0);
+                    const dateB = new Date(b.created_at || 0);
+                    return dateB - dateA;
+                });
+                
+                console.log('Tickets após ordenação:', this.filteredTickets.length);
                 
                 this.renderSupportTickets();
                 this.updateSupportStats();
@@ -2184,15 +2193,15 @@ class AdminSystem {
                                 <span><i class="fas fa-calendar mr-1 text-purple-600"></i>${this.formatDateTime(ticket.created_at)}</span>
                             </div>
                         </div>
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[ticket.status]}">
-                            <i class="fas ${statusIcons[ticket.status]} mr-1"></i>${statusLabels[ticket.status]}
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[ticket.status] || statusColors['novo']}">
+                            <i class="fas ${statusIcons[ticket.status] || statusIcons['novo']} mr-1"></i>${statusLabels[ticket.status] || statusLabels['novo']}
                         </span>
                     </div>
-                    <p class="text-gray-700 text-sm line-clamp-2 mb-3">${ticket.description}</p>
+                    <p class="text-gray-700 text-sm line-clamp-2 mb-3">${ticket.description || 'Sem descrição'}</p>
                     <div class="flex items-center justify-between text-xs text-gray-500">
                         <div class="flex items-center space-x-3">
                             ${ticket.attachment ? '<span><i class="fas fa-paperclip mr-1"></i>Anexo</span>' : ''}
-                            <span>ID: #${ticket.id.substring(0, 8)}</span>
+                            <span>ID: #${String(ticket.id || '').substring(0, 8)}</span>
                         </div>
                         <button class="text-indigo-600 hover:text-indigo-800 font-medium">
                             Ver Detalhes <i class="fas fa-arrow-right ml-1"></i>

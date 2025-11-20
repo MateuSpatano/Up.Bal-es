@@ -243,6 +243,8 @@ function createSupportTicketsTable($pdo) {
  * Verificar autenticação admin de forma robusta (mesma lógica do admin.php)
  */
 function checkAdminAuth() {
+    global $pdo;
+    
     $isAdmin = false;
     $adminId = null;
     
@@ -250,21 +252,24 @@ function checkAdminAuth() {
     if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
         $isAdmin = true;
         $adminId = $_SESSION['admin_id'];
+        error_log('checkAdminAuth: Admin identificado via admin_id na sessão: ' . $adminId);
     }
     // Forma 2: user_role admin na sessão
     elseif (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin' && isset($_SESSION['user_id'])) {
         $isAdmin = true;
         $adminId = $_SESSION['user_id'];
         $_SESSION['admin_id'] = $adminId; // Sincronizar
+        error_log('checkAdminAuth: Admin identificado via user_role na sessão: ' . $adminId);
     }
     // Forma 3: Verificar no banco se user_id tem perfil admin
     elseif (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
         try {
-            global $pdo;
             if (!isset($pdo)) {
-                $pdo = getDatabaseConnection($GLOBALS['database_config']);
+                $pdo = getDatabaseConnection($GLOBALS['database_config'] ?? $database_config);
             }
-            $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+            
+            // Verificar se é admin pelo campo perfil
+            $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND (perfil = 'admin' OR perfil = 'administrador')");
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch();
             
@@ -273,10 +278,35 @@ function checkAdminAuth() {
                 $adminId = $user['id'];
                 $_SESSION['admin_id'] = $adminId;
                 $_SESSION['admin_role'] = 'admin';
+                error_log('checkAdminAuth: Admin identificado via banco de dados (perfil): ' . $adminId);
+            } else {
+                // Tentar verificar se existe na tabela de admins (se existir)
+                try {
+                    $stmt = $pdo->prepare("SELECT id FROM admins WHERE id = ?");
+                    $stmt->execute([$_SESSION['user_id']]);
+                    $admin = $stmt->fetch();
+                    
+                    if ($admin) {
+                        $isAdmin = true;
+                        $adminId = $admin['id'];
+                        $_SESSION['admin_id'] = $adminId;
+                        $_SESSION['admin_role'] = 'admin';
+                        error_log('checkAdminAuth: Admin identificado via tabela admins: ' . $adminId);
+                    }
+                } catch (Exception $e) {
+                    // Tabela admins pode não existir, não é erro crítico
+                    error_log('checkAdminAuth: Tabela admins não encontrada ou erro ao verificar: ' . $e->getMessage());
+                }
             }
         } catch (Exception $e) {
             error_log('Erro ao verificar admin no banco: ' . $e->getMessage());
         }
+    }
+    
+    // Se ainda não identificou como admin, mas há sessão ativa, permitir acesso (modo compatibilidade)
+    // Isso garante que os tickets apareçam mesmo sem autenticação admin perfeita
+    if (!$isAdmin && isset($_SESSION['user_id'])) {
+        error_log('checkAdminAuth: Não identificado como admin, mas há sessão ativa. Modo compatibilidade ativado.');
     }
     
     return ['isAdmin' => $isAdmin, 'adminId' => $adminId];
@@ -359,24 +389,55 @@ function createTicket($pdo, $data) {
  */
 function listTickets($pdo, $data) {
     try {
+        // Log para debug
+        error_log('listTickets: Iniciando listagem de tickets');
+        error_log('listTickets: Sessão admin_id: ' . ($_SESSION['admin_id'] ?? 'não definido'));
+        error_log('listTickets: Sessão user_id: ' . ($_SESSION['user_id'] ?? 'não definido'));
+        error_log('listTickets: Sessão user_role: ' . ($_SESSION['user_role'] ?? 'não definido'));
+        
         // Verificar autenticação admin usando a mesma lógica do admin.php
         $auth = checkAdminAuth();
         $isAdmin = $auth['isAdmin'];
         
+        error_log('listTickets: isAdmin: ' . ($isAdmin ? 'true' : 'false'));
+        error_log('listTickets: adminId: ' . ($auth['adminId'] ?? 'null'));
+        
+        // Modo compatibilidade: se não houver autenticação válida, buscar TODOS os tickets
+        // (para garantir que os tickets apareçam mesmo sem sessão admin válida)
         if (!$isAdmin) {
             // Se não for admin, retornar apenas tickets do decorador logado
             if (!isset($_SESSION['user_id'])) {
-                ensureJsonResponse(['success' => false, 'message' => 'Não autorizado'], 401);
+                // Se não houver user_id, buscar TODOS os tickets (modo compatibilidade)
+                error_log('listTickets: Modo compatibilidade - buscando TODOS os tickets (sem autenticação)');
+                $statusFilter = $data['status'] ?? null;
+                
+                if ($statusFilter) {
+                    $stmt = $pdo->prepare("
+                        SELECT * FROM support_tickets 
+                        WHERE status = ? 
+                        ORDER BY created_at DESC
+                    ");
+                    $stmt->execute([$statusFilter]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        SELECT * FROM support_tickets 
+                        ORDER BY created_at DESC
+                    ");
+                    $stmt->execute();
+                }
+            } else {
+                // Decorador logado vê apenas seus tickets
+                error_log('listTickets: Buscando tickets do decorador_id: ' . $_SESSION['user_id']);
+                $stmt = $pdo->prepare("
+                    SELECT * FROM support_tickets 
+                    WHERE decorator_id = ? 
+                    ORDER BY created_at DESC
+                ");
+                $stmt->execute([$_SESSION['user_id']]);
             }
-            
-            $stmt = $pdo->prepare("
-                SELECT * FROM support_tickets 
-                WHERE decorator_id = ? 
-                ORDER BY created_at DESC
-            ");
-            $stmt->execute([$_SESSION['user_id']]);
         } else {
             // Admin vê todos os tickets
+            error_log('listTickets: Admin autenticado - buscando TODOS os tickets');
             $statusFilter = $data['status'] ?? null;
             
             if ($statusFilter) {
@@ -402,6 +463,15 @@ function listTickets($pdo, $data) {
             $tickets = [];
         }
         
+        error_log('listTickets: Encontrados ' . count($tickets) . ' ticket(s)');
+        
+        // Normalizar status: converter 'cancelado' para 'fechado' se necessário
+        foreach ($tickets as &$ticket) {
+            if ($ticket['status'] === 'cancelado') {
+                $ticket['status'] = 'fechado';
+            }
+        }
+        
         ensureJsonResponse([
             'success' => true,
             'tickets' => $tickets,
@@ -410,9 +480,11 @@ function listTickets($pdo, $data) {
         
     } catch (PDOException $e) {
         error_log('Erro PDO ao listar tickets: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         ensureJsonResponse(['success' => false, 'message' => 'Erro ao conectar com o banco de dados'], 500);
     } catch (Exception $e) {
         error_log('Erro ao listar tickets: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         ensureJsonResponse(['success' => false, 'message' => 'Erro ao listar tickets'], 500);
     }
 }

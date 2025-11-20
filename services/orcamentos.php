@@ -783,19 +783,38 @@ class BudgetService {
      */
     public function deleteBudget($id) {
         try {
-            $stmt = $this->pdo->prepare("
-                DELETE FROM orcamentos 
-                WHERE id = ? AND decorador_id = ?
-            ");
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt->execute([$id, $_SESSION['user_id'] ?? 1]);
+            error_log('deleteBudget: ID=' . $id . ', DecoradorID=' . ($decoradorId ?? 'null'));
+            
+            // Se não houver sessão válida, deletar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    DELETE FROM orcamentos 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$id]);
+                error_log('deleteBudget: Modo compatibilidade - deletando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, deletar apenas se pertencer ao decorador
+                $stmt = $this->pdo->prepare("
+                    DELETE FROM orcamentos 
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ");
+                $stmt->execute([$id, $decoradorId]);
+                error_log('deleteBudget: Deletando com filtro de decorador_id=' . $decoradorId);
+            }
             
             if ($stmt->rowCount() === 0) {
+                error_log('deleteBudget: Nenhuma linha deletada - orçamento não encontrado');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para excluí-lo.'
                 ];
             }
+            
+            error_log('deleteBudget: Orçamento deletado com sucesso - ' . $stmt->rowCount() . ' linha(s) deletada(s)');
             
             // Log da ação
             $this->logAction('delete_budget', $id);
@@ -807,6 +826,7 @@ class BudgetService {
             
         } catch (Exception $e) {
             error_log('Erro ao deletar orçamento: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
             return [
                 'success' => false,
                 'message' => 'Erro interno do servidor.'

@@ -5091,8 +5091,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                 <!-- Marcador visual de status -->
                 <div class="absolute left-0 top-0 w-1 h-full ${getStatusIndicatorClass(budget.status)} rounded-l-lg"></div>
                 
+                <!-- Botão de exclusão no topo direito -->
+                <button onclick="event.stopPropagation(); deleteBudget(${budget.id})" 
+                        class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded-full hover:bg-red-500 hover:text-white transition-all duration-200 z-10 shadow-sm hover:shadow-md"
+                        title="Excluir orçamento">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+                
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                    <div class="flex-1 ml-2">
+                    <div class="flex-1 ml-2 pr-8">
                         <div class="flex items-center space-x-3 mb-2">
                             <span class="px-2 py-1 ${getStatusClass(budget.status)} text-xs font-medium rounded-full flex items-center">
                                 <i class="fas ${getStatusIcon(budget.status)} mr-1"></i>
@@ -5424,6 +5431,43 @@ Qualquer dúvida, estou à disposição! 😊`;
             } catch (error) {
                 showNotification('Erro de conexão. Tente novamente.', 'error');
                 console.error('Erro ao recusar orçamento:', error);
+            }
+        }
+    };
+    
+    window.deleteBudget = async function(budgetId) {
+        if (confirm('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.')) {
+            try {
+                const response = await fetch('../services/orcamentos.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        id: budgetId
+                    })
+                });
+                
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP ao excluir orçamento:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Resposta do servidor (delete):', result);
+                
+                if (result.success) {
+                    showNotification('Orçamento excluído com sucesso!', 'success');
+                    await loadBudgets(); // Recarregar orçamentos
+                } else {
+                    showNotification('Erro ao excluir orçamento: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Erro de conexão. Tente novamente.', 'error');
+                console.error('Erro ao excluir orçamento:', error);
             }
         }
     };
