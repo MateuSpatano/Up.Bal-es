@@ -85,11 +85,23 @@ function errorResponse($message, $code = 400) {
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        error_log('ERRO FATAL: ' . $error['message'] . ' em ' . $error['file'] . ':' . $error['line']);
+        $errorMessage = $error['message'] ?? 'Erro desconhecido';
+        $errorFile = $error['file'] ?? 'arquivo desconhecido';
+        $errorLine = $error['line'] ?? 0;
+        
+        error_log('ERRO FATAL: ' . $errorMessage . ' em ' . $errorFile . ':' . $errorLine);
+        
+        // Retornar erro detalhado para debug
         ensureJsonResponse([
             'success' => false,
             'message' => 'Erro fatal no servidor',
-            'error_type' => 'fatal_error'
+            'error_type' => 'fatal_error',
+            'error_details' => [
+                'message' => $errorMessage,
+                'file' => $errorFile,
+                'line' => $errorLine,
+                'type' => $error['type'] ?? 'unknown'
+            ]
         ], 500);
     }
 });
