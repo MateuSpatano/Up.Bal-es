@@ -47,9 +47,69 @@ class AdminSystem {
         setInterval(() => this.updateCurrentTime(), 60000);
     }
 
+    /**
+     * Função auxiliar para fazer parse seguro de resposta JSON
+     * Usa a função global safeResponseJson se disponível
+     * @param {Response} response - Objeto Response do fetch
+     * @param {*} defaultValue - Valor padrão caso o parse falhe
+     * @returns {Promise<*>} - Objeto parseado ou valor padrão
+     */
+    async safeJsonParse(response, defaultValue = null) {
+        if (typeof window !== 'undefined' && window.safeResponseJson) {
+            return await window.safeResponseJson(response, defaultValue);
+        }
+        // Fallback se json-utils.js não estiver carregado
+        try {
+            const contentType = response.headers.get('content-type');
+            const text = await response.text();
+            
+            if (!text || text.trim() === '') {
+                return defaultValue;
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    return (typeof window !== 'undefined' && window.safeJsonParse) 
+                        ? window.safeJsonParse(text, null) 
+                        : JSON.parse(text);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse JSON:', parseError);
+                    return defaultValue;
+                }
+            }
+            return defaultValue;
+        } catch (error) {
+            console.error('Erro ao processar resposta:', error);
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Função auxiliar para fazer parse seguro de localStorage
+     * @param {string} key - Chave do localStorage
+     * @param {*} defaultValue - Valor padrão
+     * @returns {*} - Objeto parseado ou valor padrão
+     */
+    safeLocalStorageGet(key, defaultValue = null) {
+        if (typeof window !== 'undefined' && window.safeLocalStorageParse) {
+            return window.safeLocalStorageParse(key, defaultValue);
+        }
+        // Fallback
+        try {
+            const item = localStorage.getItem(key);
+            if (!item) return defaultValue;
+            return (typeof window !== 'undefined' && window.safeJsonParse) 
+                ? window.safeJsonParse(item, defaultValue) 
+                : JSON.parse(item);
+        } catch (e) {
+            console.warn(`Erro ao ler localStorage[${key}]:`, e);
+            return defaultValue;
+        }
+    }
+
     // Verificação de Autenticação
     async checkAuthentication() {
-        this.currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
+        this.currentUser = this.safeLocalStorageGet('userData', {});
         
         if (!this.currentUser || this.currentUser.role !== 'admin') {
             this.showNotification('Acesso negado. Apenas administradores podem acessar esta área.', 'error');
@@ -111,10 +171,10 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
-                this.users = result.data.users;
+            if (result && result.success) {
+                this.users = result.data?.users || [];
                 // Inicializar filteredUsers com todos os usuários carregados
                 this.filteredUsers = [...this.users];
                 this.refreshUsersChart();
@@ -246,9 +306,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 this.showNotification(result.message, 'success');
                 this.loadUsers(); // Recarregar lista
             } else {
@@ -275,10 +335,10 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
             let user;
-            if (!result.success) {
+            if (!result || !result.success) {
                 // Fallback: buscar da lista local
                 user = this.users.find(u => u.id === userId);
                 if (!user) {
@@ -393,9 +453,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 this.showNotification(result.message, 'success');
                 document.getElementById('edit-user-modal').classList.add('hidden');
                 this.loadUsers(); // Recarregar lista
@@ -713,7 +773,16 @@ class AdminSystem {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const result = await response.json();
+            // Usar função auxiliar para parse seguro
+            const result = await this.safeJsonParse(response);
+            
+            if (!result) {
+                console.warn('Não foi possível fazer parse da resposta do dashboard');
+                this.dashboardData = null;
+                this.updateDashboardMetrics(fallbackMetrics);
+                this.loadRecentActivities([]);
+                return;
+            }
 
             if (result.success && result.data) {
                 this.dashboardData = result.data;
@@ -961,9 +1030,9 @@ class AdminSystem {
                 })
             });
 
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
 
-            if (result.success) {
+            if (result && result.success) {
                 // Adicionar usuário localmente
                 const newDecorator = {
                     id: result.data.id,
@@ -1246,9 +1315,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 // Atualizar status local após sucesso no backend
                 user.status = newStatus;
                 this.filteredUsers = [...this.users];
@@ -1284,9 +1353,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 // Remover usuário da lista local após sucesso no backend
                 const userIndex = this.users.findIndex(u => u.id === userId);
                 if (userIndex !== -1) {
@@ -1892,7 +1961,23 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            // Usar função auxiliar para parse seguro
+            const result = await this.safeJsonParse(response);
+            
+            if (!result) {
+                console.warn('Não foi possível fazer parse da resposta de tickets de suporte');
+                const saved = localStorage.getItem('support_tickets');
+                try {
+                    this.supportTickets = this.safeLocalStorageGet('support_tickets', []);
+                } catch (e) {
+                    console.error('Erro ao fazer parse do localStorage:', e);
+                    this.supportTickets = [];
+                }
+                this.filteredTickets = [...this.supportTickets];
+                this.renderSupportTickets();
+                this.updateSupportStats();
+                return;
+            }
             
             if (result.success) {
                 this.supportTickets = result.tickets || [];
@@ -1904,19 +1989,29 @@ class AdminSystem {
                 this.renderSupportTickets();
                 this.updateSupportStats();
             } else {
-                console.error('Erro ao carregar tickets:', result.message);
+                console.error('Erro ao carregar tickets:', result.message || 'Erro desconhecido');
                 // Fallback para localStorage se houver erro
                 const saved = localStorage.getItem('support_tickets');
-                this.supportTickets = saved ? JSON.parse(saved) : [];
+                try {
+                    this.supportTickets = this.safeLocalStorageGet('support_tickets', []);
+                } catch (e) {
+                    console.error('Erro ao fazer parse do localStorage:', e);
+                    this.supportTickets = [];
+                }
                 this.filteredTickets = [...this.supportTickets];
                 this.renderSupportTickets();
                 this.updateSupportStats();
             }
         } catch (error) {
-            console.error('Erro ao carregar tickets:', error);
+            console.error('Erro ao carregar tickets:', error.message || error);
             // Fallback para localStorage em caso de erro
             const saved = localStorage.getItem('support_tickets');
-            this.supportTickets = saved ? JSON.parse(saved) : [];
+            try {
+                this.supportTickets = this.safeLocalStorageGet('support_tickets', []);
+            } catch (e) {
+                console.error('Erro ao fazer parse do localStorage:', e);
+                this.supportTickets = [];
+            }
             this.filteredTickets = [...this.supportTickets];
             this.renderSupportTickets();
             this.updateSupportStats();
@@ -2098,9 +2193,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 // Recarregar tickets do servidor
                 await this.loadSupportTickets();
                 
@@ -2137,9 +2232,9 @@ class AdminSystem {
                 })
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 // Recarregar tickets do servidor
                 await this.loadSupportTickets();
                 
@@ -2316,7 +2411,11 @@ class AdminSystem {
                 const socialYoutubeEl = document.getElementById('social-youtube');
                 
                 if (config.social_media) {
-                    const social = typeof config.social_media === 'string' ? JSON.parse(config.social_media) : config.social_media;
+                    const social = typeof config.social_media === 'string' 
+                        ? ((typeof window !== 'undefined' && window.safeJsonParse) 
+                            ? window.safeJsonParse(config.social_media, {}) 
+                            : JSON.parse(config.social_media)) 
+                        : config.social_media;
                     if (socialFacebookEl) socialFacebookEl.value = social.facebook || '';
                     if (socialInstagramEl) socialInstagramEl.value = social.instagram || '';
                     if (socialWhatsappEl) socialWhatsappEl.value = social.whatsapp || '';
@@ -2417,9 +2516,9 @@ class AdminSystem {
                 body: JSON.stringify(customizationData)
             });
             
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
             
-            if (result.success) {
+            if (result && result.success) {
                 this.showNotification('Personalização salva com sucesso!', 'success');
                 this.closePageCustomizationModal();
             } else {
@@ -2714,9 +2813,9 @@ class AdminSystem {
                 })
             });
 
-            const result = await response.json();
+            const result = await this.safeJsonParse(response, { success: false });
 
-            if (result.success && result.data) {
+            if (result && result.success && result.data) {
                 this.adminProfile = result.data;
                 this.populateAdminProfileForm();
                 this.adminSettingsLoaded = true;

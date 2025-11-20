@@ -1071,21 +1071,98 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== TOGGLE DE VISIBILIDADE DE SENHA ==========
     
     function setupPasswordToggles() {
+        // Função auxiliar para alternar visibilidade
+        function togglePasswordVisibility(button, input) {
+            if (!input) return;
+            
+            const icon = button.querySelector('i');
+            if (!icon) return;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                button.setAttribute('aria-label', 'Ocultar senha');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                button.setAttribute('aria-label', 'Mostrar senha');
+            }
+        }
+        
+        // Verificar se já existe um listener (para evitar duplicação)
+        const processedButtons = new WeakSet();
+        
+        // Configurar botões com classe .toggle-password
         document.querySelectorAll('.toggle-password').forEach(button => {
-            button.addEventListener('click', function() {
-                const input = this.parentNode.querySelector('input');
-                const icon = this.querySelector('i');
+            if (processedButtons.has(button)) return;
+            
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                } else {
-                    input.type = 'password';
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
+                // Tentar encontrar o input pelo atributo data-target primeiro
+                const targetId = this.getAttribute('data-target');
+                let input = targetId ? document.getElementById(targetId) : null;
+                
+                // Se não encontrar, procurar o input no mesmo container
+                if (!input) {
+                    input = this.closest('.relative')?.querySelector('input[type="password"], input[type="text"]') ||
+                           this.parentNode.querySelector('input[type="password"], input[type="text"]');
+                }
+                
+                if (input) {
+                    togglePasswordVisibility(this, input);
                 }
             });
+            
+            processedButtons.add(button);
+        });
+        
+        // Configurar botões com classe .password-toggle (usado em reset-password.html e admin.html)
+        document.querySelectorAll('.password-toggle').forEach(button => {
+            if (processedButtons.has(button)) return;
+            
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const targetId = this.getAttribute('data-target');
+                const input = targetId ? document.getElementById(targetId) : null;
+                
+                if (input) {
+                    togglePasswordVisibility(this, input);
+                }
+            });
+            
+            processedButtons.add(button);
+        });
+        
+        // Configurar botões específicos por ID apenas se não tiverem listener próprio
+        const specificToggles = [
+            { buttonId: 'toggle-password', inputId: 'password' },
+            { buttonId: 'toggle-admin-password', inputId: 'admin-password' },
+            { buttonId: 'toggle-senha', inputId: 'senha' },
+            { buttonId: 'toggle-confirmar-senha', inputId: 'confirmar-senha' }
+        ];
+        
+        specificToggles.forEach(({ buttonId, inputId }) => {
+            const button = document.getElementById(buttonId);
+            const input = document.getElementById(inputId);
+            
+            // Só adicionar listener se o botão não tiver classe que já foi processada
+            if (button && input && !button.classList.contains('toggle-password') && !button.classList.contains('password-toggle')) {
+                if (processedButtons.has(button)) return;
+                
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    togglePasswordVisibility(this, input);
+                });
+                
+                processedButtons.add(button);
+            }
         });
     }
 
@@ -1199,10 +1276,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin'
             });
             
-            const result = await response.json();
+            const result = (typeof window !== 'undefined' && window.safeResponseJson) 
+                ? await window.safeResponseJson(response, { success: false })
+                : await response.json();
             
             if (!response.ok) {
-                throw new Error(result.message || 'Erro ao salvar dados');
+                throw new Error(result?.message || 'Erro ao salvar dados');
             }
             
             if (!result.success) {
@@ -1464,9 +1543,11 @@ async function loadContactInfo() {
             throw new Error('Resposta do servidor não é JSON');
         }
         
-        const result = await response.json();
+        const result = (typeof window !== 'undefined' && window.safeResponseJson) 
+            ? await window.safeResponseJson(response, { success: false })
+            : await response.json();
         
-        if (result.success && result.data) {
+        if (result && result.success && result.data) {
             const contactData = result.data;
             
             // Atualizar email
