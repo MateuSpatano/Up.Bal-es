@@ -2,9 +2,15 @@
 /**
  * Serviço de Administração - Up.Baloes
  * Gerencia todas as operações administrativas
+ * 
+ * VERSÃO ROBUSTA COM TRATAMENTO COMPLETO DE ERROS
  */
 
-// Configurações de segurança
+// Desabilitar exibição de erros na saída (mas manter logs)
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// Configurações de segurança e headers
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -16,41 +22,217 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Incluir configurações
-require_once __DIR__ . '/config.php';
+// Função para garantir resposta JSON válida sempre
+function ensureJsonResponse($data, $statusCode = 200) {
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    
+    // Garantir que $data seja um array
+    if (!is_array($data)) {
+        $data = ['success' => false, 'message' => 'Resposta inválida do servidor'];
+    }
+    
+    // Garantir que sempre tenha success
+    if (!isset($data['success'])) {
+        $data['success'] = isset($data['message']) ? false : true;
+    }
+    
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    // Se falhar o encode, retornar erro básico
+    if ($json === false) {
+        $json = json_encode([
+            'success' => false,
+            'message' => 'Erro ao processar resposta do servidor',
+            'error' => json_last_error_msg()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    
+    echo $json;
+    exit();
+}
 
-// Iniciar sessão
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Função de resposta de sucesso
+function successResponse($data = null, $message = 'Sucesso') {
+    $response = ['success' => true];
+    if ($message) {
+        $response['message'] = $message;
+    }
+    if ($data !== null) {
+        $response['data'] = $data;
+    }
+    ensureJsonResponse($response, 200);
+}
+
+// Função de resposta de erro
+function errorResponse($message, $code = 400) {
+    ensureJsonResponse([
+        'success' => false,
+        'message' => $message
+    ], $code);
+}
+
+// Tratamento de erros fatais
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ensureJsonResponse([
+            'success' => false,
+            'message' => 'Erro fatal no servidor',
+            'error_type' => 'fatal_error'
+        ], 500);
+    }
+});
+
+// Incluir configurações
+try {
+    require_once __DIR__ . '/config.php';
+} catch (Exception $e) {
+    error_log('Erro ao carregar config.php: ' . $e->getMessage());
+    errorResponse('Erro de configuração do servidor', 500);
+}
+
+// Iniciar sessão com tratamento de erro
+try {
+    if (session_status() === PHP_SESSION_NONE) {
+        // Usar o mesmo nome de sessão do config.php
+        if (isset($GLOBALS['security_config']['session_name'])) {
+            ini_set('session.name', $GLOBALS['security_config']['session_name']);
+        }
+        session_start();
+        
+        // Log para debug (apenas em desenvolvimento)
+        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+            error_log('Sessão iniciada. ID: ' . session_id());
+            error_log('Dados da sessão: ' . json_encode($_SESSION));
+        }
+    }
+} catch (Exception $e) {
+    error_log('Erro ao iniciar sessão: ' . $e->getMessage());
+    // Continuar mesmo se a sessão falhar, mas retornar erro
+    errorResponse('Erro ao iniciar sessão', 500);
 }
 
 // Verificar método HTTP
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    errorResponse('Método não permitido', 405);
+    errorResponse('Método não permitido. Use POST.', 405);
 }
 
+// Obter e validar dados da requisição
 try {
-    // Obter dados da requisição
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents('php://input');
+    
+    if (empty($rawInput)) {
+        errorResponse('Dados da requisição estão vazios', 400);
+    }
+    
+    $input = json_decode($rawInput, true);
     
     if (json_last_error() !== JSON_ERROR_NONE) {
-        errorResponse('Dados JSON inválidos', 400);
+        error_log('Erro ao decodificar JSON: ' . json_last_error_msg());
+        error_log('Input recebido: ' . substr($rawInput, 0, 500));
+        errorResponse('Dados JSON inválidos: ' . json_last_error_msg(), 400);
+    }
+    
+    if (!is_array($input)) {
+        errorResponse('Dados da requisição devem ser um objeto JSON', 400);
     }
     
     $action = $input['action'] ?? '';
     
-    // Verificar autenticação admin para ações que requerem
-    $requiresAuth = ['get_users', 'get_dashboard_data', 'get_user', 'update_user', 
-                     'create_decorator', 'approve_decorator', 'toggle_user_status', 
-                     'delete_user', 'get_admin_profile', 'update_admin_profile', 
-                     'update_admin_password', 'get_settings', 'update_settings'];
+    if (empty($action)) {
+        errorResponse('Ação não especificada', 400);
+    }
     
-    if (in_array($action, $requiresAuth)) {
-        if (!isset($_SESSION['admin_id'])) {
-            errorResponse('Não autorizado. Faça login como administrador.', 401);
+} catch (Exception $e) {
+    error_log('Erro ao processar requisição: ' . $e->getMessage());
+    errorResponse('Erro ao processar requisição: ' . $e->getMessage(), 500);
+}
+
+// Função para verificar autenticação admin de forma robusta
+function checkAdminAuth() {
+    // Log da sessão para debug
+    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+        error_log('Verificando autenticação admin. Sessão ID: ' . session_id());
+        error_log('Dados da sessão: ' . json_encode($_SESSION));
+    }
+    
+    // Verificar múltiplas formas de autenticação
+    $isAdmin = false;
+    $adminId = null;
+    
+    // Forma 1: admin_id na sessão
+    if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
+        $isAdmin = true;
+        $adminId = $_SESSION['admin_id'];
+        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+            error_log('Admin autenticado via admin_id: ' . $adminId);
+        }
+    }
+    // Forma 2: user_role admin na sessão
+    elseif (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin' && isset($_SESSION['user_id'])) {
+        $isAdmin = true;
+        $adminId = $_SESSION['user_id'];
+        $_SESSION['admin_id'] = $adminId; // Sincronizar
+        if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+            error_log('Admin autenticado via user_role: ' . $adminId);
+        }
+    }
+    // Forma 3: Verificar no banco se user_id tem perfil admin
+    elseif (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        try {
+            $pdo = getDatabaseConnection($GLOBALS['database_config']);
+            $stmt = $pdo->prepare("SELECT id, perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch();
+            
+            if ($user) {
+                $isAdmin = true;
+                $adminId = $user['id'];
+                $_SESSION['admin_id'] = $adminId;
+                $_SESSION['admin_role'] = 'admin';
+                if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+                    error_log('Admin autenticado via banco de dados: ' . $adminId);
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao verificar admin no banco: ' . $e->getMessage());
         }
     }
     
+    if (!$isAdmin) {
+        $sessionInfo = [
+            'session_id' => session_id(),
+            'has_admin_id' => isset($_SESSION['admin_id']),
+            'admin_id_value' => $_SESSION['admin_id'] ?? null,
+            'has_user_id' => isset($_SESSION['user_id']),
+            'user_id_value' => $_SESSION['user_id'] ?? null,
+            'user_role' => $_SESSION['user_role'] ?? 'não definido'
+        ];
+        error_log('Tentativa de acesso não autorizado. Info: ' . json_encode($sessionInfo));
+        errorResponse('Não autorizado. Faça login como administrador.', 401);
+    }
+    
+    return $adminId;
+}
+
+// Verificar autenticação admin para ações que requerem
+$requiresAuth = ['get_users', 'get_dashboard_data', 'get_user', 'update_user', 
+                 'create_decorator', 'approve_decorator', 'toggle_user_status', 
+                 'delete_user', 'get_admin_profile', 'update_admin_profile', 
+                 'update_admin_password', 'get_settings', 'update_settings'];
+
+if (in_array($action, $requiresAuth)) {
+    try {
+        checkAdminAuth();
+    } catch (Exception $e) {
+        // Já foi tratado em checkAdminAuth, mas garantir que não continue
+        exit();
+    }
+}
+
+// Processar ação
+try {
     switch ($action) {
         case 'get_users':
             handleGetUsers($input);
@@ -109,8 +291,13 @@ try {
     }
     
 } catch (Exception $e) {
-    error_log('Erro em admin.php: ' . $e->getMessage());
-    errorResponse('Erro interno do servidor: ' . $e->getMessage(), 500);
+    error_log('Erro ao processar ação ' . $action . ': ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    errorResponse('Erro ao processar ação: ' . $e->getMessage(), 500);
+} catch (Error $e) {
+    error_log('Erro fatal ao processar ação ' . $action . ': ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    errorResponse('Erro fatal no servidor', 500);
 }
 
 /**
@@ -120,9 +307,9 @@ function handleGetUsers($input) {
     try {
         $pdo = getDatabaseConnection($GLOBALS['database_config']);
         
-        $search = $input['search'] ?? '';
-        $type = $input['type'] ?? '';
-        $status = $input['status'] ?? '';
+        $search = trim($input['search'] ?? '');
+        $type = trim($input['type'] ?? '');
+        $status = trim($input['status'] ?? '');
         $page = max(1, intval($input['page'] ?? 1));
         $limit = max(1, min(100, intval($input['limit'] ?? 10)));
         $offset = ($page - 1) * $limit;
@@ -158,7 +345,7 @@ function handleGetUsers($input) {
         $countSql = "SELECT COUNT(*) as total FROM usuarios {$whereClause}";
         $countStmt = $pdo->prepare($countSql);
         $countStmt->execute($params);
-        $total = $countStmt->fetch()['total'];
+        $total = (int)$countStmt->fetch()['total'];
         
         // Buscar usuários
         $sql = "SELECT id, nome, email, perfil, ativo, aprovado_por_admin, created_at, slug 
@@ -193,15 +380,18 @@ function handleGetUsers($input) {
         
         successResponse([
             'users' => $formattedUsers,
-            'total' => (int)$total,
+            'total' => $total,
             'page' => $page,
             'limit' => $limit,
             'total_pages' => ceil($total / $limit)
         ]);
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar usuários: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao buscar usuários: ' . $e->getMessage());
-        errorResponse('Erro ao buscar usuários', 500);
+        errorResponse('Erro ao buscar usuários: ' . $e->getMessage(), 500);
     }
 }
 
@@ -226,7 +416,7 @@ function handleGetDashboardData() {
             $stmt = $pdo->query("SELECT COUNT(*) as total FROM orcamentos");
             $totalRequests = (int)$stmt->fetch()['total'];
         } catch (PDOException $e) {
-            // Tabela pode não existir ainda
+            // Tabela pode não existir ainda - não é crítico
         }
         
         // Contar serviços (decoradores)
@@ -263,9 +453,12 @@ function handleGetDashboardData() {
             'activities' => $activities
         ]);
         
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar dados do dashboard: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
     } catch (Exception $e) {
         error_log('Erro ao buscar dados do dashboard: ' . $e->getMessage());
-        errorResponse('Erro ao buscar dados do dashboard', 500);
+        errorResponse('Erro ao buscar dados do dashboard: ' . $e->getMessage(), 500);
     }
 }
 
@@ -342,7 +535,6 @@ function handleUpdateUser($input) {
  * Criar decorador
  */
 function handleCreateDecorator($input) {
-    // Implementar criação de decorador
     errorResponse('Funcionalidade em desenvolvimento', 501);
 }
 
@@ -430,7 +622,7 @@ function handleDeleteUser($input) {
  */
 function handleGetAdminProfile() {
     try {
-        $adminId = $_SESSION['admin_id'];
+        $adminId = $_SESSION['admin_id'] ?? checkAdminAuth();
         $pdo = getDatabaseConnection($GLOBALS['database_config']);
         
         $stmt = $pdo->prepare("SELECT id, nome, email FROM usuarios WHERE id = ? AND perfil = 'admin'");
@@ -475,30 +667,4 @@ function handleGetSettings() {
  */
 function handleUpdateSettings($input) {
     errorResponse('Funcionalidade em desenvolvimento', 501);
-}
-
-/**
- * Funções auxiliares de resposta
- */
-function successResponse($data = null, $message = 'Sucesso') {
-    $response = ['success' => true, 'message' => $message];
-    if ($data !== null) {
-        $response['data'] = $data;
-    }
-    echo json_encode($response, JSON_UNESCAPED_UNICODE);
-    exit();
-}
-
-function errorResponse($message, $code = 400) {
-    http_response_code($code);
-    echo json_encode([
-        'success' => false,
-        'message' => $message
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
-}
-
-// Incluir funções auxiliares do arquivo original se existirem
-if (function_exists('createDefaultPageCustomization')) {
-    // Funções já estão disponíveis
 }

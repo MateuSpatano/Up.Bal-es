@@ -67,17 +67,28 @@ class AdminSystem {
                 return defaultValue;
             }
 
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    return (typeof window !== 'undefined' && window.safeJsonParse) 
-                        ? window.safeJsonParse(text, null) 
-                        : JSON.parse(text);
-                } catch (parseError) {
-                    console.error('Erro ao fazer parse JSON:', parseError);
-                    return defaultValue;
+            // Tentar fazer parse mesmo se Content-Type não for JSON (alguns servidores não enviam correto)
+            try {
+                const parsed = (typeof window !== 'undefined' && window.safeJsonParse) 
+                    ? window.safeJsonParse(text, null) 
+                    : JSON.parse(text);
+                return parsed;
+            } catch (parseError) {
+                console.error('Erro ao fazer parse JSON. Status:', response.status);
+                console.error('Content-Type:', contentType);
+                console.error('Resposta raw (primeiros 500 chars):', text.substring(0, 500));
+                console.error('Erro de parse:', parseError.message);
+                
+                // Se for erro 401, retornar objeto de erro estruturado
+                if (response.status === 401) {
+                    return {
+                        success: false,
+                        message: 'Não autorizado. Faça login novamente.'
+                    };
                 }
+                
+                return defaultValue;
             }
-            return defaultValue;
         } catch (error) {
             console.error('Erro ao processar resposta:', error);
             return defaultValue;
@@ -161,6 +172,7 @@ class AdminSystem {
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin', // Incluir cookies/sessão
                 body: JSON.stringify({
                     action: 'get_users',
                     page: hasFilters ? this.currentPage : 1,
@@ -170,6 +182,11 @@ class AdminSystem {
                     status: statusValue // Vazio por padrão = todos os status
                 })
             });
+            
+            // Log detalhado para debug
+            if (!response.ok) {
+                console.error('Erro HTTP ao carregar usuários:', response.status, response.statusText);
+            }
             
             const result = await this.safeJsonParse(response, { success: false });
             
@@ -768,16 +785,18 @@ class AdminSystem {
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin', // Incluir cookies/sessão
                 body: JSON.stringify({ action: 'get_dashboard_data' })
             });
 
+            // Log detalhado para debug
             if (!response.ok) {
-                console.error('Erro ao carregar dashboard:', response.status, response.statusText);
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error('Erro HTTP ao carregar dashboard:', response.status, response.statusText);
+                console.error('URL:', response.url);
             }
 
             // Usar função auxiliar para parse seguro
-            const result = await this.safeJsonParse(response);
+            const result = await this.safeJsonParse(response, { success: false });
             
             if (!result) {
                 console.warn('Não foi possível fazer parse da resposta do dashboard');
@@ -1961,13 +1980,20 @@ class AdminSystem {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'same-origin', // Incluir cookies/sessão
                 body: JSON.stringify({
                     action: 'list'
                 })
             });
             
+            // Log detalhado para debug
+            if (!response.ok) {
+                console.error('Erro HTTP ao carregar tickets:', response.status, response.statusText);
+                console.error('URL:', response.url);
+            }
+            
             // Usar função auxiliar para parse seguro
-            const result = await this.safeJsonParse(response);
+            const result = await this.safeJsonParse(response, { success: false });
             
             if (!result) {
                 console.warn('Não foi possível fazer parse da resposta de tickets de suporte');
