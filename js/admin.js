@@ -2289,33 +2289,102 @@ class AdminSystem {
             const decoratorName = ticket.decorator_name || 'Desconhecido';
             const createdAt = ticket.created_at ? this.formatDateTime(ticket.created_at) : 'Data não disponível';
             
-            // Garantir que ticket.id seja uma string de forma absolutamente segura
+            // Converter ID de forma ABSOLUTAMENTE segura
+            // NUNCA usar ticket.id.substring diretamente - sempre converter para string primeiro
             let ticketId = '';
+            let ticketIdDisplay = 'N/A';
+            
             try {
+                // Verificar se ticket.id existe
                 if (ticket.id !== undefined && ticket.id !== null) {
-                    // Converter para string de forma segura
-                    const idValue = ticket.id;
-                    // Verificar se é um número, string, ou pode ser convertido
-                    if (typeof idValue === 'number' || typeof idValue === 'string') {
-                        ticketId = String(idValue);
-                    } else {
-                        // Tentar converter de qualquer forma
-                        ticketId = String(idValue);
-                    }
-                    // Garantir que é uma string válida
+                    // Converter para string usando método mais seguro possível
+                    // NUNCA usar ticket.id.substring diretamente
+                    const rawId = ticket.id;
+                    
+                    // Converter para string
+                    ticketId = String(rawId);
+                    
+                    // Validação rigorosa antes de usar substring
                     if (typeof ticketId !== 'string') {
-                        ticketId = '';
+                        console.error('❌ ticketId não é string após String():', typeof ticketId, ticketId);
+                        // Tentar novamente
+                        ticketId = String(rawId);
                     }
+                    
+                    // Validar que a conversão funcionou E que é string antes de usar substring
+                    if (ticketId && typeof ticketId === 'string' && ticketId.length > 0) {
+                        // Agora sim podemos usar substring com segurança
+                        try {
+                            ticketIdDisplay = ticketId.substring(0, Math.min(8, ticketId.length));
+                        } catch (substringError) {
+                            console.error('❌ Erro ao usar substring em ticketId:', substringError, {
+                                ticketId: ticketId,
+                                ticketIdType: typeof ticketId,
+                                ticketIdLength: ticketId?.length
+                            });
+                            ticketIdDisplay = String(rawId).substring(0, 8);
+                        }
+                    } else {
+                        // Se a conversão falhou, usar fallback
+                        ticketId = String(rawId);
+                        if (typeof ticketId === 'string' && ticketId.length > 0) {
+                            ticketIdDisplay = ticketId.length > 8 ? ticketId.substring(0, 8) : ticketId;
+                        } else {
+                            ticketIdDisplay = 'N/A';
+                        }
+                    }
+                } else {
+                    ticketId = '';
+                    ticketIdDisplay = 'N/A';
                 }
             } catch (e) {
-                console.error('Erro ao converter ticket.id para string:', e, ticket);
-                ticketId = '';
+                console.error('❌ Erro ao processar ticket.id:', e, {
+                    ticket: ticket,
+                    ticketId: ticket?.id,
+                    ticketIdType: typeof ticket?.id
+                });
+                // Fallback absoluto - garantir que sempre temos strings válidas
+                try {
+                    if (ticket.id !== undefined && ticket.id !== null) {
+                        ticketId = String(ticket.id);
+                        if (typeof ticketId === 'string' && ticketId.length > 0) {
+                            ticketIdDisplay = ticketId.length > 8 ? ticketId.substring(0, 8) : ticketId;
+                        } else {
+                            ticketIdDisplay = 'N/A';
+                        }
+                    } else {
+                        ticketId = '';
+                        ticketIdDisplay = 'N/A';
+                    }
+                } catch (fallbackError) {
+                    console.error('❌ Erro no fallback:', fallbackError);
+                    ticketId = '';
+                    ticketIdDisplay = 'N/A';
+                }
             }
             
-            // Garantir que ticketIdDisplay seja sempre uma string válida
-            const ticketIdDisplay = (ticketId && typeof ticketId === 'string' && ticketId.length > 0) 
-                ? ticketId.substring(0, Math.min(8, ticketId.length)) 
-                : 'N/A';
+            // Validação final ABSOLUTA antes de usar no template
+            // Garantir que ambos são strings válidas
+            if (typeof ticketId !== 'string') {
+                console.error('❌ ticketId não é string após todas as tentativas:', typeof ticketId, ticketId);
+                ticketId = ticket.id !== undefined && ticket.id !== null ? String(ticket.id) : '';
+            }
+            
+            if (typeof ticketIdDisplay !== 'string') {
+                console.error('❌ ticketIdDisplay não é string após todas as tentativas:', typeof ticketIdDisplay, ticketIdDisplay);
+                // Tentar criar de forma mais direta
+                try {
+                    const finalId = String(ticket.id || '');
+                    if (typeof finalId === 'string' && finalId.length > 0) {
+                        ticketIdDisplay = finalId.substring(0, Math.min(8, finalId.length));
+                    } else {
+                        ticketIdDisplay = 'N/A';
+                    }
+                } catch (finalError) {
+                    console.error('❌ Erro no fallback final:', finalError);
+                    ticketIdDisplay = 'N/A';
+                }
+            }
             
             return `
                 <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticketId}')">
@@ -2411,19 +2480,8 @@ class AdminSystem {
         
         this.currentTicket = ticket;
         
-        // Preencher modal - garantir que ticket.id seja string de forma segura
-        let ticketIdDisplay = 'N/A';
-        try {
-            if (ticket.id !== undefined && ticket.id !== null) {
-                const idStr = String(ticket.id);
-                if (typeof idStr === 'string' && idStr.length > 0) {
-                    ticketIdDisplay = idStr.substring(0, Math.min(8, idStr.length));
-                }
-            }
-        } catch (e) {
-            console.error('Erro ao formatar ticket ID:', e);
-            ticketIdDisplay = 'N/A';
-        }
+        // Preencher modal - usar função auxiliar segura
+        const ticketIdDisplay = this.safeIdDisplay(ticket.id, 8);
         document.getElementById('ticket-details-id').textContent = `Chamado #${ticketIdDisplay}`;
         document.getElementById('ticket-decorator-name').textContent = ticket.decorator_name || 'Desconhecido';
         document.getElementById('ticket-decorator-contact').textContent = ticket.decorator_email || 'Não informado';
@@ -2587,6 +2645,81 @@ class AdminSystem {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    /**
+     * Função auxiliar para converter ID para string de forma segura
+     * NUNCA use ticket.id diretamente - sempre use esta função
+     */
+    safeIdToString(id) {
+        try {
+            if (id === undefined || id === null) {
+                return '';
+            }
+            if (typeof id === 'string') {
+                return id;
+            }
+            if (typeof id === 'number') {
+                return String(id);
+            }
+            // Tentar converter de qualquer forma
+            const str = String(id);
+            if (typeof str === 'string') {
+                return str;
+            }
+            return '';
+        } catch (e) {
+            console.error('Erro ao converter ID para string:', e, id);
+            return '';
+        }
+    }
+    
+    /**
+     * Função auxiliar para criar display ID de forma segura
+     */
+    safeIdDisplay(id, maxLength = 8) {
+        try {
+            let idStr = '';
+            
+            // Tentar usar função auxiliar se existir
+            if (typeof this.safeIdToString === 'function') {
+                idStr = this.safeIdToString(id);
+            } else {
+                // Fallback direto se função não existir
+                if (id !== undefined && id !== null) {
+                    idStr = String(id);
+                }
+            }
+            
+            // Validação rigorosa
+            if (!idStr || typeof idStr !== 'string' || idStr.length === 0) {
+                return 'N/A';
+            }
+            
+            // Garantir que idStr é realmente uma string antes de usar substring
+            const validatedStr = String(idStr);
+            if (typeof validatedStr !== 'string') {
+                console.error('safeIdDisplay: validatedStr ainda não é string:', typeof validatedStr, validatedStr);
+                return 'N/A';
+            }
+            
+            // Agora sim podemos usar substring com segurança
+            return validatedStr.substring(0, Math.min(maxLength, validatedStr.length));
+        } catch (e) {
+            console.error('Erro ao criar display ID:', e, id);
+            // Fallback absoluto
+            try {
+                if (id !== undefined && id !== null) {
+                    const fallbackStr = String(id);
+                    if (typeof fallbackStr === 'string' && fallbackStr.length > 0) {
+                        return fallbackStr.substring(0, Math.min(maxLength, fallbackStr.length));
+                    }
+                }
+            } catch (fallbackError) {
+                console.error('Erro no fallback:', fallbackError);
+            }
+            return 'N/A';
+        }
     }
     
     formatDateTime(dateString) {
