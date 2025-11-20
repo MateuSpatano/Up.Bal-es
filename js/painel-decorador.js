@@ -244,17 +244,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Configurar visualizações
     setupViewControls();
     
-    // Verificar se há hash na URL (ex: #dashboard)
-    const urlHash = window.location.hash.replace('#', '');
-    let initialModule = 'painel-gerencial';
+    // SEMPRE iniciar com Painel Gerencial (ignorar hash da URL para garantir comportamento consistente)
+    // Se o usuário quiser acessar outro módulo, pode usar a navegação
+    const initialModule = 'painel-gerencial';
     
-    // Se houver hash na URL e corresponder a um módulo válido, usar esse módulo
-    if (urlHash) {
-        const validModules = ['painel-gerencial', 'personalizar-tela', 'portfolio', 'agenda', 'dashboard', 'account'];
-        if (validModules.includes(urlHash)) {
-            initialModule = urlHash;
-        }
+    // Limpar qualquer hash da URL para evitar confusão
+    if (window.location.hash) {
+        window.history.replaceState(null, null, window.location.pathname);
     }
+    
+    // Atualizar variável global antes de mostrar o módulo
+    currentModule = initialModule;
     
     // Mostrar módulo inicial
     showModule(initialModule);
@@ -392,9 +392,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function showModule(moduleName) {
         console.log('Mostrando módulo:', moduleName);
         
-        // Ocultar todos os módulos
+        // Garantir que o módulo solicitado seja válido, senão usar painel-gerencial
+        const validModules = ['painel-gerencial', 'personalizar-tela', 'portfolio', 'agenda', 'dashboard', 'account'];
+        if (!validModules.includes(moduleName)) {
+            console.warn('Módulo inválido:', moduleName, '- usando painel-gerencial');
+            moduleName = 'painel-gerencial';
+        }
+        
+        // Ocultar todos os módulos primeiro
         moduleContents.forEach(module => {
             module.classList.add('hidden');
+            module.classList.remove('content-enter');
         });
         
         // Mostrar módulo selecionado
@@ -405,6 +413,13 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Módulo exibido:', moduleName);
         } else {
             console.error('Módulo não encontrado:', `${moduleName}-module`);
+            // Se o módulo não for encontrado, mostrar painel-gerencial como fallback
+            const fallbackModule = document.getElementById('painel-gerencial-module');
+            if (fallbackModule) {
+                fallbackModule.classList.remove('hidden');
+                fallbackModule.classList.add('content-enter');
+                moduleName = 'painel-gerencial';
+            }
         }
         
         // Atualizar item de navegação ativo
@@ -1112,6 +1127,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function loadPainelGerencialData() {
         console.log('Carregando dados do painel gerencial...');
+        
+        // Garantir que o módulo painel-gerencial está visível
+        const painelGerencialModule = document.getElementById('painel-gerencial-module');
+        if (painelGerencialModule) {
+            painelGerencialModule.classList.remove('hidden');
+            // Garantir que outros módulos estão ocultos
+            moduleContents.forEach(module => {
+                if (module.id !== 'painel-gerencial-module') {
+                    module.classList.add('hidden');
+                }
+            });
+        }
         
         // Configurar funcionalidades do painel gerencial
         setupPainelGerencialFeatures();
