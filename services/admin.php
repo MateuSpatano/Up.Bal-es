@@ -590,7 +590,135 @@ function handleUpdateUser($input) {
  * Criar decorador
  */
 function handleCreateDecorator($input) {
-    errorResponse('Funcionalidade em desenvolvimento', 501);
+    try {
+        // Validar campos obrigatórios
+        $name = trim($input['name'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $password = $input['password'] ?? '';
+        
+        if (empty($name) || strlen($name) < 2) {
+            errorResponse('Nome deve ter pelo menos 2 caracteres', 400);
+        }
+        
+        if (empty($email) || !validateEmail($email)) {
+            errorResponse('Email inválido', 400);
+        }
+        
+        if (empty($password) || strlen($password) < 6) {
+            errorResponse('Senha deve ter pelo menos 6 caracteres', 400);
+        }
+        
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        // Verificar se email já existe
+        $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            errorResponse('Este email já está cadastrado no sistema', 400);
+        }
+        
+        // Gerar slug único
+        $slug = gerarSlugUnico($pdo, $name);
+        
+        // Hash da senha
+        $senhaHash = hashPassword($password);
+        
+        // Preparar dados para inserção
+        $telefone = !empty($input['phone']) ? sanitizeInput(trim($input['phone'])) : null;
+        $whatsapp = !empty($input['whatsapp']) ? sanitizeInput(trim($input['whatsapp'])) : null;
+        $endereco = !empty($input['address']) ? sanitizeInput(trim($input['address'])) : null;
+        
+        // Inserir decorador no banco (campos básicos que sabemos que existem)
+        // Se whatsapp ou cpf não existirem na tabela, serão ignorados pelo MySQL
+        $stmt = $pdo->prepare("
+            INSERT INTO usuarios (
+                nome, email, senha, telefone, endereco,
+                slug, perfil, ativo, aprovado_por_admin, created_at
+            ) VALUES (
+                ?, ?, ?, ?, ?,
+                ?, 'decorator', 1, 1, NOW()
+            )
+        ");
+        
+        $stmt->execute([
+            sanitizeInput($name),
+            sanitizeInput($email),
+            $senhaHash,
+            $telefone,
+            $endereco,
+            $slug
+        ]);
+        
+        $userId = $pdo->lastInsertId();
+        
+        // Se whatsapp foi fornecido, atualizar em uma query separada (caso a coluna exista)
+        if (!empty($whatsapp)) {
+            try {
+                $updateStmt = $pdo->prepare("UPDATE usuarios SET whatsapp = ? WHERE id = ?");
+                $updateStmt->execute([sanitizeInput($whatsapp), $userId]);
+            } catch (PDOException $e) {
+                // Coluna whatsapp pode não existir - não é crítico
+                error_log('Aviso: Não foi possível atualizar whatsapp: ' . $e->getMessage());
+            }
+        }
+        
+        // Buscar dados do decorador criado
+        $stmt = $pdo->prepare("SELECT id, nome, email, telefone, whatsapp, slug, created_at FROM usuarios WHERE id = ?");
+        $stmt->execute([$userId]);
+        $decorator = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        successResponse([
+            'id' => (int)$decorator['id'],
+            'name' => $decorator['nome'],
+            'email' => $decorator['email'],
+            'phone' => $decorator['telefone'] ?? null,
+            'whatsapp' => $decorator['whatsapp'] ?? null,
+            'slug' => $decorator['slug'] ?? null,
+            'url' => !empty($decorator['slug']) ? '/' . $decorator['slug'] : null,
+            'created_at' => $decorator['created_at']
+        ], 'Decorador criado com sucesso');
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao criar decorador: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados: ' . $e->getMessage(), 500);
+    } catch (Exception $e) {
+        error_log('Erro ao criar decorador: ' . $e->getMessage());
+        errorResponse('Erro ao criar decorador: ' . $e->getMessage(), 500);
+    } catch (Error $e) {
+        error_log('Erro fatal ao criar decorador: ' . $e->getMessage());
+        errorResponse('Erro fatal ao criar decorador', 500);
+    }
+}
+
+/**
+ * Gerar slug único para usuário
+ */
+function gerarSlugUnico($pdo, $nome) {
+    // Converter nome para slug
+    $slug = strtolower(trim($nome));
+    $slug = preg_replace('/[^a-z0-9-]/', '-', $slug);
+    $slug = preg_replace('/-+/', '-', $slug);
+    $slug = trim($slug, '-');
+    
+    // Verificar se slug já existe e adicionar número se necessário
+    $originalSlug = $slug;
+    $counter = 1;
+    
+    while (slugExiste($pdo, $slug)) {
+        $slug = $originalSlug . '-' . $counter;
+        $counter++;
+    }
+    
+    return $slug;
+}
+
+/**
+ * Verificar se slug já existe
+ */
+function slugExiste($pdo, $slug) {
+    $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE slug = ?");
+    $stmt->execute([$slug]);
+    return $stmt->fetch() !== false;
 }
 
 /**
