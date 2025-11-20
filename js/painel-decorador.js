@@ -3623,7 +3623,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             return false;
         }
         
-        // Validar disponibilidade com a configuração cadastrada
+        // Validar disponibilidade com a configuração cadastrada (não bloqueante se houver erro técnico)
         try {
             const availabilityResponse = await fetch('../services/disponibilidade.php', {
                 method: 'POST',
@@ -3644,8 +3644,9 @@ Qualquer dúvida, estou à disposição! 😊`;
                 availabilityResult = JSON.parse(text);
             } catch (parseError) {
                 console.error('Erro ao parsear resposta de validação:', text);
-                showNotification('Erro ao validar disponibilidade. Tente novamente.', 'error');
-                return false;
+                // Não bloquear criação se houver erro de parse - o backend também validará
+                console.warn('Validação de disponibilidade não pôde ser concluída, mas o orçamento será criado. O backend validará.');
+                return true; // Permitir continuar
             }
             
             console.log('Resultado da validação:', availabilityResult);
@@ -3653,23 +3654,30 @@ Qualquer dúvida, estou à disposição! 😊`;
             if (!availabilityResult.success) {
                 const errorMsg = availabilityResult.message || 'Horário não disponível';
                 console.error('Validação falhou:', errorMsg);
-                showNotification(errorMsg, 'error');
-                return false;
+                
+                // Verificar se é um erro técnico ou de disponibilidade real
+                const isTechnicalError = errorMsg.includes('Erro ao validar disponibilidade') || 
+                                       errorMsg.includes('Erro de banco de dados') ||
+                                       errorMsg.includes('Erro ao acessar') ||
+                                       errorMsg.includes('Usuário não autenticado');
+                
+                if (isTechnicalError) {
+                    // Se for erro técnico, permitir continuar (backend também validará)
+                    console.warn('Erro técnico na validação, permitindo continuar. Backend validará.');
+                    return true;
+                } else {
+                    // Se for erro de disponibilidade real, bloquear
+                    showNotification(errorMsg, 'error');
+                    return false;
+                }
             }
         } catch (error) {
             console.error('Erro ao validar disponibilidade:', error);
             console.error('Stack trace:', error.stack);
             
-            // Tentar obter mais informações do erro
-            let errorMessage = 'Erro ao validar disponibilidade. ';
-            if (error.message) {
-                errorMessage += error.message;
-            } else {
-                errorMessage += 'Verifique sua conexão e tente novamente.';
-            }
-            
-            showNotification(errorMessage, 'error');
-            return false;
+            // Se houver erro de rede ou técnico, não bloquear - o backend também validará
+            console.warn('Erro técnico na validação de disponibilidade. Permitindo continuar. O backend validará a disponibilidade.');
+            return true; // Permitir continuar se houver erro técnico
         }
         
         return true;

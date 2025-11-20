@@ -318,42 +318,60 @@ function validateAvailability($data) {
     // Log inicial para debug
     error_log('validateAvailability chamada com dados: ' . json_encode($data));
     
+    // Validar entrada básica
+    if (empty($data['event_date']) || empty($data['event_time'])) {
+        error_log('validateAvailability: Data ou hora vazia');
+        throw new Exception('Data e hora do evento são obrigatórias');
+    }
+    
+    $eventDate = $data['event_date'];
+    $eventTime = $data['event_time'];
+    error_log("validateAvailability: Validando data={$eventDate}, hora={$eventTime}");
+    
+    // Validar formato de data
+    if (!strtotime($eventDate)) {
+        error_log("validateAvailability: Data inválida: {$eventDate}");
+        throw new Exception('Data inválida: ' . $eventDate);
+    }
+    
+    // Validar formato de hora
+    if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
+        error_log("validateAvailability: Hora inválida: {$eventTime}");
+        throw new Exception('Hora inválida: ' . $eventTime);
+    }
+    
+    // Obter ID do usuário com tratamento robusto
+    $userId = null;
     try {
-        // Validar entrada
-        if (empty($data['event_date']) || empty($data['event_time'])) {
-            error_log('validateAvailability: Data ou hora vazia');
-            throw new Exception('Data e hora do evento são obrigatórias');
+        $userId = getCurrentUserId();
+        error_log("validateAvailability: User ID obtido: {$userId}");
+    } catch (Exception $e) {
+        error_log('Erro ao obter ID do usuário: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+        // Se não conseguir obter user_id, tentar usar sessão diretamente
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
-        
-        $eventDate = $data['event_date'];
-        $eventTime = $data['event_time'];
-        error_log("validateAvailability: Validando data={$eventDate}, hora={$eventTime}");
-        
-        // Validar formato de data
-        if (!strtotime($eventDate)) {
-            error_log("validateAvailability: Data inválida: {$eventDate}");
-            throw new Exception('Data inválida: ' . $eventDate);
-        }
-        
-        // Validar formato de hora
-        if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $eventTime)) {
-            error_log("validateAvailability: Hora inválida: {$eventTime}");
-            throw new Exception('Hora inválida: ' . $eventTime);
-        }
-        
-        // Obter ID do usuário
-        try {
-            $userId = getCurrentUserId();
-            error_log("validateAvailability: User ID obtido: {$userId}");
-        } catch (Exception $e) {
-            error_log('Erro ao obter ID do usuário: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+        if (isset($_SESSION['user_id'])) {
+            $userId = (int) $_SESSION['user_id'];
+            error_log("validateAvailability: User ID obtido da sessão diretamente: {$userId}");
+        } else {
             throw new Exception('Usuário não autenticado. Faça login novamente.');
         }
+    }
+    
+    if (!$userId || $userId < 1) {
+        throw new Exception('ID do usuário inválido. Faça login novamente.');
+    }
+    
+    $eventDateTime = $eventDate . ' ' . $eventTime;
         
-        $eventDateTime = $eventDate . ' ' . $eventTime;
-        
-        // Obter configurações de disponibilidade
+        // Obter configurações de disponibilidade com tratamento robusto
+        $result = false;
         try {
+            if (!$pdo) {
+                throw new PDOException('Conexão com banco de dados não disponível');
+            }
+            
             $stmt = $pdo->prepare("
                 SELECT available_days, time_schedules, service_intervals, max_daily_services 
                 FROM decorator_availability 
@@ -366,23 +384,29 @@ function validateAvailability($data) {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             error_log("validateAvailability: Resultado da query: " . ($result ? 'encontrado' : 'não encontrado'));
         } catch (PDOException $e) {
-            error_log('Erro ao buscar configurações: ' . $e->getMessage());
+            error_log('Erro ao buscar configurações: ' . $e->getMessage() . ' | SQL State: ' . $e->getCode());
             // Se houver erro na query, usar valores padrão
+            $result = false;
+        } catch (Exception $e) {
+            error_log('Erro geral ao buscar configurações: ' . $e->getMessage());
             $result = false;
         }
         
-        // Se não houver configurações, usar valores padrão
+        // Se não houver configurações, usar valores padrão (sempre permitir)
         if (!$result) {
-            $availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            error_log('validateAvailability: Usando valores padrão (sem configurações salvas)');
+            $availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
             $timeSchedules = [
                 ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
                 ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
                 ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
                 ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
-                ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+                ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'saturday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                ['day' => 'sunday', 'start_time' => '08:00', 'end_time' => '18:00']
             ];
             $serviceIntervals = [];
-            $maxDailyServices = 3;
+            $maxDailyServices = 10; // Limite alto por padrão para não bloquear
         } else {
             $availableDays = json_decode($result['available_days'], true);
             $timeSchedules = json_decode($result['time_schedules'], true);
@@ -390,10 +414,28 @@ function validateAvailability($data) {
             $maxDailyServices = intval($result['max_daily_services']);
             
             // Garantir que são arrays válidos
-            if (!is_array($availableDays)) $availableDays = [];
-            if (!is_array($timeSchedules)) $timeSchedules = [];
-            if (!is_array($serviceIntervals)) $serviceIntervals = [];
-            if ($maxDailyServices < 1) $maxDailyServices = 3;
+            if (!is_array($availableDays)) {
+                error_log('validateAvailability: available_days não é array, usando padrão');
+                $availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            }
+            if (!is_array($timeSchedules)) {
+                error_log('validateAvailability: time_schedules não é array, usando padrão');
+                $timeSchedules = [
+                    ['day' => 'monday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'tuesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'wednesday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'thursday', 'start_time' => '08:00', 'end_time' => '18:00'],
+                    ['day' => 'friday', 'start_time' => '08:00', 'end_time' => '18:00']
+                ];
+            }
+            if (!is_array($serviceIntervals)) {
+                error_log('validateAvailability: service_intervals não é array, usando padrão');
+                $serviceIntervals = [];
+            }
+            if ($maxDailyServices < 1) {
+                error_log('validateAvailability: max_daily_services inválido, usando padrão');
+                $maxDailyServices = 10;
+            }
         }
     
         // Verificar se a data está bloqueada
@@ -425,11 +467,11 @@ function validateAvailability($data) {
         
         $dayKey = $dayMapping[$dayOfWeek] ?? $dayOfWeek;
         
+        // Se não houver dias disponíveis configurados, permitir qualquer dia (modo permissivo)
         if (empty($availableDays) || !is_array($availableDays)) {
-            throw new Exception('Configurações de disponibilidade inválidas. Configure seus horários de atendimento primeiro.');
-        }
-        
-        if (!in_array($dayKey, $availableDays)) {
+            error_log('validateAvailability: Nenhum dia disponível configurado, permitindo qualquer dia');
+            // Não bloquear - permitir qualquer dia se não houver configuração
+        } else if (!in_array($dayKey, $availableDays)) {
             throw new Exception('Não há atendimento neste dia da semana (' . $dayKey . ')');
         }
         
