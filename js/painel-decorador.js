@@ -1778,10 +1778,457 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeAgendaCalendar();
     }
     
-    function loadAccountData() {
-        // Redirecionar para a página de gerenciamento de conta do decorador
-        console.log('Redirecionando para página de conta...');
-        window.location.href = 'login.html';
+    async function loadAccountData() {
+        console.log('Carregando dados da conta...');
+        
+        try {
+            // Carregar dados do usuário
+            const response = await fetch('../services/conta.php', {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Erro ao carregar dados');
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                populateAccountForm(result.data);
+                updateAccountProfileDisplay(result.data);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados da conta:', error);
+            // Tentar carregar do localStorage como fallback
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData) {
+                populateAccountForm(userData);
+            }
+        }
+        
+        // Configurar eventos do formulário inline
+        setupAccountFormEvents();
+    }
+    
+    function populateAccountForm(data) {
+        // Preencher campos do formulário inline
+        const nameField = document.getElementById('account-name-inline');
+        const emailField = document.getElementById('account-email-inline');
+        const phoneField = document.getElementById('account-phone-inline');
+        const whatsappField = document.getElementById('account-whatsapp');
+        const instagramField = document.getElementById('account-instagram');
+        const communicationEmailField = document.getElementById('account-communication-email');
+        const bioField = document.getElementById('account-bio');
+        const addressField = document.getElementById('account-address-inline');
+        const cityField = document.getElementById('account-city-inline');
+        const stateField = document.getElementById('account-state-inline');
+        const zipcodeField = document.getElementById('account-zipcode-inline');
+        
+        if (nameField) nameField.value = data.name || '';
+        if (emailField) emailField.value = data.email || '';
+        if (phoneField) phoneField.value = data.phone || '';
+        if (whatsappField) whatsappField.value = data.whatsapp || '';
+        if (instagramField) instagramField.value = data.instagram || '';
+        if (communicationEmailField) communicationEmailField.value = data.communication_email || '';
+        if (bioField) {
+            bioField.value = data.bio || '';
+            updateBioCounter();
+        }
+        if (addressField) addressField.value = data.address || '';
+        if (cityField) cityField.value = data.city || '';
+        if (stateField) stateField.value = data.state || '';
+        if (zipcodeField) zipcodeField.value = data.zipcode || '';
+        
+        // Atualizar foto de perfil se existir
+        if (data.profile_photo) {
+            const photoImg = document.getElementById('account-profile-photo');
+            if (photoImg) {
+                photoImg.src = data.profile_photo;
+            }
+        }
+    }
+    
+    function updateAccountProfileDisplay(data) {
+        const profileName = document.getElementById('account-profile-name');
+        const profileEmail = document.getElementById('account-profile-email');
+        
+        if (profileName) profileName.textContent = data.name || 'Decorador';
+        if (profileEmail) profileEmail.textContent = data.email || 'decorador@upbaloes.com';
+    }
+    
+    function setupAccountFormEvents() {
+        // Formulário de informações da conta
+        const accountFormInline = document.getElementById('account-form-inline');
+        const saveAccountProfile = document.getElementById('save-account-profile');
+        const resetAccountProfile = document.getElementById('reset-account-profile');
+        
+        // Formulário de senha
+        const passwordFormInline = document.getElementById('account-password-form-inline');
+        const saveAccountPassword = document.getElementById('save-account-password');
+        const resetAccountPassword = document.getElementById('reset-account-password');
+        
+        // Upload de foto
+        const photoInput = document.getElementById('account-profile-photo-input');
+        const removePhotoBtn = document.getElementById('remove-account-photo');
+        
+        // Contador de bio
+        const bioField = document.getElementById('account-bio');
+        if (bioField) {
+            bioField.addEventListener('input', updateBioCounter);
+        }
+        
+        // Toggle de senha
+        document.querySelectorAll('.password-toggle').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const targetInput = document.getElementById(targetId);
+                if (targetInput) {
+                    const type = targetInput.type === 'password' ? 'text' : 'password';
+                    targetInput.type = type;
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-eye');
+                        icon.classList.toggle('fa-eye-slash');
+                    }
+                }
+            });
+        });
+        
+        // Salvar informações da conta
+        if (accountFormInline) {
+            accountFormInline.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await handleSaveAccountProfile();
+            });
+        }
+        
+        if (saveAccountProfile) {
+            saveAccountProfile.addEventListener('click', async function(e) {
+                e.preventDefault();
+                await handleSaveAccountProfile();
+            });
+        }
+        
+        // Resetar informações da conta
+        if (resetAccountProfile) {
+            resetAccountProfile.addEventListener('click', function() {
+                if (confirm('Tem certeza que deseja descartar todas as alterações?')) {
+                    loadAccountData();
+                }
+            });
+        }
+        
+        // Salvar senha
+        if (passwordFormInline) {
+            passwordFormInline.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await handleSaveAccountPassword();
+            });
+        }
+        
+        if (saveAccountPassword) {
+            saveAccountPassword.addEventListener('click', async function(e) {
+                e.preventDefault();
+                await handleSaveAccountPassword();
+            });
+        }
+        
+        // Resetar senha
+        if (resetAccountPassword) {
+            resetAccountPassword.addEventListener('click', function() {
+                passwordFormInline.reset();
+            });
+        }
+        
+        // Upload de foto
+        if (photoInput) {
+            photoInput.addEventListener('change', async function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    await handlePhotoUpload(e.target.files[0]);
+                }
+            });
+        }
+        
+        // Remover foto
+        if (removePhotoBtn) {
+            removePhotoBtn.addEventListener('click', async function() {
+                if (confirm('Tem certeza que deseja remover a foto de perfil?')) {
+                    await handleRemovePhoto();
+                }
+            });
+        }
+    }
+    
+    function updateBioCounter() {
+        const bioField = document.getElementById('account-bio');
+        const counter = document.getElementById('account-bio-count');
+        if (bioField && counter) {
+            const length = bioField.value.length;
+            counter.textContent = length;
+            if (length > 500) {
+                counter.classList.add('text-red-500');
+                counter.classList.remove('text-gray-500');
+            } else {
+                counter.classList.remove('text-red-500');
+                counter.classList.add('text-gray-500');
+            }
+        }
+    }
+    
+    async function handleSaveAccountProfile() {
+        const saveBtn = document.getElementById('save-account-profile');
+        const form = document.getElementById('account-form-inline');
+        const feedback = document.getElementById('account-profile-updated');
+        
+        if (!form) return;
+        
+        // Validar campos obrigatórios
+        const name = document.getElementById('account-name-inline');
+        const email = document.getElementById('account-email-inline');
+        
+        if (!name || !name.value.trim()) {
+            showNotification('Nome é obrigatório', 'error');
+            return;
+        }
+        
+        if (!email || !email.value.trim()) {
+            showNotification('Email é obrigatório', 'error');
+            return;
+        }
+        
+        // Validar bio
+        const bio = document.getElementById('account-bio');
+        if (bio && bio.value.length > 500) {
+            showNotification('A descrição não pode ter mais de 500 caracteres', 'error');
+            return;
+        }
+        
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('btn-loading');
+        }
+        
+        try {
+            const formData = new FormData(form);
+            
+            const response = await fetch('../services/conta.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Dados atualizados com sucesso!', 'success');
+                if (feedback) {
+                    feedback.classList.remove('hidden');
+                    setTimeout(() => {
+                        feedback.classList.add('hidden');
+                    }, 3000);
+                }
+                // Recarregar dados para garantir sincronização
+                await loadAccountData();
+            } else {
+                showNotification('Erro ao atualizar dados: ' + (result.message || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar dados:', error);
+            showNotification('Erro de conexão. Tente novamente.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('btn-loading');
+            }
+        }
+    }
+    
+    async function handleSaveAccountPassword() {
+        const saveBtn = document.getElementById('save-account-password');
+        const form = document.getElementById('account-password-form-inline');
+        
+        if (!form) return;
+        
+        const currentPassword = document.getElementById('account-current-password-inline');
+        const newPassword = document.getElementById('account-new-password-inline');
+        const confirmPassword = document.getElementById('account-confirm-password-inline');
+        
+        // Validar campos
+        if (!currentPassword || !currentPassword.value.trim()) {
+            showNotification('Senha atual é obrigatória', 'error');
+            return;
+        }
+        
+        if (!newPassword || !newPassword.value.trim()) {
+            showNotification('Nova senha é obrigatória', 'error');
+            return;
+        }
+        
+        if (newPassword.value.length < 8) {
+            showNotification('A nova senha deve ter no mínimo 8 caracteres', 'error');
+            return;
+        }
+        
+        if (!confirmPassword || !confirmPassword.value.trim()) {
+            showNotification('Confirmação de senha é obrigatória', 'error');
+            return;
+        }
+        
+        if (newPassword.value !== confirmPassword.value) {
+            showNotification('As senhas não coincidem', 'error');
+            return;
+        }
+        
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('btn-loading');
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'change_password');
+            formData.append('current_password', currentPassword.value);
+            formData.append('new_password', newPassword.value);
+            
+            const response = await fetch('../services/conta.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Senha atualizada com sucesso!', 'success');
+                form.reset();
+            } else {
+                showNotification('Erro ao atualizar senha: ' + (result.message || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar senha:', error);
+            showNotification('Erro de conexão. Tente novamente.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('btn-loading');
+            }
+        }
+    }
+    
+    async function handlePhotoUpload(file) {
+        const feedback = document.getElementById('account-photo-feedback');
+        const photoImg = document.getElementById('account-profile-photo');
+        
+        // Validar tamanho (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            if (feedback) {
+                feedback.textContent = 'Arquivo muito grande. Máximo 5MB.';
+                feedback.classList.remove('hidden', 'text-green-500');
+                feedback.classList.add('text-red-500');
+            }
+            return;
+        }
+        
+        // Validar tipo
+        if (!file.type.match('image.*')) {
+            if (feedback) {
+                feedback.textContent = 'Formato inválido. Use JPG, PNG, GIF ou WebP.';
+                feedback.classList.remove('hidden', 'text-green-500');
+                feedback.classList.add('text-red-500');
+            }
+            return;
+        }
+        
+        if (feedback) {
+            feedback.textContent = 'Enviando...';
+            feedback.classList.remove('hidden', 'text-red-500');
+            feedback.classList.add('text-blue-500');
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('profile_photo', file);
+            
+            const response = await fetch('../services/conta.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (photoImg && result.data && result.data.profile_photo) {
+                    photoImg.src = result.data.profile_photo;
+                }
+                if (feedback) {
+                    feedback.textContent = 'Foto atualizada com sucesso!';
+                    feedback.classList.remove('text-blue-500', 'text-red-500');
+                    feedback.classList.add('text-green-500');
+                }
+                showNotification('Foto de perfil atualizada com sucesso!', 'success');
+            } else {
+                if (feedback) {
+                    feedback.textContent = 'Erro ao atualizar foto: ' + (result.message || 'Erro desconhecido');
+                    feedback.classList.remove('text-blue-500', 'text-green-500');
+                    feedback.classList.add('text-red-500');
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao fazer upload da foto:', error);
+            if (feedback) {
+                feedback.textContent = 'Erro de conexão. Tente novamente.';
+                feedback.classList.remove('text-blue-500', 'text-green-500');
+                feedback.classList.add('text-red-500');
+            }
+        }
+    }
+    
+    async function handleRemovePhoto() {
+        const feedback = document.getElementById('account-photo-feedback');
+        const photoImg = document.getElementById('account-profile-photo');
+        
+        try {
+            // Enviar requisição para remover foto (assumindo que o backend suporta isso)
+            const response = await fetch('../services/conta.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'remove_photo'
+                }),
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                if (photoImg) {
+                    photoImg.src = '../Images/Logo System.jpeg'; // Foto padrão
+                }
+                if (feedback) {
+                    feedback.textContent = 'Foto removida com sucesso!';
+                    feedback.classList.remove('hidden', 'text-red-500');
+                    feedback.classList.add('text-green-500');
+                }
+                showNotification('Foto removida com sucesso!', 'success');
+            } else {
+                if (feedback) {
+                    feedback.textContent = 'Erro ao remover foto: ' + (result.message || 'Erro desconhecido');
+                    feedback.classList.remove('hidden', 'text-green-500');
+                    feedback.classList.add('text-red-500');
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao remover foto:', error);
+            if (feedback) {
+                feedback.textContent = 'Erro de conexão. Tente novamente.';
+                feedback.classList.remove('hidden', 'text-green-500');
+                feedback.classList.add('text-red-500');
+            }
+        }
     }
     
     // ========== FUNCIONALIDADES DA AGENDA ==========
@@ -4272,7 +4719,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                 })
             });
             
+            // Verificar se a resposta é válida
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Erro HTTP ao atualizar orçamento:', response.status, errorText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const result = await response.json();
+            console.log('Resposta do servidor (update):', result);
             
             if (result.success) {
                 showNotification('Orçamento atualizado com sucesso!', 'success');
@@ -4776,7 +5231,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                     })
                 });
                 
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP ao alterar status:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('Resposta do servidor (changeStatus):', result);
                 
                 if (result.success) {
                     showNotification(`Status alterado para "${getStatusLabel(newStatus)}" com sucesso!`, 'success');
@@ -4905,7 +5368,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                     })
                 });
                 
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP ao aprovar orçamento:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('Resposta do servidor (approve):', result);
                 
                 if (result.success) {
                     showNotification('Orçamento aprovado com sucesso!', 'success');
@@ -4934,7 +5405,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                     })
                 });
                 
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro HTTP ao recusar orçamento:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('Resposta do servidor (reject):', result);
                 
                 if (result.success) {
                     showNotification('Orçamento recusado', 'info');

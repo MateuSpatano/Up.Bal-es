@@ -58,6 +58,10 @@ try {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $whatsapp = trim($_POST['whatsapp'] ?? '');
+    $instagram = trim($_POST['instagram'] ?? '');
+    $communication_email = trim($_POST['communication_email'] ?? '');
+    $bio = trim($_POST['bio'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $city = trim($_POST['city'] ?? '');
     $state = trim($_POST['state'] ?? '');
@@ -88,6 +92,21 @@ try {
     // Validar CEP se fornecido
     if (!empty($zipcode) && !preg_match('/^\d{5}-?\d{3}$/', $zipcode)) {
         $errors[] = 'Formato de CEP inválido';
+    }
+
+    // Validar bio (máximo 500 caracteres)
+    if (!empty($bio) && mb_strlen($bio) > 500) {
+        $errors[] = 'A descrição não pode ter mais de 500 caracteres';
+    }
+
+    // Validar email de comunicação se fornecido
+    if (!empty($communication_email) && !filter_var($communication_email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Email de comunicação inválido';
+    }
+
+    // Validar WhatsApp se fornecido
+    if (!empty($whatsapp) && !preg_match('/^\(\d{2}\)\s\d{4,5}-\d{4}$/', $whatsapp)) {
+        $errors[] = 'Formato de WhatsApp inválido';
     }
 
     // Validar senhas se fornecidas
@@ -176,6 +195,40 @@ try {
             $update_values[] = $zipcode;
         }
 
+        // Campos de redes sociais e comunicação
+        $redes_sociais = [];
+        
+        // Buscar redes sociais existentes
+        $stmt = $pdo->prepare("SELECT redes_sociais FROM usuarios WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $existing = $stmt->fetch();
+        if ($existing && $existing['redes_sociais']) {
+            $redes_sociais = json_decode($existing['redes_sociais'], true) ?? [];
+        }
+        
+        // Atualizar redes sociais
+        if (!empty($whatsapp)) {
+            $redes_sociais['whatsapp'] = $whatsapp;
+        }
+        if (!empty($instagram)) {
+            $redes_sociais['instagram'] = $instagram;
+        }
+        if (!empty($communication_email)) {
+            $redes_sociais['communication_email'] = $communication_email;
+        }
+        
+        // Salvar redes sociais como JSON
+        $update_fields[] = "redes_sociais = ?";
+        $update_values[] = json_encode($redes_sociais);
+        
+        // Atualizar bio
+        if (isset($_POST['bio'])) {
+            // Limitar bio a 500 caracteres
+            $bio = mb_substr($bio, 0, 500);
+            $update_fields[] = "bio = ?";
+            $update_values[] = $bio;
+        }
+
         // Atualizar senha se fornecida
         if (!empty($new_password)) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
@@ -218,10 +271,15 @@ try {
                 'name' => $name,
                 'email' => $email,
                 'phone' => $phone,
+                'whatsapp' => $whatsapp,
+                'instagram' => $instagram,
+                'communication_email' => $communication_email,
+                'bio' => $bio,
                 'address' => $address,
                 'city' => $city,
                 'state' => $state,
-                'zipcode' => $zipcode
+                'zipcode' => $zipcode,
+                'redes_sociais' => $redes_sociais
             ]
         ]);
 
@@ -259,7 +317,7 @@ function getUserData($user_id, $pdo) {
     try {
         $stmt = $pdo->prepare("
             SELECT id, nome, email, telefone, slug, bio, especialidades, redes_sociais, 
-                   foto_perfil, created_at, is_active
+                   foto_perfil, endereco, cidade, estado, cep, created_at, is_active
             FROM usuarios 
             WHERE id = ?
         ");
@@ -272,14 +330,29 @@ function getUserData($user_id, $pdo) {
         
         // Decodificar JSON fields
         $user['especialidades'] = json_decode($user['especialidades'] ?? '[]', true);
-        $user['redes_sociais'] = json_decode($user['redes_sociais'] ?? '{}', true);
+        $redes_sociais = json_decode($user['redes_sociais'] ?? '{}', true);
+        $user['redes_sociais'] = $redes_sociais;
+        
+        // Extrair campos individuais das redes sociais
+        $user['whatsapp'] = $redes_sociais['whatsapp'] ?? '';
+        $user['instagram'] = $redes_sociais['instagram'] ?? '';
+        $user['communication_email'] = $redes_sociais['communication_email'] ?? '';
+        
+        // Mapear campos para formato esperado pelo frontend
+        $user['name'] = $user['nome'];
+        $user['phone'] = $user['telefone'];
+        $user['address'] = $user['endereco'] ?? '';
+        $user['city'] = $user['cidade'] ?? '';
+        $user['state'] = $user['estado'] ?? '';
+        $user['zipcode'] = $user['cep'] ?? '';
+        $user['profile_photo'] = $user['foto_perfil'] ?? '';
         
         // Obter estatísticas
         $stats = getUserStats($user_id, $pdo);
         
         return [
             'success' => true,
-            'user' => $user,
+            'data' => $user,
             'stats' => $stats
         ];
     } catch (Exception $e) {

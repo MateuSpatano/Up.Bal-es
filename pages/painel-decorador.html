@@ -1073,16 +1073,263 @@
 
             <!-- Módulo Conta -->
             <div id="account-module" class="module-content hidden">
-                <div class="bg-white rounded-xl shadow-sm p-6">
-                    <div class="text-center py-12">
-                        <div class="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-user-cog text-4xl text-blue-600"></i>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 items-start">
+                    <!-- Card de Foto de Perfil -->
+                    <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 xl:col-span-1">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="relative">
+                                <img id="account-profile-photo" src="../Images/Logo System.jpeg" alt="Foto do Perfil" class="w-32 h-32 rounded-full object-cover border-4 border-blue-200 shadow-md">
+                                <button id="remove-account-photo" class="absolute bottom-0 right-0 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow transition-all hover:bg-red-600" title="Remover foto">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 space-y-1">
+                                <h3 id="account-profile-name" class="text-lg font-semibold text-gray-800">Decorador</h3>
+                                <p id="account-profile-email" class="text-sm text-gray-500">decorador@upbaloes.com</p>
+                            </div>
+                            <div class="mt-5 w-full">
+                                <label for="account-profile-photo-input" class="block text-sm font-medium text-gray-700 mb-2">Atualizar foto de perfil</label>
+                                <input type="file" id="account-profile-photo-input" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100">
+                                <p class="mt-2 text-xs text-gray-400">Formatos aceitos: JPG, PNG, GIF, WebP (até 5MB)</p>
+                            </div>
+                            <div id="account-photo-feedback" class="mt-4 text-xs text-gray-500 hidden"></div>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Gerenciar Conta</h2>
-                        <p class="text-gray-600 mb-6">Atualize suas informações pessoais e configurações da conta.</p>
-                        <a href="login.html" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 inline-block">
-                            <i class="fas fa-edit mr-2"></i>Gerenciar Conta
-                        </a>
+                    </div>
+                    
+                    <!-- Formulário de Informações -->
+                    <div class="xl:col-span-2 space-y-4 md:space-y-6">
+                        <div class="bg-white rounded-xl shadow-sm p-4 md:p-6">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
+                                <div>
+                                    <h3 class="text-lg md:text-2xl font-bold text-gray-800">Informações da Conta</h3>
+                                    <p class="text-sm md:text-base text-gray-600">Atualize seus dados pessoais</p>
+                                </div>
+                                <div id="account-profile-updated" class="hidden text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full font-medium">
+                                    <i class="fas fa-check-circle mr-1"></i>Dados salvos
+                                </div>
+                            </div>
+                            
+                            <form id="account-form-inline" class="space-y-4 md:space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                    <!-- Nome -->
+                                    <div class="space-y-2">
+                                        <label for="account-name-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-user mr-2 text-blue-600"></i>Nome completo *
+                                        </label>
+                                        <input type="text" id="account-name-inline" name="name" required
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="Digite seu nome completo">
+                                    </div>
+                                    
+                                    <!-- Email -->
+                                    <div class="space-y-2">
+                                        <label for="account-email-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-envelope mr-2 text-blue-600"></i>Email de acesso *
+                                        </label>
+                                        <input type="email" id="account-email-inline" name="email" required
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="decorador@empresa.com">
+                                    </div>
+                                    
+                                    <!-- Telefone -->
+                                    <div class="space-y-2">
+                                        <label for="account-phone-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-phone mr-2 text-blue-600"></i>Telefone
+                                        </label>
+                                        <input type="tel" id="account-phone-inline" name="phone"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="(11) 99999-9999">
+                                    </div>
+                                    
+                                    <!-- WhatsApp -->
+                                    <div class="space-y-2">
+                                        <label for="account-whatsapp" class="block text-sm font-medium text-gray-700">
+                                            <i class="fab fa-whatsapp mr-2 text-green-600"></i>WhatsApp
+                                        </label>
+                                        <input type="tel" id="account-whatsapp" name="whatsapp"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="(11) 99999-9999">
+                                        <p class="text-xs text-gray-500">Número exibido aos clientes para contato rápido</p>
+                                    </div>
+                                    
+                                    <!-- Instagram -->
+                                    <div class="space-y-2">
+                                        <label for="account-instagram" class="block text-sm font-medium text-gray-700">
+                                            <i class="fab fa-instagram mr-2 text-pink-500"></i>Instagram
+                                        </label>
+                                        <input type="text" id="account-instagram" name="instagram"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="@seuinstagram">
+                                    </div>
+                                    
+                                    <!-- Email de comunicação -->
+                                    <div class="space-y-2">
+                                        <label for="account-communication-email" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-envelope-open-text mr-2 text-purple-600"></i>Email de comunicação
+                                        </label>
+                                        <input type="email" id="account-communication-email" name="communication_email"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="contato@empresa.com">
+                                        <p class="text-xs text-gray-500">Endereço usado em notificações enviadas aos clientes</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Descrição / Bio -->
+                                <div class="space-y-2">
+                                    <label for="account-bio" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-comment-dots mr-2 text-blue-600"></i>Descrição / Bio
+                                    </label>
+                                    <textarea id="account-bio" name="bio" rows="4"
+                                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                              placeholder="Escreva uma breve descrição sobre você e seus serviços."></textarea>
+                                    <p class="text-xs text-gray-500 text-right"><span id="account-bio-count">0</span>/500 caracteres</p>
+                                </div>
+                                
+                                <!-- Endereço -->
+                                <div class="space-y-2">
+                                    <label for="account-address-inline" class="block text-sm font-medium text-gray-700">
+                                        <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Endereço
+                                    </label>
+                                    <textarea id="account-address-inline" name="address" rows="3"
+                                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                              placeholder="Digite seu endereço completo"></textarea>
+                                </div>
+                                
+                                <!-- Cidade, Estado e CEP -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                    <div class="space-y-2">
+                                        <label for="account-city-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-city mr-2 text-blue-600"></i>Cidade
+                                        </label>
+                                        <input type="text" id="account-city-inline" name="city"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="Sua cidade">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label for="account-state-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-map mr-2 text-blue-600"></i>Estado
+                                        </label>
+                                        <select id="account-state-inline" name="state"
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                            <option value="">Selecione o estado</option>
+                                            <option value="AC">Acre</option>
+                                            <option value="AL">Alagoas</option>
+                                            <option value="AP">Amapá</option>
+                                            <option value="AM">Amazonas</option>
+                                            <option value="BA">Bahia</option>
+                                            <option value="CE">Ceará</option>
+                                            <option value="DF">Distrito Federal</option>
+                                            <option value="ES">Espírito Santo</option>
+                                            <option value="GO">Goiás</option>
+                                            <option value="MA">Maranhão</option>
+                                            <option value="MT">Mato Grosso</option>
+                                            <option value="MS">Mato Grosso do Sul</option>
+                                            <option value="MG">Minas Gerais</option>
+                                            <option value="PA">Pará</option>
+                                            <option value="PB">Paraíba</option>
+                                            <option value="PR">Paraná</option>
+                                            <option value="PE">Pernambuco</option>
+                                            <option value="PI">Piauí</option>
+                                            <option value="RJ">Rio de Janeiro</option>
+                                            <option value="RN">Rio Grande do Norte</option>
+                                            <option value="RS">Rio Grande do Sul</option>
+                                            <option value="RO">Rondônia</option>
+                                            <option value="RR">Roraima</option>
+                                            <option value="SC">Santa Catarina</option>
+                                            <option value="SP">São Paulo</option>
+                                            <option value="SE">Sergipe</option>
+                                            <option value="TO">Tocantins</option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label for="account-zipcode-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-mail-bulk mr-2 text-blue-600"></i>CEP
+                                        </label>
+                                        <input type="text" id="account-zipcode-inline" name="zipcode"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                               placeholder="00000-000" maxlength="9">
+                                    </div>
+                                </div>
+                                
+                                <!-- Botões -->
+                                <div class="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+                                    <button type="reset" id="reset-account-profile"
+                                            class="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                                        <i class="fas fa-undo mr-2"></i>Descartar alterações
+                                    </button>
+                                    <button type="submit" id="save-account-profile"
+                                            class="flex-1 px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                        <i class="fas fa-save mr-2"></i>Salvar alterações
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Seção de Segurança -->
+                        <div class="bg-white rounded-xl shadow-sm p-4 md:p-6">
+                            <div class="mb-4 md:mb-6">
+                                <h3 class="text-lg md:text-2xl font-bold text-gray-800">Segurança</h3>
+                                <p class="text-sm md:text-base text-gray-600">Atualize sua senha de acesso ao painel</p>
+                            </div>
+                            
+                            <form id="account-password-form-inline" class="space-y-4 md:space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                    <div class="space-y-2">
+                                        <label for="account-current-password-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-lock mr-2 text-blue-600"></i>Senha atual *
+                                        </label>
+                                        <div class="relative">
+                                            <input type="password" id="account-current-password-inline" name="current_password" required
+                                                   class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                                   placeholder="********">
+                                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600" data-target="account-current-password-inline">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <label for="account-new-password-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-key mr-2 text-blue-600"></i>Nova senha *
+                                        </label>
+                                        <div class="relative">
+                                            <input type="password" id="account-new-password-inline" name="new_password" required minlength="8"
+                                                   class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                                   placeholder="********">
+                                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600" data-target="account-new-password-inline">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-500">Mínimo 8 caracteres com letras e números</p>
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <label for="account-confirm-password-inline" class="block text-sm font-medium text-gray-700">
+                                            <i class="fas fa-check-circle mr-2 text-blue-600"></i>Confirmar senha *
+                                        </label>
+                                        <div class="relative">
+                                            <input type="password" id="account-confirm-password-inline" name="confirm_password" required minlength="8"
+                                                   class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                                   placeholder="********">
+                                            <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600" data-target="account-confirm-password-inline">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+                                    <button type="reset" id="reset-account-password"
+                                            class="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                                        <i class="fas fa-undo mr-2"></i>Limpar campos
+                                    </button>
+                                    <button type="submit" id="save-account-password"
+                                            class="flex-1 px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                        <i class="fas fa-key mr-2"></i>Atualizar senha
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

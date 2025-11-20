@@ -320,24 +320,48 @@ class BudgetService {
      */
     public function getBudget($id) {
         try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, cliente, email, telefone, data_evento, hora_evento,
-                    local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, imagem, tamanho_arco_m, created_at, updated_at
-                FROM orcamentos 
-                WHERE id = ? AND decorador_id = ?
-            ");
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt->execute([$id, $_SESSION['user_id'] ?? 1]);
+            error_log('getBudget: ID=' . $id . ', DecoradorID=' . ($decoradorId ?? 'null'));
+            
+            // Se não houver sessão válida, buscar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        id, cliente, email, telefone, data_evento, hora_evento,
+                        local_evento, tipo_servico, descricao, valor_estimado,
+                        observacoes, status, imagem, tamanho_arco_m, created_at, updated_at, decorador_id
+                    FROM orcamentos 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$id]);
+                error_log('getBudget: Modo compatibilidade - buscando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, buscar apenas se pertencer ao decorador
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        id, cliente, email, telefone, data_evento, hora_evento,
+                        local_evento, tipo_servico, descricao, valor_estimado,
+                        observacoes, status, imagem, tamanho_arco_m, created_at, updated_at, decorador_id
+                    FROM orcamentos 
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ");
+                $stmt->execute([$id, $decoradorId]);
+                error_log('getBudget: Buscando com filtro de decorador_id=' . $decoradorId);
+            }
+            
             $budget = $stmt->fetch();
             
             if (!$budget) {
+                error_log('getBudget: Orçamento não encontrado');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para visualizá-lo.'
                 ];
             }
+            
+            error_log('getBudget: Orçamento encontrado com sucesso');
             
             // Formatar dados
             $budget['event_date'] = $budget['data_evento'];
@@ -403,23 +427,43 @@ class BudgetService {
             
             $fields[] = 'updated_at = NOW()';
             $params[] = $id;
-            $params[] = $_SESSION['user_id'] ?? 1;
             
-            $sql = "
-                UPDATE orcamentos 
-                SET " . implode(', ', $fields) . "
-                WHERE id = ? AND decorador_id = ?
-            ";
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
+            
+            error_log('updateBudget: ID=' . $id . ', DecoradorID=' . ($decoradorId ?? 'null') . ', Campos: ' . json_encode(array_keys($data)));
+            
+            // Se não houver sessão válida, atualizar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $sql = "
+                    UPDATE orcamentos 
+                    SET " . implode(', ', $fields) . "
+                    WHERE id = ?
+                ";
+                error_log('updateBudget: Modo compatibilidade - atualizando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, atualizar apenas se pertencer ao decorador
+                $params[] = $decoradorId;
+                $sql = "
+                    UPDATE orcamentos 
+                    SET " . implode(', ', $fields) . "
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ";
+                error_log('updateBudget: Atualizando com filtro de decorador_id=' . $decoradorId);
+            }
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             
             if ($stmt->rowCount() === 0) {
+                error_log('updateBudget: Nenhuma linha atualizada - orçamento não encontrado');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para alterá-lo.'
                 ];
             }
+            
+            error_log('updateBudget: Orçamento atualizado com sucesso - ' . $stmt->rowCount() . ' linha(s) atualizada(s)');
             
             // Log da ação
             $this->logAction('update_budget', $id);
@@ -443,20 +487,40 @@ class BudgetService {
      */
     public function approveBudget($id) {
         try {
-            $stmt = $this->pdo->prepare("
-                UPDATE orcamentos 
-                SET status = 'aprovado', updated_at = NOW()
-                WHERE id = ? AND decorador_id = ?
-            ");
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt->execute([$id, $_SESSION['user_id'] ?? 1]);
+            error_log('approveBudget: ID=' . $id . ', DecoradorID=' . ($decoradorId ?? 'null'));
+            
+            // Se não houver sessão válida, atualizar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = 'aprovado', updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$id]);
+                error_log('approveBudget: Modo compatibilidade - atualizando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, atualizar apenas se pertencer ao decorador
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = 'aprovado', updated_at = NOW()
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ");
+                $stmt->execute([$id, $decoradorId]);
+                error_log('approveBudget: Atualizando com filtro de decorador_id=' . $decoradorId);
+            }
             
             if ($stmt->rowCount() === 0) {
+                error_log('approveBudget: Nenhuma linha atualizada - orçamento não encontrado');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para alterá-lo.'
                 ];
             }
+            
+            error_log('approveBudget: Orçamento aprovado com sucesso - ' . $stmt->rowCount() . ' linha(s) atualizada(s)');
             
             // Log da ação
             $this->logAction('approve_budget', $id);
@@ -480,20 +544,40 @@ class BudgetService {
      */
     public function rejectBudget($id) {
         try {
-            $stmt = $this->pdo->prepare("
-                UPDATE orcamentos 
-                SET status = 'recusado', updated_at = NOW()
-                WHERE id = ? AND decorador_id = ?
-            ");
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt->execute([$id, $_SESSION['user_id'] ?? 1]);
+            error_log('rejectBudget: ID=' . $id . ', DecoradorID=' . ($decoradorId ?? 'null'));
+            
+            // Se não houver sessão válida, atualizar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = 'recusado', updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$id]);
+                error_log('rejectBudget: Modo compatibilidade - atualizando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, atualizar apenas se pertencer ao decorador
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = 'recusado', updated_at = NOW()
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ");
+                $stmt->execute([$id, $decoradorId]);
+                error_log('rejectBudget: Atualizando com filtro de decorador_id=' . $decoradorId);
+            }
             
             if ($stmt->rowCount() === 0) {
+                error_log('rejectBudget: Nenhuma linha atualizada - orçamento não encontrado');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para alterá-lo.'
                 ];
             }
+            
+            error_log('rejectBudget: Orçamento recusado com sucesso - ' . $stmt->rowCount() . ' linha(s) atualizada(s)');
             
             // Log da ação
             $this->logAction('reject_budget', $id);
@@ -526,20 +610,40 @@ class BudgetService {
                 ];
             }
             
-            $stmt = $this->pdo->prepare("
-                UPDATE orcamentos 
-                SET status = ?, updated_at = NOW()
-                WHERE id = ? AND decorador_id = ?
-            ");
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt->execute([$status, $id, $_SESSION['user_id'] ?? 1]);
+            error_log('changeStatus: ID=' . $id . ', Status=' . $status . ', DecoradorID=' . ($decoradorId ?? 'null'));
+            
+            // Se não houver sessão válida, atualizar sem filtro de decorador_id (modo compatibilidade)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = ?, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$status, $id]);
+                error_log('changeStatus: Modo compatibilidade - atualizando sem filtro de decorador_id');
+            } else {
+                // Com sessão válida, atualizar apenas se pertencer ao decorador
+                $stmt = $this->pdo->prepare("
+                    UPDATE orcamentos 
+                    SET status = ?, updated_at = NOW()
+                    WHERE id = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                ");
+                $stmt->execute([$status, $id, $decoradorId]);
+                error_log('changeStatus: Atualizando com filtro de decorador_id=' . $decoradorId);
+            }
             
             if ($stmt->rowCount() === 0) {
+                error_log('changeStatus: Nenhuma linha atualizada - orçamento não encontrado ou não pertence ao decorador');
                 return [
                     'success' => false,
-                    'message' => 'Orçamento não encontrado.'
+                    'message' => 'Orçamento não encontrado ou você não tem permissão para alterá-lo.'
                 ];
             }
+            
+            error_log('changeStatus: Status alterado com sucesso - ' . $stmt->rowCount() . ' linha(s) atualizada(s)');
             
             // Log da ação
             $this->logAction('change_status', $id, ['new_status' => $status]);
