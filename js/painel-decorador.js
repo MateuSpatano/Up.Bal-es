@@ -3044,27 +3044,56 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== FUNCIONALIDADES DO CAMPO TAMANHO DO ARCO ==========
     
-    // Função para controlar visibilidade do campo de tamanho do arco
+    // Função para controlar obrigatoriedade do campo de tamanho do arco
     function toggleArcSizeField() {
-        if (!budgetServiceType || !budgetArcSizeContainer || !budgetArcSize) return;
+        if (!budgetServiceType || !budgetArcSizeContainer || !budgetArcSize) {
+            // Tentar encontrar os elementos novamente se não foram encontrados
+            const serviceType = document.getElementById('budget-service-type');
+            const arcSizeContainer = document.getElementById('budget-arc-size-container');
+            const arcSize = document.getElementById('budget-arc-size');
+            
+            if (!serviceType || !arcSizeContainer || !arcSize) return;
+            
+            // Usar os elementos encontrados
+            const selectedType = serviceType.value;
+            const isArcType = selectedType === 'arco-tradicional' || selectedType === 'arco-desconstruido';
+            
+            if (isArcType) {
+                arcSizeContainer.classList.remove('hidden');
+                arcSize.required = true;
+            } else {
+                arcSize.required = false;
+            }
+            return;
+        }
         
         const selectedType = budgetServiceType.value;
         const isArcType = selectedType === 'arco-tradicional' || selectedType === 'arco-desconstruido';
         
+        // Campo sempre visível, apenas controlar obrigatoriedade
         if (isArcType) {
             budgetArcSizeContainer.classList.remove('hidden');
             budgetArcSize.required = true;
         } else {
-            budgetArcSizeContainer.classList.add('hidden');
+            budgetArcSizeContainer.classList.remove('hidden'); // Sempre visível
             budgetArcSize.required = false;
-            budgetArcSize.value = ''; // Limpar valor quando ocultar
         }
     }
     
     // Configurar campo de tamanho do arco
     function setupArcSizeField() {
-        if (budgetServiceType) {
-            budgetServiceType.addEventListener('change', toggleArcSizeField);
+        // Buscar elementos novamente para garantir que estão disponíveis
+        const serviceType = document.getElementById('budget-service-type');
+        const arcSizeContainer = document.getElementById('budget-arc-size-container');
+        const arcSize = document.getElementById('budget-arc-size');
+        
+        if (serviceType) {
+            serviceType.addEventListener('change', toggleArcSizeField);
+        }
+        
+        // Garantir que o campo está visível
+        if (arcSizeContainer) {
+            arcSizeContainer.classList.remove('hidden');
         }
         
         // Inicializar estado do campo
