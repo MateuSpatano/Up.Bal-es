@@ -4,13 +4,12 @@
  * Up.Baloes - Sistema de Gestão de Decoração com Balões
  */
 
-// Incluir configuração do banco de dados
-require_once __DIR__ . '/config.php';
+// Desabilitar exibição de erros para evitar HTML na resposta JSON
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
-// Inicializar conexão com banco de dados
-$pdo = getDatabaseConnection($database_config);
-
-// Configurar cabeçalhos para JSON
+// Configurar cabeçalhos para JSON ANTES de qualquer saída
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -22,27 +21,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Configurações de sessão
-session_start();
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Método não permitido']);
-    exit();
-}
-
-// Obter dados da requisição
-$input = json_decode(file_get_contents('php://input'), true);
-
-if (!$input) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Dados inválidos']);
-    exit();
-}
-
-$action = $input['action'] ?? '';
-
 try {
+    // Incluir configuração do banco de dados
+    require_once __DIR__ . '/config.php';
+
+    // Inicializar conexão com banco de dados
+    $pdo = getDatabaseConnection($database_config);
+
+    // Criar tabela se não existir (antes de qualquer operação)
+    createAvailabilityTable();
+
+    // Configurações de sessão
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Método não permitido']);
+        exit();
+    }
+
+    // Obter dados da requisição
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    if (!$input) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Dados inválidos']);
+        exit();
+    }
+
+    $action = $input['action'] ?? '';
+
     switch ($action) {
         case 'save':
             saveAvailabilitySettings($input);
@@ -75,7 +85,16 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => $e->getMessage(),
+        'error' => error_get_last() ? error_get_last()['message'] : null
+    ]);
+} catch (Error $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erro fatal: ' . $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
     ]);
 }
 
@@ -450,21 +469,26 @@ function getCurrentUserId() {
 function createAvailabilityTable() {
     global $pdo;
     
-    $sql = "
-        CREATE TABLE IF NOT EXISTS decorator_availability (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            available_days JSON NOT NULL,
-            time_schedules JSON NOT NULL,
-            service_intervals JSON NOT NULL,
-            max_daily_services INT DEFAULT 3,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_user_id (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ";
-    
-    $pdo->exec($sql);
+    try {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS decorator_availability (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                available_days JSON NOT NULL,
+                time_schedules JSON NOT NULL,
+                service_intervals JSON NOT NULL,
+                max_daily_services INT DEFAULT 3,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ";
+        
+        $pdo->exec($sql);
+    } catch (PDOException $e) {
+        // Log do erro mas não interrompe a execução
+        error_log('Erro ao criar tabela decorator_availability: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -788,6 +812,4 @@ function getAvailableTimes($data) {
     ]);
 }
 
-// Criar tabela se não existir
-createAvailabilityTable();
 ?>

@@ -1,4 +1,116 @@
 // JavaScript para o Dashboard do Decorador - Up.Baloes
+
+// Função global simples de notificação (será substituída pela versão completa após DOMContentLoaded)
+window.showNotification = function(message, type = 'info') {
+    // Versão simples usando alert até que a versão completa esteja disponível
+    alert(message);
+};
+
+// Funções globais para editar e excluir horários (definidas antes do DOMContentLoaded)
+function editTimeSchedule(scheduleId) {
+    const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
+    if (!scheduleItem) return;
+    
+    // Tornar os campos editáveis
+    const fields = scheduleItem.querySelector('.time-schedule-fields');
+    if (!fields) return;
+    
+    const daySelect = fields.querySelector('select[name="schedule_day"]');
+    const startTimeInput = fields.querySelector('input[name="start_time"]');
+    const endTimeInput = fields.querySelector('input[name="end_time"]');
+    
+    if (daySelect && startTimeInput && endTimeInput) {
+        // Remover atributo disabled se existir
+        daySelect.disabled = false;
+        startTimeInput.disabled = false;
+        endTimeInput.disabled = false;
+        
+        // Adicionar classe de edição
+        scheduleItem.classList.add('editing');
+        
+        // Mudar botão de editar para salvar
+        const editBtn = scheduleItem.querySelector('.edit-schedule-btn');
+        if (editBtn) {
+            editBtn.innerHTML = '<i class="fas fa-check"></i>';
+            editBtn.onclick = function() {
+                saveTimeSchedule(scheduleId);
+            };
+        }
+        
+        // Focar no primeiro campo
+        daySelect.focus();
+    }
+}
+
+function deleteTimeSchedule(scheduleId) {
+    if (confirm('Tem certeza que deseja excluir este horário?')) {
+        const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
+        if (scheduleItem) {
+            scheduleItem.remove();
+            // Tentar usar showNotification global, senão usar alert
+            if (window.showNotification && typeof window.showNotification === 'function') {
+                window.showNotification('Horário excluído com sucesso!', 'success');
+            } else {
+                alert('Horário excluído com sucesso!');
+            }
+        }
+    }
+}
+
+function saveTimeSchedule(scheduleId) {
+    const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
+    if (!scheduleItem) return;
+    
+    const fields = scheduleItem.querySelector('.time-schedule-fields');
+    if (!fields) return;
+    
+    const daySelect = fields.querySelector('select[name="schedule_day"]');
+    const startTimeInput = fields.querySelector('input[name="start_time"]');
+    const endTimeInput = fields.querySelector('input[name="end_time"]');
+    
+    // Validar campos
+    if (!daySelect || !daySelect.value || !startTimeInput || !startTimeInput.value || !endTimeInput || !endTimeInput.value) {
+        if (typeof showNotification === 'function') {
+            showNotification('Preencha todos os campos do horário', 'error');
+        } else {
+            alert('Preencha todos os campos do horário');
+        }
+        return;
+    }
+    
+    if (startTimeInput.value >= endTimeInput.value) {
+        if (typeof showNotification === 'function') {
+            showNotification('Horário de início deve ser anterior ao horário de fim', 'error');
+        } else {
+            alert('Horário de início deve ser anterior ao horário de fim');
+        }
+        return;
+    }
+    
+    // Remover atributo disabled para garantir que os valores sejam coletados ao salvar
+    if (daySelect.disabled) daySelect.disabled = false;
+    if (startTimeInput.disabled) startTimeInput.disabled = false;
+    if (endTimeInput.disabled) endTimeInput.disabled = false;
+    
+    // Remover classe de edição
+    scheduleItem.classList.remove('editing');
+    
+    // Restaurar botão de editar
+    const editBtn = scheduleItem.querySelector('.edit-schedule-btn');
+    if (editBtn) {
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.onclick = function() {
+            editTimeSchedule(scheduleId);
+        };
+    }
+    
+    if (typeof showNotification === 'function') {
+        showNotification('Horário atualizado com sucesso!', 'success');
+    } else {
+        alert('Horário atualizado com sucesso!');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     
     // ========== ELEMENTOS DOM ==========
@@ -965,6 +1077,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.body.appendChild(notification);
         
+        // Tornar função global
+        window.showNotification = showNotification;
+        
         // Animar entrada
         setTimeout(() => {
             notification.classList.remove('translate-x-full');
@@ -1660,97 +1775,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Funções globais para editar e excluir horários (definidas antes de serem usadas)
-    function editTimeSchedule(scheduleId) {
-        const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
-        if (!scheduleItem) return;
-        
-        // Tornar os campos editáveis
-        const fields = scheduleItem.querySelector('.time-schedule-fields');
-        if (!fields) return;
-        
-        const daySelect = fields.querySelector('select[name="schedule_day"]');
-        const startTimeInput = fields.querySelector('input[name="start_time"]');
-        const endTimeInput = fields.querySelector('input[name="end_time"]');
-        
-        if (daySelect && startTimeInput && endTimeInput) {
-            // Remover atributo disabled se existir
-            daySelect.disabled = false;
-            startTimeInput.disabled = false;
-            endTimeInput.disabled = false;
-            
-            // Adicionar classe de edição
-            scheduleItem.classList.add('editing');
-            
-            // Mudar botão de editar para salvar
-            const editBtn = scheduleItem.querySelector('.edit-schedule-btn');
-            if (editBtn) {
-                editBtn.innerHTML = '<i class="fas fa-check"></i>';
-                editBtn.onclick = function() {
-                    saveTimeSchedule(scheduleId);
-                };
-            }
-            
-            // Focar no primeiro campo
-            daySelect.focus();
-        }
-    };
-    
-    function deleteTimeSchedule(scheduleId) {
-        if (confirm('Tem certeza que deseja excluir este horário?')) {
-            const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
-            if (scheduleItem) {
-                scheduleItem.remove();
-                showNotification('Horário excluído com sucesso!', 'success');
-            }
-        }
-    };
-    
-    function saveTimeSchedule(scheduleId) {
-        const scheduleItem = document.querySelector(`[data-schedule-id="${scheduleId}"]`);
-        if (!scheduleItem) return;
-        
-        const fields = scheduleItem.querySelector('.time-schedule-fields');
-        if (!fields) return;
-        
-        const daySelect = fields.querySelector('select[name="schedule_day"]');
-        const startTimeInput = fields.querySelector('input[name="start_time"]');
-        const endTimeInput = fields.querySelector('input[name="end_time"]');
-        
-        // Validar campos
-        if (!daySelect || !daySelect.value || !startTimeInput || !startTimeInput.value || !endTimeInput || !endTimeInput.value) {
-            showNotification('Preencha todos os campos do horário', 'error');
-            return;
-        }
-        
-        if (startTimeInput.value >= endTimeInput.value) {
-            showNotification('Horário de início deve ser anterior ao horário de fim', 'error');
-            return;
-        }
-        
-        // Remover atributo disabled para garantir que os valores sejam coletados ao salvar
-        if (daySelect.disabled) daySelect.disabled = false;
-        if (startTimeInput.disabled) startTimeInput.disabled = false;
-        if (endTimeInput.disabled) endTimeInput.disabled = false;
-        
-        // Remover classe de edição
-        scheduleItem.classList.remove('editing');
-        
-        // Restaurar botão de editar
-        const editBtn = scheduleItem.querySelector('.edit-schedule-btn');
-        if (editBtn) {
-            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-            editBtn.onclick = function() {
-                editTimeSchedule(scheduleId);
-            };
-        }
-        
-        showNotification('Horário atualizado com sucesso!', 'success');
-    }
-    
-    // Tornar funções globais após serem definidas
-    window.editTimeSchedule = editTimeSchedule;
-    window.deleteTimeSchedule = deleteTimeSchedule;
+    // Funções já estão definidas globalmente antes do DOMContentLoaded
     
     function resetAvailabilitySettings() {
         if (confirm('Tem certeza que deseja resetar todas as configurações de disponibilidade?')) {
