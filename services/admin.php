@@ -346,8 +346,10 @@ function handleGetUsers($input) {
         }
         
         if (!empty($type)) {
+            // Normalizar 'client' para 'user' no banco de dados
+            $perfilFilter = ($type === 'client') ? 'user' : $type;
             $where[] = "perfil = ?";
-            $params[] = $type;
+            $params[] = $perfilFilter;
         }
         
         if (!empty($status)) {
@@ -386,15 +388,19 @@ function handleGetUsers($input) {
         // Formatar resposta
         $formattedUsers = [];
         foreach ($users as $user) {
+            $perfil = $user['perfil'] ?? '';
+            // Normalizar perfil 'user' para 'client' no frontend
+            $type = ($perfil === 'user') ? 'client' : $perfil;
+            
             $formattedUsers[] = [
                 'id' => (int)($user['id'] ?? 0),
                 'name' => $user['nome'] ?? '',
                 'email' => $user['email'] ?? '',
-                'type' => $user['perfil'] ?? '',
+                'type' => $type,
                 'status' => ($user['ativo'] ?? 0) ? 'active' : 'inactive',
                 'approved' => (bool)($user['aprovado_por_admin'] ?? false),
                 'created_at' => $user['created_at'] ?? date('Y-m-d H:i:s'),
-                'url' => ($user['perfil'] ?? '') === 'decorator' && !empty($user['slug'] ?? '') 
+                'url' => ($perfil === 'decorator') && !empty($user['slug'] ?? '') 
                     ? '/' . $user['slug'] 
                     : null
             ];
@@ -435,9 +441,9 @@ function handleGetDashboardData() {
         $pendingApprovals = 0;
         $activities = [];
         
-        // Contar clientes
+        // Contar clientes (perfil 'user' é usado para clientes)
         try {
-            $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'client'");
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM usuarios WHERE perfil = 'user'");
             $result = $stmt->fetch();
             $totalClients = (int)($result['total'] ?? 0);
         } catch (PDOException $e) {
@@ -513,9 +519,21 @@ function handleGetDashboardData() {
                     $activityType = 'warning';
                 }
                 
+                // Mapear perfil para nome amigável
+                $perfilNome = '';
+                if ($perfil === 'user') {
+                    $perfilNome = 'Cliente';
+                } elseif ($perfil === 'decorator') {
+                    $perfilNome = 'Decorador';
+                } elseif ($perfil === 'admin') {
+                    $perfilNome = 'Administrador';
+                } else {
+                    $perfilNome = ucfirst($perfil);
+                }
+                
                 $activities[] = [
                     'type' => $activityType,
-                    'action' => "Novo " . ucfirst($perfil) . " cadastrado",
+                    'action' => "Novo " . $perfilNome . " cadastrado",
                     'user' => $nome,
                     'time' => $timeAgo,
                     'date' => $createdAt // Manter para compatibilidade
