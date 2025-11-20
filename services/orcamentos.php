@@ -195,16 +195,20 @@ class BudgetService {
             error_log('listBudgets: Sessão user_role: ' . ($_SESSION['user_role'] ?? 'não definido'));
             
             // Buscar orçamentos do decorador logado
-            // Se não houver user_id na sessão (decorador_id = 1 por padrão), 
-            // buscar também orçamentos sem decorador_id para compatibilidade
-            if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] == null) {
-                // Se não há sessão válida, buscar todos os orçamentos (modo compatibilidade)
+            // Se não houver user_id na sessão ou se for o ID padrão (1), buscar todos os orçamentos
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
+            
+            if (!$hasValidSession) {
+                // Se não há sessão válida ou é o ID padrão, buscar TODOS os orçamentos (modo compatibilidade)
+                // Isso garante que orçamentos existentes sejam exibidos mesmo sem sessão válida
+                $where = [];
+                $params = [];
+                error_log('listBudgets: Modo compatibilidade - buscando TODOS os orçamentos (sem filtro de decorador_id)');
+            } else {
+                // Buscar apenas orçamentos do decorador logado OU sem decorador_id (para compatibilidade)
                 $where = ['(decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)'];
                 $params = [$decoradorId];
-            } else {
-                // Buscar apenas orçamentos do decorador logado
-                $where = ['decorador_id = ?'];
-                $params = [$decoradorId];
+                error_log('listBudgets: Buscando orçamentos do decorador_id: ' . $decoradorId . ' ou sem decorador_id');
             }
             
             // Filtros
@@ -232,24 +236,49 @@ class BudgetService {
                 }
             }
             
+            // Construir SQL baseado se há condições WHERE ou não
             $sql = "
                 SELECT 
                     id, cliente, email, telefone, data_evento, hora_evento,
                     local_evento, tipo_servico, descricao, valor_estimado,
                     observacoes, status, imagem, tamanho_arco_m, created_at, updated_at, decorador_id
-                FROM orcamentos 
-                WHERE " . implode(' AND ', $where) . "
-                ORDER BY created_at DESC
-            ";
+                FROM orcamentos";
+            
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+            
+            $sql .= " ORDER BY created_at DESC";
             
             error_log('listBudgets: SQL: ' . $sql);
             error_log('listBudgets: Params: ' . json_encode($params));
             
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($params);
+            if (!empty($params)) {
+                $stmt->execute($params);
+            } else {
+                $stmt->execute();
+            }
             $budgets = $stmt->fetchAll();
             
             error_log('listBudgets: Encontrados ' . count($budgets) . ' orçamento(s)');
+            
+            // Se não encontrou nenhum orçamento e está usando modo compatibilidade, tentar buscar todos sem filtro
+            if (count($budgets) === 0 && (empty($where) || (!isset($_SESSION['user_id']) || $_SESSION['user_id'] == null || $decoradorId == 1))) {
+                error_log('listBudgets: Nenhum orçamento encontrado com filtros, tentando buscar TODOS os orçamentos');
+                $sqlAll = "
+                    SELECT 
+                        id, cliente, email, telefone, data_evento, hora_evento,
+                        local_evento, tipo_servico, descricao, valor_estimado,
+                        observacoes, status, imagem, tamanho_arco_m, created_at, updated_at, decorador_id
+                    FROM orcamentos
+                    ORDER BY created_at DESC
+                ";
+                $stmtAll = $this->pdo->prepare($sqlAll);
+                $stmtAll->execute();
+                $budgets = $stmtAll->fetchAll();
+                error_log('listBudgets: Encontrados ' . count($budgets) . ' orçamento(s) sem filtro de decorador_id');
+            }
             
             // Formatar dados
             foreach ($budgets as &$budget) {
