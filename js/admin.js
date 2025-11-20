@@ -2231,8 +2231,12 @@ class AdminSystem {
             const decoratorName = ticket.decorator_name || 'Desconhecido';
             const createdAt = ticket.created_at ? this.formatDateTime(ticket.created_at) : 'Data não disponível';
             
+            // Garantir que ticket.id seja uma string
+            const ticketId = String(ticket.id || '');
+            const ticketIdDisplay = ticketId.substring(0, 8);
+            
             return `
-                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticket.id}')">
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer" onclick="adminSystem.viewTicketDetails('${ticketId}')">
                     <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
                             <h4 class="text-lg font-semibold text-gray-800 mb-1">${this.escapeHtml(ticketTitle)}</h4>
@@ -2249,7 +2253,7 @@ class AdminSystem {
                     <div class="flex items-center justify-between text-xs text-gray-500">
                         <div class="flex items-center space-x-3">
                             ${ticket.attachment ? '<span><i class="fas fa-paperclip mr-1"></i>Anexo</span>' : ''}
-                            <span>ID: #${String(ticket.id).substring(0, 8)}</span>
+                            <span>ID: #${ticketIdDisplay}</span>
                         </div>
                         <button class="text-indigo-600 hover:text-indigo-800 font-medium">
                             Ver Detalhes <i class="fas fa-arrow-right ml-1"></i>
@@ -2258,6 +2262,11 @@ class AdminSystem {
                 </div>
             `;
         }).filter(html => html !== '').join('');
+        
+        if (ticketsHTML.length === 0 && this.filteredTickets.length > 0) {
+            console.error('⚠️ Nenhum HTML foi gerado apesar de haver tickets!');
+            console.error('Tickets:', this.filteredTickets);
+        }
         
         console.log('🎨 HTML gerado:', ticketsHTML.length, 'caracteres');
         container.innerHTML = ticketsHTML;
