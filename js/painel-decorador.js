@@ -6134,10 +6134,10 @@ Qualquer dúvida, estou à disposição! 😊`;
             <div class="flex justify-between items-center">
                 <span class="text-green-600 font-semibold">R$ ${parseFloat(service.price || 0).toFixed(2)}</span>
                 <div class="flex space-x-2">
-                    <button onclick="editService('${service.id}')" class="text-blue-600 hover:text-blue-800" title="Editar serviço">
+                    <button onclick="event.stopPropagation(); editService('${service.id}');" class="text-blue-600 hover:text-blue-800" title="Editar serviço" type="button">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="confirmDeleteServiceAction('${service.id}')" class="text-red-600 hover:text-red-800" title="Excluir serviço">
+                    <button onclick="event.stopPropagation(); confirmDeleteServiceAction('${service.id}');" class="text-red-600 hover:text-red-800" title="Excluir serviço" type="button">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -6321,10 +6321,10 @@ Qualquer dúvida, estou à disposição! 😊`;
                     ${imageHtml}
                 </div>
                 <div class="service-actions">
-                    <button class="edit-service-btn" data-id="${service.id}" title="Editar serviço" type="button">
+                    <button class="edit-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Editar serviço" type="button" onclick="event.stopPropagation(); editService('${service.id}');">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="delete-service-btn" data-id="${service.id}" title="Excluir serviço" type="button">
+                    <button class="delete-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Excluir serviço" type="button" onclick="event.stopPropagation(); confirmDeleteServiceAction('${service.id}');">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -6342,7 +6342,7 @@ Qualquer dúvida, estou à disposição! 😊`;
             </div>
         `;
         
-        // Adicionar event listeners usando event delegation
+        // Adicionar event listeners usando event delegation (backup caso onclick não funcione)
         card.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.edit-service-btn');
             const deleteBtn = e.target.closest('.delete-service-btn');
@@ -6350,15 +6350,23 @@ Qualquer dúvida, estou à disposição! 😊`;
             if (editBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                const serviceId = editBtn.getAttribute('data-id') || service.id;
-                console.log('Botão editar clicado para serviço ID:', serviceId);
-                editService(serviceId);
+                const serviceId = editBtn.getAttribute('data-id') || editBtn.getAttribute('data-service-id') || service.id;
+                console.log('Botão editar clicado (event listener) para serviço ID:', serviceId);
+                if (typeof editService === 'function') {
+                    editService(serviceId);
+                } else {
+                    console.error('Função editService não encontrada');
+                }
             } else if (deleteBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                const serviceId = deleteBtn.getAttribute('data-id') || service.id;
-                console.log('Botão excluir clicado para serviço ID:', serviceId);
-                confirmDeleteServiceAction(serviceId);
+                const serviceId = deleteBtn.getAttribute('data-id') || deleteBtn.getAttribute('data-service-id') || service.id;
+                console.log('Botão excluir clicado (event listener) para serviço ID:', serviceId);
+                if (typeof confirmDeleteServiceAction === 'function') {
+                    confirmDeleteServiceAction(serviceId);
+                } else {
+                    console.error('Função confirmDeleteServiceAction não encontrada');
+                }
             }
         });
         
@@ -6431,16 +6439,28 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Abrir modal para editar serviço
     function editService(serviceId) {
-        console.log('Editando serviço ID:', serviceId);
-        const service = portfolioServices.find(s => s.id === serviceId || s.id === String(serviceId));
+        console.log('Editando serviço ID:', serviceId, 'Tipo:', typeof serviceId);
+        console.log('Serviços disponíveis:', portfolioServices.map(s => ({ id: s.id, type: typeof s.id })));
+        
+        // Normalizar o ID para comparação (converter ambos para número ou string)
+        const normalizedId = typeof serviceId === 'string' ? parseInt(serviceId, 10) || serviceId : serviceId;
+        
+        // Tentar encontrar o serviço com diferentes comparações
+        let service = portfolioServices.find(s => {
+            const sId = typeof s.id === 'string' ? parseInt(s.id, 10) || s.id : s.id;
+            return sId == normalizedId || s.id == serviceId || String(s.id) === String(serviceId);
+        });
+        
         if (!service) {
-            console.error('Serviço não encontrado. ID:', serviceId, 'Serviços disponíveis:', portfolioServices);
-            showErrorToast('Erro', 'Serviço não encontrado.');
+            console.error('Serviço não encontrado. ID:', serviceId, 'Tipo:', typeof serviceId);
+            console.error('Serviços disponíveis:', portfolioServices.map(s => ({ id: s.id, type: typeof s.id, title: s.title })));
+            showErrorToast('Erro', 'Serviço não encontrado. ID: ' + serviceId);
             return;
         }
         
         console.log('Serviço encontrado:', service);
-        editingServiceId = serviceId;
+        // Usar o ID original do serviço encontrado
+        editingServiceId = service.id;
         
         const modalTitle = document.getElementById('service-modal-title');
         const modalSubtitle = document.getElementById('service-modal-subtitle');
@@ -6493,14 +6513,31 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Confirmar exclusão de serviço
     function confirmDeleteServiceAction(serviceId) {
-        console.log('Confirmando exclusão do serviço ID:', serviceId);
+        console.log('Confirmando exclusão do serviço ID:', serviceId, 'Tipo:', typeof serviceId);
+        
         if (!serviceId) {
             console.error('ID do serviço não fornecido para exclusão');
             showErrorToast('Erro', 'ID do serviço não encontrado.');
             return;
         }
         
-        deletingServiceId = serviceId;
+        // Verificar se o serviço existe antes de confirmar exclusão
+        const normalizedId = typeof serviceId === 'string' ? parseInt(serviceId, 10) || serviceId : serviceId;
+        const service = portfolioServices.find(s => {
+            const sId = typeof s.id === 'string' ? parseInt(s.id, 10) || s.id : s.id;
+            return sId == normalizedId || s.id == serviceId || String(s.id) === String(serviceId);
+        });
+        
+        if (!service) {
+            console.error('Serviço não encontrado para exclusão. ID:', serviceId);
+            showErrorToast('Erro', 'Serviço não encontrado. ID: ' + serviceId);
+            return;
+        }
+        
+        // Usar o ID original do serviço encontrado
+        deletingServiceId = service.id;
+        console.log('ID do serviço a ser excluído:', deletingServiceId);
+        
         if (deleteServiceModal) {
             deleteServiceModal.classList.remove('hidden');
         } else {
@@ -6513,10 +6550,21 @@ Qualquer dúvida, estou à disposição! 😊`;
     async function deleteService() {
         if (!deletingServiceId) {
             console.warn('Nenhum ID de serviço para excluir');
+            showErrorToast('Erro', 'ID do serviço não encontrado.');
             return;
         }
         
-        console.log('Excluindo serviço ID:', deletingServiceId);
+        console.log('Excluindo serviço ID:', deletingServiceId, 'Tipo:', typeof deletingServiceId);
+        
+        // Garantir que o ID seja um número (backend espera número)
+        const serviceIdToDelete = typeof deletingServiceId === 'string' ? parseInt(deletingServiceId, 10) : deletingServiceId;
+        
+        if (!serviceIdToDelete || isNaN(serviceIdToDelete)) {
+            console.error('ID inválido para exclusão:', deletingServiceId);
+            showErrorToast('Erro', 'ID do serviço inválido.');
+            deletingServiceId = null;
+            return;
+        }
         
         let originalButtonContent = null;
         try {
@@ -6526,6 +6574,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                 confirmDeleteService.disabled = true;
             }
             
+            console.log('Enviando requisição de exclusão com ID:', serviceIdToDelete);
+            
             const response = await fetch('../services/portfolio.php', {
                 method: 'POST',
                 headers: {
@@ -6533,13 +6583,15 @@ Qualquer dúvida, estou à disposição! 😊`;
                 },
                 body: JSON.stringify({
                     action: 'delete_portfolio_item',
-                    id: deletingServiceId
+                    id: serviceIdToDelete
                 })
             });
             
             console.log('Resposta do servidor:', response.status);
             
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Erro na resposta:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
@@ -6814,7 +6866,18 @@ Qualquer dúvida, estou à disposição! 😊`;
             const payload = new FormData();
             payload.append('action', isEdit ? 'update_portfolio_item' : 'create_portfolio_item');
             if (isEdit) {
-                payload.append('id', editingServiceId);
+                // Garantir que o ID seja um número (backend espera número)
+                const serviceIdToUpdate = typeof editingServiceId === 'string' ? parseInt(editingServiceId, 10) : editingServiceId;
+                if (!serviceIdToUpdate || isNaN(serviceIdToUpdate)) {
+                    showErrorToast('Erro', 'ID do serviço inválido para edição.');
+                    if (saveService) {
+                        saveService.disabled = false;
+                        saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+                    }
+                    return;
+                }
+                payload.append('id', serviceIdToUpdate);
+                console.log('Atualizando serviço com ID:', serviceIdToUpdate);
             }
             
             // Mapear campos do formulário para o formato esperado pelo backend
