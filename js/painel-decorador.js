@@ -7050,37 +7050,59 @@ Qualquer dúvida, estou à disposição! 😊`;
     function setupPortfolioEventListeners() {
         console.log('Configurando event listeners do portfólio...');
         
+        // Re-buscar elementos caso tenham sido removidos/recriados
+        const currentAddServiceBtn = document.getElementById('add-service-btn') || addServiceBtn;
+        const currentAddFirstServiceBtn = document.getElementById('add-first-service-btn') || addFirstServiceBtn;
+        const currentServiceForm = document.getElementById('service-form') || serviceForm;
+        const currentCancelDeleteService = document.getElementById('cancel-delete-service') || cancelDeleteService;
+        const currentConfirmDeleteService = document.getElementById('confirm-delete-service') || confirmDeleteService;
+        const currentDeleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay') || deleteServiceModalOverlay;
+        
         // Botões para abrir modal de adicionar serviço
-        if (addServiceBtn && addServiceBtn.parentNode) {
+        if (currentAddServiceBtn) {
             try {
-                // Remover listener anterior se existir
-                const newAddBtn = addServiceBtn.cloneNode(true);
-                addServiceBtn.parentNode.replaceChild(newAddBtn, addServiceBtn);
-                newAddBtn.addEventListener('click', openAddServiceModal);
+                const parent = currentAddServiceBtn.parentNode;
+                if (parent) {
+                    // Remover listener anterior se existir
+                    const newAddBtn = currentAddServiceBtn.cloneNode(true);
+                    parent.replaceChild(newAddBtn, currentAddServiceBtn);
+                    newAddBtn.addEventListener('click', openAddServiceModal);
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    currentAddServiceBtn.addEventListener('click', openAddServiceModal);
+                }
             } catch (error) {
                 console.warn('Erro ao configurar botão adicionar serviço:', error);
                 // Fallback: adicionar listener diretamente
-                addServiceBtn.addEventListener('click', openAddServiceModal);
+                try {
+                    currentAddServiceBtn.addEventListener('click', openAddServiceModal);
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao botão adicionar serviço:', e);
+                }
             }
-        } else if (addServiceBtn) {
-            // Se não tem parentNode, adicionar listener diretamente
-            addServiceBtn.addEventListener('click', openAddServiceModal);
         }
         
-        if (addFirstServiceBtn && addFirstServiceBtn.parentNode) {
+        if (currentAddFirstServiceBtn) {
             try {
-                // Remover listener anterior se existir
-                const newAddFirstBtn = addFirstServiceBtn.cloneNode(true);
-                addFirstServiceBtn.parentNode.replaceChild(newAddFirstBtn, addFirstServiceBtn);
-                newAddFirstBtn.addEventListener('click', openAddServiceModal);
+                const parent = currentAddFirstServiceBtn.parentNode;
+                if (parent) {
+                    // Remover listener anterior se existir
+                    const newAddFirstBtn = currentAddFirstServiceBtn.cloneNode(true);
+                    parent.replaceChild(newAddFirstBtn, currentAddFirstServiceBtn);
+                    newAddFirstBtn.addEventListener('click', openAddServiceModal);
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    currentAddFirstServiceBtn.addEventListener('click', openAddServiceModal);
+                }
             } catch (error) {
                 console.warn('Erro ao configurar botão adicionar primeiro serviço:', error);
                 // Fallback: adicionar listener diretamente
-                addFirstServiceBtn.addEventListener('click', openAddServiceModal);
+                try {
+                    currentAddFirstServiceBtn.addEventListener('click', openAddServiceModal);
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao botão adicionar primeiro serviço:', e);
+                }
             }
-        } else if (addFirstServiceBtn) {
-            // Se não tem parentNode, adicionar listener diretamente
-            addFirstServiceBtn.addEventListener('click', openAddServiceModal);
         }
         
         // Fechar modal de serviço
@@ -7205,12 +7227,13 @@ Qualquer dúvida, estou à disposição! 😊`;
         }
         
         // Salvar serviço - remover listener anterior se existir
-        if (serviceForm) {
+        if (currentServiceForm) {
             try {
-                if (serviceForm.parentNode) {
+                const parent = currentServiceForm.parentNode;
+                if (parent) {
                     // Remover listener anterior
-                    const newForm = serviceForm.cloneNode(true);
-                    serviceForm.parentNode.replaceChild(newForm, serviceForm);
+                    const newForm = currentServiceForm.cloneNode(true);
+                    parent.replaceChild(newForm, currentServiceForm);
                     
                     newForm.addEventListener('submit', async (e) => {
                         e.preventDefault();
@@ -7221,57 +7244,67 @@ Qualquer dúvida, estou à disposição! 😊`;
                     });
                 } else {
                     // Se não tem parentNode, adicionar listener diretamente
-                    serviceForm.addEventListener('submit', async (e) => {
+                    currentServiceForm.addEventListener('submit', async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('Formulário de serviço submetido');
-                        const formData = new FormData(serviceForm);
+                        const formData = new FormData(currentServiceForm);
                         await saveServiceData(formData);
                     });
                 }
             } catch (error) {
                 console.warn('Erro ao configurar formulário de serviço:', error);
                 // Fallback: adicionar listener diretamente
-                serviceForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Formulário de serviço submetido');
-                    const formData = new FormData(serviceForm);
-                    await saveServiceData(formData);
-                });
+                try {
+                    currentServiceForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Formulário de serviço submetido');
+                        const formData = new FormData(currentServiceForm);
+                        await saveServiceData(formData);
+                    });
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao formulário de serviço:', e);
+                }
             }
         }
         
         // Modal de confirmação de exclusão
-        if (cancelDeleteService) {
+        if (currentCancelDeleteService) {
             try {
-                if (cancelDeleteService.parentNode) {
+                const parent = currentCancelDeleteService.parentNode;
+                if (parent) {
                     // Remover listener anterior
-                    const newCancelBtn = cancelDeleteService.cloneNode(true);
-                    cancelDeleteService.parentNode.replaceChild(newCancelBtn, cancelDeleteService);
+                    const newCancelBtn = currentCancelDeleteService.cloneNode(true);
+                    parent.replaceChild(newCancelBtn, currentCancelDeleteService);
                     newCancelBtn.addEventListener('click', () => {
                         if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
                     });
                 } else {
                     // Se não tem parentNode, adicionar listener diretamente
-                    cancelDeleteService.addEventListener('click', () => {
+                    currentCancelDeleteService.addEventListener('click', () => {
                         if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
                     });
                 }
             } catch (error) {
                 console.warn('Erro ao configurar botão cancelar exclusão:', error);
-                cancelDeleteService.addEventListener('click', () => {
-                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
-                });
+                try {
+                    currentCancelDeleteService.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao botão cancelar exclusão:', e);
+                }
             }
         }
         
-        if (confirmDeleteService) {
+        if (currentConfirmDeleteService) {
             try {
-                if (confirmDeleteService.parentNode) {
+                const parent = currentConfirmDeleteService.parentNode;
+                if (parent) {
                     // Remover listener anterior
-                    const newConfirmBtn = confirmDeleteService.cloneNode(true);
-                    confirmDeleteService.parentNode.replaceChild(newConfirmBtn, confirmDeleteService);
+                    const newConfirmBtn = currentConfirmDeleteService.cloneNode(true);
+                    parent.replaceChild(newConfirmBtn, currentConfirmDeleteService);
                     newConfirmBtn.addEventListener('click', async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -7280,7 +7313,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                     });
                 } else {
                     // Se não tem parentNode, adicionar listener diretamente
-                    confirmDeleteService.addEventListener('click', async (e) => {
+                    currentConfirmDeleteService.addEventListener('click', async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('Botão confirmar exclusão clicado');
@@ -7289,35 +7322,44 @@ Qualquer dúvida, estou à disposição! 😊`;
                 }
             } catch (error) {
                 console.warn('Erro ao configurar botão confirmar exclusão:', error);
-                confirmDeleteService.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Botão confirmar exclusão clicado');
-                    await deleteService();
-                });
+                try {
+                    currentConfirmDeleteService.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Botão confirmar exclusão clicado');
+                        await deleteService();
+                    });
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao botão confirmar exclusão:', e);
+                }
             }
         }
         
-        if (deleteServiceModalOverlay) {
+        if (currentDeleteServiceModalOverlay) {
             try {
-                if (deleteServiceModalOverlay.parentNode) {
+                const parent = currentDeleteServiceModalOverlay.parentNode;
+                if (parent) {
                     // Remover listener anterior
-                    const newOverlay = deleteServiceModalOverlay.cloneNode(true);
-                    deleteServiceModalOverlay.parentNode.replaceChild(newOverlay, deleteServiceModalOverlay);
+                    const newOverlay = currentDeleteServiceModalOverlay.cloneNode(true);
+                    parent.replaceChild(newOverlay, currentDeleteServiceModalOverlay);
                     newOverlay.addEventListener('click', () => {
                         if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
                     });
                 } else {
                     // Se não tem parentNode, adicionar listener diretamente
-                    deleteServiceModalOverlay.addEventListener('click', () => {
+                    currentDeleteServiceModalOverlay.addEventListener('click', () => {
                         if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
                     });
                 }
             } catch (error) {
                 console.warn('Erro ao configurar overlay do modal de exclusão:', error);
-                deleteServiceModalOverlay.addEventListener('click', () => {
-                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
-                });
+                try {
+                    currentDeleteServiceModalOverlay.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                } catch (e) {
+                    console.error('Erro ao adicionar listener ao overlay do modal de exclusão:', e);
+                }
             }
         }
         
@@ -7337,8 +7379,46 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Inicializar portfólio
     function initPortfolio() {
+        // Verificar se os elementos necessários existem antes de inicializar
+        if (!servicesGrid || !emptyPortfolio) {
+            console.warn('Elementos do portfólio não encontrados. Tentando novamente...');
+            setTimeout(() => {
+                if (document.getElementById('services-grid') && document.getElementById('empty-portfolio')) {
+                    initPortfolio();
+                }
+            }, 500);
+            return;
+        }
+        
+        // Verificar se os elementos do modal existem antes de configurar listeners
+        const requiredElements = [
+            'service-modal',
+            'delete-service-modal',
+            'service-form'
+        ];
+        
+        const missingElements = requiredElements.filter(id => !document.getElementById(id));
+        if (missingElements.length > 0) {
+            console.warn('Alguns elementos do modal não foram encontrados:', missingElements);
+            console.warn('Ainda assim, tentando configurar listeners...');
+        }
+        
         loadPortfolioServices();
-        setupPortfolioEventListeners();
+        
+        // Configurar listeners apenas se os elementos principais existirem
+        try {
+            setupPortfolioEventListeners();
+        } catch (error) {
+            console.error('Erro ao configurar event listeners do portfólio:', error);
+            // Tentar novamente após um delay
+            setTimeout(() => {
+                try {
+                    setupPortfolioEventListeners();
+                } catch (e) {
+                    console.error('Erro ao configurar event listeners na segunda tentativa:', e);
+                }
+            }, 1000);
+        }
         
         // Adicionar listener para redimensionamento da tela
         window.addEventListener('resize', handleResize);
@@ -8070,12 +8150,24 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         console.log('Configurando botão de salvar...');
         
+        let saveBtnToUse = saveBtn;
+        
         // Remover listener anterior se existir usando clone
-        const newSaveBtn = saveBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        try {
+            const parent = saveBtn?.parentNode;
+            if (parent) {
+                const newSaveBtn = saveBtn.cloneNode(true);
+                parent.replaceChild(newSaveBtn, saveBtn);
+                saveBtnToUse = newSaveBtn;
+            } else {
+                console.warn('Botão de salvar não tem parentNode, adicionando listener diretamente');
+            }
+        } catch (error) {
+            console.warn('Erro ao clonar botão de salvar:', error);
+        }
         
         // Adicionar novo listener
-        newSaveBtn.addEventListener('click', async function(e) {
+        saveBtnToUse.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
             console.log('Botão salvar clicado!');
@@ -8254,12 +8346,24 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         console.log('Configurando botão de modo edição...');
         
-        // Remover listener anterior usando clone
-        const newToggleBtn = toggleBtn.cloneNode(true);
-        toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+        let toggleBtnToUse = toggleBtn;
         
-        if (newToggleBtn && overlay) {
-            newToggleBtn.addEventListener('click', function(e) {
+        // Remover listener anterior usando clone
+        try {
+            const parent = toggleBtn?.parentNode;
+            if (parent) {
+                const newToggleBtn = toggleBtn.cloneNode(true);
+                parent.replaceChild(newToggleBtn, toggleBtn);
+                toggleBtnToUse = newToggleBtn;
+            } else {
+                console.warn('Botão de modo edição não tem parentNode, adicionando listener diretamente');
+            }
+        } catch (error) {
+            console.warn('Erro ao clonar botão de modo edição:', error);
+        }
+        
+        if (toggleBtnToUse && overlay) {
+            toggleBtnToUse.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Botão modo edição clicado! Modo ativo:', !editModeActive);
