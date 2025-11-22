@@ -6134,10 +6134,10 @@ Qualquer dúvida, estou à disposição! 😊`;
             <div class="flex justify-between items-center">
                 <span class="text-green-600 font-semibold">R$ ${parseFloat(service.price || 0).toFixed(2)}</span>
                 <div class="flex space-x-2">
-                    <button onclick="event.stopPropagation(); editService('${service.id}');" class="text-blue-600 hover:text-blue-800" title="Editar serviço" type="button">
+                    <button onclick="if(typeof window.editService==='function'){event.stopPropagation();event.preventDefault();window.editService('${service.id}');}else{console.error('editService não disponível');alert('Erro: função de edição não disponível');}" class="text-blue-600 hover:text-blue-800" title="Editar serviço" type="button">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="event.stopPropagation(); confirmDeleteServiceAction('${service.id}');" class="text-red-600 hover:text-red-800" title="Excluir serviço" type="button">
+                    <button onclick="if(typeof window.confirmDeleteServiceAction==='function'){event.stopPropagation();event.preventDefault();window.confirmDeleteServiceAction('${service.id}');}else{console.error('confirmDeleteServiceAction não disponível');alert('Erro: função de exclusão não disponível');}" class="text-red-600 hover:text-red-800" title="Excluir serviço" type="button">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -6321,10 +6321,10 @@ Qualquer dúvida, estou à disposição! 😊`;
                     ${imageHtml}
                 </div>
                 <div class="service-actions">
-                    <button class="edit-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Editar serviço" type="button" onclick="event.stopPropagation(); editService('${service.id}');">
+                    <button class="edit-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Editar serviço" type="button" onclick="if(typeof window.editService==='function'){event.stopPropagation();event.preventDefault();window.editService('${service.id}');}else{console.error('editService não disponível');alert('Erro: função de edição não disponível');}">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="delete-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Excluir serviço" type="button" onclick="event.stopPropagation(); confirmDeleteServiceAction('${service.id}');">
+                    <button class="delete-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Excluir serviço" type="button" onclick="if(typeof window.confirmDeleteServiceAction==='function'){event.stopPropagation();event.preventDefault();window.confirmDeleteServiceAction('${service.id}');}else{console.error('confirmDeleteServiceAction não disponível');alert('Erro: função de exclusão não disponível');}">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -6351,21 +6351,31 @@ Qualquer dúvida, estou à disposição! 😊`;
                 e.preventDefault();
                 e.stopPropagation();
                 const serviceId = editBtn.getAttribute('data-id') || editBtn.getAttribute('data-service-id') || service.id;
-                console.log('Botão editar clicado (event listener) para serviço ID:', serviceId);
-                if (typeof editService === 'function') {
+                console.log('Botão editar clicado (event listener) para serviço ID:', serviceId, 'Tipo:', typeof serviceId);
+                if (typeof window.editService === 'function') {
+                    window.editService(serviceId);
+                } else if (typeof editService === 'function') {
                     editService(serviceId);
                 } else {
-                    console.error('Função editService não encontrada');
+                    console.error('Função editService não encontrada. Verificando escopo...');
+                    console.error('window.editService:', typeof window.editService);
+                    console.error('editService local:', typeof editService);
+                    alert('Erro: função de edição não encontrada. Verifique o console.');
                 }
             } else if (deleteBtn) {
                 e.preventDefault();
                 e.stopPropagation();
                 const serviceId = deleteBtn.getAttribute('data-id') || deleteBtn.getAttribute('data-service-id') || service.id;
-                console.log('Botão excluir clicado (event listener) para serviço ID:', serviceId);
-                if (typeof confirmDeleteServiceAction === 'function') {
+                console.log('Botão excluir clicado (event listener) para serviço ID:', serviceId, 'Tipo:', typeof serviceId);
+                if (typeof window.confirmDeleteServiceAction === 'function') {
+                    window.confirmDeleteServiceAction(serviceId);
+                } else if (typeof confirmDeleteServiceAction === 'function') {
                     confirmDeleteServiceAction(serviceId);
                 } else {
-                    console.error('Função confirmDeleteServiceAction não encontrada');
+                    console.error('Função confirmDeleteServiceAction não encontrada. Verificando escopo...');
+                    console.error('window.confirmDeleteServiceAction:', typeof window.confirmDeleteServiceAction);
+                    console.error('confirmDeleteServiceAction local:', typeof confirmDeleteServiceAction);
+                    alert('Erro: função de exclusão não encontrada. Verifique o console.');
                 }
             }
         });
@@ -6439,8 +6449,16 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Abrir modal para editar serviço
     function editService(serviceId) {
-        console.log('Editando serviço ID:', serviceId, 'Tipo:', typeof serviceId);
-        console.log('Serviços disponíveis:', portfolioServices.map(s => ({ id: s.id, type: typeof s.id })));
+        console.log('=== EDITAR SERVIÇO ===');
+        console.log('ID recebido:', serviceId, 'Tipo:', typeof serviceId);
+        console.log('Total de serviços:', portfolioServices.length);
+        console.log('Serviços disponíveis:', portfolioServices.map(s => ({ id: s.id, type: typeof s.id, title: s.title })));
+        
+        if (!serviceId && serviceId !== 0) {
+            console.error('ID do serviço inválido:', serviceId);
+            showErrorToast('Erro', 'ID do serviço inválido.');
+            return;
+        }
         
         // Normalizar o ID para comparação (converter ambos para número ou string)
         const normalizedId = typeof serviceId === 'string' ? parseInt(serviceId, 10) || serviceId : serviceId;
@@ -6448,12 +6466,24 @@ Qualquer dúvida, estou à disposição! 😊`;
         // Tentar encontrar o serviço com diferentes comparações
         let service = portfolioServices.find(s => {
             const sId = typeof s.id === 'string' ? parseInt(s.id, 10) || s.id : s.id;
-            return sId == normalizedId || s.id == serviceId || String(s.id) === String(serviceId);
+            return sId == normalizedId || s.id == serviceId || String(s.id) === String(serviceId) || sId == serviceId;
         });
         
         if (!service) {
             console.error('Serviço não encontrado. ID:', serviceId, 'Tipo:', typeof serviceId);
-            console.error('Serviços disponíveis:', portfolioServices.map(s => ({ id: s.id, type: typeof s.id, title: s.title })));
+            console.error('Tentando busca mais ampla...');
+            // Tentar busca mais ampla
+            service = portfolioServices.find(s => {
+                return String(s.id) === String(serviceId) || 
+                       String(s.id) === String(normalizedId) ||
+                       Number(s.id) === Number(serviceId) ||
+                       Number(s.id) === Number(normalizedId);
+            });
+        }
+        
+        if (!service) {
+            console.error('Serviço não encontrado após busca ampla.');
+            console.error('IDs dos serviços:', portfolioServices.map(s => s.id));
             showErrorToast('Erro', 'Serviço não encontrado. ID: ' + serviceId);
             return;
         }
@@ -6461,6 +6491,7 @@ Qualquer dúvida, estou à disposição! 😊`;
         console.log('Serviço encontrado:', service);
         // Usar o ID original do serviço encontrado
         editingServiceId = service.id;
+        console.log('ID de edição definido:', editingServiceId);
         
         const modalTitle = document.getElementById('service-modal-title');
         const modalSubtitle = document.getElementById('service-modal-subtitle');
@@ -7020,18 +7051,36 @@ Qualquer dúvida, estou à disposição! 😊`;
         console.log('Configurando event listeners do portfólio...');
         
         // Botões para abrir modal de adicionar serviço
-        if (addServiceBtn) {
-            // Remover listener anterior se existir
-            const newAddBtn = addServiceBtn.cloneNode(true);
-            addServiceBtn.parentNode.replaceChild(newAddBtn, addServiceBtn);
-            newAddBtn.addEventListener('click', openAddServiceModal);
+        if (addServiceBtn && addServiceBtn.parentNode) {
+            try {
+                // Remover listener anterior se existir
+                const newAddBtn = addServiceBtn.cloneNode(true);
+                addServiceBtn.parentNode.replaceChild(newAddBtn, addServiceBtn);
+                newAddBtn.addEventListener('click', openAddServiceModal);
+            } catch (error) {
+                console.warn('Erro ao configurar botão adicionar serviço:', error);
+                // Fallback: adicionar listener diretamente
+                addServiceBtn.addEventListener('click', openAddServiceModal);
+            }
+        } else if (addServiceBtn) {
+            // Se não tem parentNode, adicionar listener diretamente
+            addServiceBtn.addEventListener('click', openAddServiceModal);
         }
         
-        if (addFirstServiceBtn) {
-            // Remover listener anterior se existir
-            const newAddFirstBtn = addFirstServiceBtn.cloneNode(true);
-            addFirstServiceBtn.parentNode.replaceChild(newAddFirstBtn, addFirstServiceBtn);
-            newAddFirstBtn.addEventListener('click', openAddServiceModal);
+        if (addFirstServiceBtn && addFirstServiceBtn.parentNode) {
+            try {
+                // Remover listener anterior se existir
+                const newAddFirstBtn = addFirstServiceBtn.cloneNode(true);
+                addFirstServiceBtn.parentNode.replaceChild(newAddFirstBtn, addFirstServiceBtn);
+                newAddFirstBtn.addEventListener('click', openAddServiceModal);
+            } catch (error) {
+                console.warn('Erro ao configurar botão adicionar primeiro serviço:', error);
+                // Fallback: adicionar listener diretamente
+                addFirstServiceBtn.addEventListener('click', openAddServiceModal);
+            }
+        } else if (addFirstServiceBtn) {
+            // Se não tem parentNode, adicionar listener diretamente
+            addFirstServiceBtn.addEventListener('click', openAddServiceModal);
         }
         
         // Fechar modal de serviço
@@ -7157,51 +7206,119 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         // Salvar serviço - remover listener anterior se existir
         if (serviceForm) {
-            // Remover listener anterior
-            const newForm = serviceForm.cloneNode(true);
-            serviceForm.parentNode.replaceChild(newForm, serviceForm);
-            
-            newForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Formulário de serviço submetido');
-                const formData = new FormData(newForm);
-                await saveServiceData(formData);
-            });
-            
-            // Atualizar referência
-            const serviceFormRef = newForm;
+            try {
+                if (serviceForm.parentNode) {
+                    // Remover listener anterior
+                    const newForm = serviceForm.cloneNode(true);
+                    serviceForm.parentNode.replaceChild(newForm, serviceForm);
+                    
+                    newForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Formulário de serviço submetido');
+                        const formData = new FormData(newForm);
+                        await saveServiceData(formData);
+                    });
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    serviceForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Formulário de serviço submetido');
+                        const formData = new FormData(serviceForm);
+                        await saveServiceData(formData);
+                    });
+                }
+            } catch (error) {
+                console.warn('Erro ao configurar formulário de serviço:', error);
+                // Fallback: adicionar listener diretamente
+                serviceForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Formulário de serviço submetido');
+                    const formData = new FormData(serviceForm);
+                    await saveServiceData(formData);
+                });
+            }
         }
         
         // Modal de confirmação de exclusão
         if (cancelDeleteService) {
-            // Remover listener anterior
-            const newCancelBtn = cancelDeleteService.cloneNode(true);
-            cancelDeleteService.parentNode.replaceChild(newCancelBtn, cancelDeleteService);
-            newCancelBtn.addEventListener('click', () => {
-                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
-            });
+            try {
+                if (cancelDeleteService.parentNode) {
+                    // Remover listener anterior
+                    const newCancelBtn = cancelDeleteService.cloneNode(true);
+                    cancelDeleteService.parentNode.replaceChild(newCancelBtn, cancelDeleteService);
+                    newCancelBtn.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    cancelDeleteService.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                }
+            } catch (error) {
+                console.warn('Erro ao configurar botão cancelar exclusão:', error);
+                cancelDeleteService.addEventListener('click', () => {
+                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                });
+            }
         }
         
         if (confirmDeleteService) {
-            // Remover listener anterior
-            const newConfirmBtn = confirmDeleteService.cloneNode(true);
-            confirmDeleteService.parentNode.replaceChild(newConfirmBtn, confirmDeleteService);
-            newConfirmBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Botão confirmar exclusão clicado');
-                await deleteService();
-            });
+            try {
+                if (confirmDeleteService.parentNode) {
+                    // Remover listener anterior
+                    const newConfirmBtn = confirmDeleteService.cloneNode(true);
+                    confirmDeleteService.parentNode.replaceChild(newConfirmBtn, confirmDeleteService);
+                    newConfirmBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Botão confirmar exclusão clicado');
+                        await deleteService();
+                    });
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    confirmDeleteService.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Botão confirmar exclusão clicado');
+                        await deleteService();
+                    });
+                }
+            } catch (error) {
+                console.warn('Erro ao configurar botão confirmar exclusão:', error);
+                confirmDeleteService.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Botão confirmar exclusão clicado');
+                    await deleteService();
+                });
+            }
         }
         
         if (deleteServiceModalOverlay) {
-            // Remover listener anterior
-            const newOverlay = deleteServiceModalOverlay.cloneNode(true);
-            deleteServiceModalOverlay.parentNode.replaceChild(newOverlay, deleteServiceModalOverlay);
-            newOverlay.addEventListener('click', () => {
-                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
-            });
+            try {
+                if (deleteServiceModalOverlay.parentNode) {
+                    // Remover listener anterior
+                    const newOverlay = deleteServiceModalOverlay.cloneNode(true);
+                    deleteServiceModalOverlay.parentNode.replaceChild(newOverlay, deleteServiceModalOverlay);
+                    newOverlay.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                } else {
+                    // Se não tem parentNode, adicionar listener diretamente
+                    deleteServiceModalOverlay.addEventListener('click', () => {
+                        if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    });
+                }
+            } catch (error) {
+                console.warn('Erro ao configurar overlay do modal de exclusão:', error);
+                deleteServiceModalOverlay.addEventListener('click', () => {
+                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                });
+            }
         }
         
         console.log('Event listeners do portfólio configurados com sucesso');
@@ -7259,11 +7376,31 @@ Qualquer dúvida, estou à disposição! 😊`;
     // Chamar inicialização do portfólio
     initPortfolio();
     
-    // Disponibilizar funções globalmente para debug
-    window.editService = editService;
-    window.confirmDeleteServiceAction = confirmDeleteServiceAction;
+    // Disponibilizar funções globalmente para debug - GARANTIR QUE ESTEJAM SEMPRE DISPONÍVEIS
+    window.editService = function(serviceId) {
+        console.log('window.editService chamado com ID:', serviceId);
+        return editService(serviceId);
+    };
+    
+    window.confirmDeleteServiceAction = function(serviceId) {
+        console.log('window.confirmDeleteServiceAction chamado com ID:', serviceId);
+        return confirmDeleteServiceAction(serviceId);
+    };
+    
+    window.deleteService = function() {
+        console.log('window.deleteService chamado');
+        return deleteService();
+    };
+    
     window.portfolioServices = () => portfolioServices;
     window.resetPortfolio = resetPortfolio;
+    
+    // Log para confirmar que as funções estão disponíveis
+    console.log('Funções do portfólio disponibilizadas globalmente:', {
+        editService: typeof window.editService,
+        confirmDeleteServiceAction: typeof window.confirmDeleteServiceAction,
+        deleteService: typeof window.deleteService
+    });
 
     // Função para imprimir orçamento
     window.printBudget = function(budget) {
