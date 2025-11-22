@@ -8054,24 +8054,14 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         console.log('Configurando botão de salvar...');
         
-        let saveBtnToUse = saveBtn;
-        
-        // Remover listener anterior se existir usando clone
-        try {
-            const parent = saveBtn?.parentNode;
-            if (parent) {
-                const newSaveBtn = saveBtn.cloneNode(true);
-                parent.replaceChild(newSaveBtn, saveBtn);
-                saveBtnToUse = newSaveBtn;
-            } else {
-                console.warn('Botão de salvar não tem parentNode, adicionando listener diretamente');
-            }
-        } catch (error) {
-            console.warn('Erro ao clonar botão de salvar:', error);
+        // Adicionar listener diretamente sem usar replaceChild
+        if (!saveBtn) {
+            console.warn('Botão de salvar não encontrado');
+            return;
         }
         
-        // Adicionar novo listener
-        saveBtnToUse.addEventListener('click', async function(e) {
+        // Adicionar novo listener diretamente
+        saveBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
             console.log('Botão salvar clicado!');
@@ -8081,7 +8071,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 return;
             }
             
-            const originalText = newSaveBtn.innerHTML;
+            const originalText = saveBtn.innerHTML;
             
             try {
                 const formData = new FormData(form);
@@ -8115,8 +8105,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                 }
                 
                 // Mostrar loading
-                newSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
-                newSaveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                saveBtn.disabled = true;
                 
                 // Enviar para o servidor
                 const response = await fetch('../services/decorador.php', {
@@ -8143,8 +8133,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                 console.error('Erro ao salvar personalização:', error);
                 showNotification('Erro ao salvar personalização: ' + error.message, 'error');
             } finally {
-                newSaveBtn.innerHTML = originalText;
-                newSaveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
             }
         });
     }
@@ -8250,24 +8240,14 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         console.log('Configurando botão de modo edição...');
         
-        let toggleBtnToUse = toggleBtn;
-        
-        // Remover listener anterior usando clone
-        try {
-            const parent = toggleBtn?.parentNode;
-            if (parent) {
-                const newToggleBtn = toggleBtn.cloneNode(true);
-                parent.replaceChild(newToggleBtn, toggleBtn);
-                toggleBtnToUse = newToggleBtn;
-            } else {
-                console.warn('Botão de modo edição não tem parentNode, adicionando listener diretamente');
-            }
-        } catch (error) {
-            console.warn('Erro ao clonar botão de modo edição:', error);
+        // Adicionar listener diretamente sem usar replaceChild
+        if (!toggleBtn) {
+            console.warn('Botão de modo edição não encontrado');
+            return;
         }
         
-        if (toggleBtnToUse && overlay) {
-            toggleBtnToUse.addEventListener('click', function(e) {
+        if (toggleBtn && overlay) {
+            toggleBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Botão modo edição clicado! Modo ativo:', !editModeActive);
@@ -8276,9 +8256,9 @@ Qualquer dúvida, estou à disposição! 😊`;
                 
                 if (editModeActive) {
                     overlay.classList.remove('hidden');
-                    newToggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
-                    newToggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    newToggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    toggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
+                    toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
                     
                     // Aguardar iframe carregar antes de habilitar modo edição
                     const previewIframe = document.getElementById('decorator-page-preview');
@@ -8293,9 +8273,9 @@ Qualquer dúvida, estou à disposição! 😊`;
                     }
                 } else {
                     overlay.classList.add('hidden');
-                    newToggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
-                    newToggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                    newToggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    toggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
+                    toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
                     disableEditMode();
                 }
             });
