@@ -117,7 +117,7 @@ class DecoratorService {
             $stmt = $this->pdo->prepare("
                 SELECT 
                     id, service_type, title, description, price,
-                    arc_size, image_path as image_url, display_order,
+                    arc_size, image_path, display_order,
                     is_featured, is_active
                 FROM decorator_portfolio_items
                 WHERE decorator_id = ? AND is_active = 1
@@ -126,6 +126,19 @@ class DecoratorService {
             
             $stmt->execute([$decorator['id']]);
             $portfolio = $stmt->fetchAll();
+            
+            // Processar caminhos das imagens
+            global $urls;
+            $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+            foreach ($portfolio as &$item) {
+                if (!empty($item['image_path'])) {
+                    // Construir URL completa da imagem
+                    $item['image_url'] = $baseUrl . ltrim($item['image_path'], '/');
+                } else {
+                    $item['image_url'] = null;
+                }
+            }
+            unset($item); // Limpar referência
             
             // Processar redes sociais do decorador se não houver na customização
             if (empty($customization['social_media']) && !empty($decorator['redes_sociais'])) {

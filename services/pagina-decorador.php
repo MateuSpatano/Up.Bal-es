@@ -354,29 +354,49 @@ try {
                 <!-- Grid de Portfólio -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     <?php foreach ($portfolio as $item): ?>
-                    <div class="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition">
-                        <?php if (!empty($item['image_url'])): ?>
-                            <img src="<?php echo htmlspecialchars($item['image_url']); ?>" 
-                                 alt="<?php echo htmlspecialchars($item['title']); ?>"
-                                 class="w-full h-64 object-cover">
-                        <?php else: ?>
-                            <div class="w-full h-64 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                                <i class="fas fa-image text-4xl text-gray-400"></i>
-                            </div>
-                        <?php endif; ?>
+                    <div class="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition portfolio-card" 
+                         data-item-id="<?php echo htmlspecialchars($item['id']); ?>"
+                         data-item-type="<?php echo htmlspecialchars($item['service_type']); ?>"
+                         data-item-title="<?php echo htmlspecialchars($item['title']); ?>"
+                         data-item-description="<?php echo htmlspecialchars($item['description'] ?? ''); ?>"
+                         data-item-price="<?php echo htmlspecialchars($item['price'] ?? '0'); ?>"
+                         data-item-arc-size="<?php echo htmlspecialchars($item['arc_size'] ?? ''); ?>"
+                         data-item-image="<?php echo htmlspecialchars($item['image_url'] ?? ''); ?>"
+                         data-decorator-id="<?php echo htmlspecialchars($decorator['id']); ?>">
+                        <div class="relative">
+                            <?php if (!empty($item['image_url'])): ?>
+                                <img src="<?php echo htmlspecialchars($item['image_url']); ?>" 
+                                     alt="<?php echo htmlspecialchars($item['title']); ?>"
+                                     class="w-full h-64 object-cover portfolio-image"
+                                     onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-full h-64 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center portfolio-image-placeholder" style="display:none;">
+                                    <i class="fas fa-image text-4xl text-gray-400"></i>
+                                </div>
+                            <?php else: ?>
+                                <div class="w-full h-64 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                                    <i class="fas fa-image text-4xl text-gray-400"></i>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                         
                         <div class="p-6">
                             <h3 class="text-xl font-bold mb-2"><?php echo htmlspecialchars($item['title']); ?></h3>
                             
                             <?php if (!empty($item['description'])): ?>
-                                <p class="text-gray-600 mb-3"><?php echo htmlspecialchars($item['description']); ?></p>
+                                <p class="text-gray-600 mb-3 text-sm line-clamp-2"><?php echo htmlspecialchars($item['description']); ?></p>
                             <?php endif; ?>
                             
                             <?php if (!empty($item['price'])): ?>
-                                <p class="text-lg font-bold" style="color: var(--primary-color);">
+                                <p class="text-lg font-bold mb-4" style="color: var(--primary-color);">
                                     R$ <?php echo number_format($item['price'], 2, ',', '.'); ?>
                                 </p>
                             <?php endif; ?>
+                            
+                            <button onclick="addPortfolioItemToCart(this)" 
+                                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2 add-to-cart-btn">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span>Selecionar</span>
+                            </button>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -506,6 +526,131 @@ try {
     
     <script src="<?php echo $baseUrl; ?>js/principal.js"></script>
     <script>
+        // Função para adicionar item do portfólio ao carrinho
+        function addPortfolioItemToCart(button) {
+            const card = button.closest('.portfolio-card');
+            if (!card) {
+                console.error('Card do portfólio não encontrado');
+                return;
+            }
+            
+            // Obter dados do card
+            const itemData = {
+                id: 'portfolio_' + card.getAttribute('data-item-id'), // Prefixo para evitar conflitos
+                name: card.getAttribute('data-item-title'),
+                description: card.getAttribute('data-item-description'),
+                price: parseFloat(card.getAttribute('data-item-price')) || 0,
+                service_type: card.getAttribute('data-item-type'),
+                arc_size: card.getAttribute('data-item-arc-size'),
+                image: card.getAttribute('data-item-image'),
+                decorator_id: parseInt(card.getAttribute('data-decorator-id')),
+                decorador_id: parseInt(card.getAttribute('data-decorator-id')), // Para compatibilidade
+                quantity: 1,
+                tamanho_arco_m: card.getAttribute('data-item-arc-size') || null
+            };
+            
+            // Aguardar o carregamento do principal.js se necessário
+            function addToCart() {
+                // Tentar usar addToCartGlobal primeiro (função mais completa)
+                if (typeof window.addToCartGlobal === 'function') {
+                    window.addToCartGlobal(
+                        itemData.id,
+                        itemData.name,
+                        itemData.quantity,
+                        itemData
+                    );
+                } else if (typeof window.addItemToCartStorage === 'function') {
+                    // Usar função do principal.js
+                    window.addItemToCartStorage(itemData);
+                    
+                    // Disparar evento de atualização do carrinho
+                    if (typeof window.getStoredCartItems === 'function' && typeof window.getCartItemsTotal === 'function') {
+                        const items = window.getStoredCartItems();
+                        window.dispatchEvent(new CustomEvent('cart-items-updated', {
+                            detail: {
+                                items: items,
+                                total: window.getCartItemsTotal(items)
+                            }
+                        }));
+                    } else {
+                        window.dispatchEvent(new CustomEvent('cart-items-updated'));
+                    }
+                    
+                    // Mostrar notificação
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification(`${itemData.name} adicionado ao carrinho!`, 'success');
+                    } else {
+                        alert(`${itemData.name} adicionado ao carrinho!`);
+                    }
+                } else {
+                    // Fallback: usar localStorage diretamente
+                    const CART_STORAGE_KEY = 'upbaloes_cart_items';
+                    try {
+                        const storedItems = localStorage.getItem(CART_STORAGE_KEY);
+                        const items = storedItems ? JSON.parse(storedItems) : [];
+                        
+                        // Verificar se o item já existe no carrinho
+                        const existingIndex = items.findIndex(item => item.id === itemData.id);
+                        if (existingIndex >= 0) {
+                            // Incrementar quantidade
+                            items[existingIndex].quantity = (parseInt(items[existingIndex].quantity) || 1) + 1;
+                        } else {
+                            // Adicionar novo item
+                            items.push(itemData);
+                        }
+                        
+                        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+                        
+                        // Disparar evento de atualização
+                        window.dispatchEvent(new CustomEvent('cart-items-updated'));
+                        
+                        // Mostrar notificação
+                        if (typeof window.showNotification === 'function') {
+                            window.showNotification(`${itemData.name} adicionado ao carrinho!`, 'success');
+                        } else {
+                            alert(`${itemData.name} adicionado ao carrinho!`);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao adicionar item ao carrinho:', error);
+                        alert('Erro ao adicionar item ao carrinho. Tente novamente.');
+                        return;
+                    }
+                }
+                
+                // Feedback visual no botão
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i><span>Adicionado!</span>';
+                button.classList.add('bg-green-600', 'hover:bg-green-700');
+                button.classList.remove('from-blue-600', 'to-indigo-600', 'hover:from-blue-700', 'hover:to-indigo-700');
+                button.disabled = true;
+                
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    button.classList.add('from-blue-600', 'to-indigo-600', 'hover:from-blue-700', 'hover:to-indigo-700');
+                    button.disabled = false;
+                }, 2000);
+            }
+            
+            // Aguardar um pouco para garantir que o principal.js carregou
+            if (typeof window.addToCartGlobal === 'function' || typeof window.addItemToCartStorage === 'function') {
+                addToCart();
+            } else {
+                // Aguardar até 2 segundos para o script carregar
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (typeof window.addToCartGlobal === 'function' || typeof window.addItemToCartStorage === 'function' || attempts >= 20) {
+                        clearInterval(checkInterval);
+                        addToCart();
+                    }
+                }, 100);
+            }
+        }
+        
+        // Tornar função globalmente acessível
+        window.addPortfolioItemToCart = addPortfolioItemToCart;
+        
         // Menu mobile toggle
         document.addEventListener('DOMContentLoaded', function() {
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
