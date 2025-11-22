@@ -7060,35 +7060,51 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         try {
             // Re-buscar elementos caso tenham sido removidos/recriados
-        const currentAddServiceBtn = document.getElementById('add-service-btn') || addServiceBtn;
-        const currentAddFirstServiceBtn = document.getElementById('add-first-service-btn') || addFirstServiceBtn;
-        const currentServiceForm = document.getElementById('service-form') || serviceForm;
-        const currentCancelDeleteService = document.getElementById('cancel-delete-service') || cancelDeleteService;
-        const currentConfirmDeleteService = document.getElementById('confirm-delete-service') || confirmDeleteService;
-        const currentDeleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay') || deleteServiceModalOverlay;
-        
-        // Botões para abrir modal de adicionar serviço
-        // Abordagem simplificada: adicionar listeners diretamente sem usar replaceChild
-        if (currentAddServiceBtn) {
-            try {
-                // Adicionar listener diretamente (múltiplos listeners não causam problema neste caso)
-                currentAddServiceBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openAddServiceModal();
-                });
-            } catch (error) {
-                console.error('Erro ao adicionar listener ao botão adicionar serviço:', error);
+            // IMPORTANTE: Sempre buscar elementos diretamente, nunca usar variáveis globais que podem ser null
+            const currentAddServiceBtn = document.getElementById('add-service-btn');
+            const currentAddFirstServiceBtn = document.getElementById('add-first-service-btn');
+            const currentServiceForm = document.getElementById('service-form');
+            const currentCancelDeleteService = document.getElementById('cancel-delete-service');
+            const currentConfirmDeleteService = document.getElementById('confirm-delete-service');
+            const currentDeleteServiceModalOverlay = document.getElementById('delete-service-modal-overlay');
+            
+            // Botões para abrir modal de adicionar serviço
+            // Abordagem simplificada: adicionar listeners diretamente sem usar replaceChild
+            // NUNCA usar replaceChild aqui - sempre adicionar listeners diretamente
+            if (currentAddServiceBtn) {
+                try {
+                    // Verificar se o elemento tem parentNode antes de qualquer operação
+                    if (!currentAddServiceBtn.parentNode) {
+                        console.warn('addServiceBtn não tem parentNode, pulando configuração');
+                    } else {
+                        // Adicionar listener diretamente (múltiplos listeners não causam problema neste caso)
+                        currentAddServiceBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (typeof openAddServiceModal === 'function') {
+                                openAddServiceModal();
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('Erro ao adicionar listener ao botão adicionar serviço:', error);
+                }
             }
-        }
         
         if (currentAddFirstServiceBtn) {
             try {
-                currentAddFirstServiceBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openAddServiceModal();
-                });
+                // Verificar se o elemento tem parentNode antes de qualquer operação
+                if (!currentAddFirstServiceBtn.parentNode) {
+                    console.warn('addFirstServiceBtn não tem parentNode, pulando configuração');
+                } else {
+                    currentAddFirstServiceBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof openAddServiceModal === 'function') {
+                            openAddServiceModal();
+                        }
+                    });
+                }
             } catch (error) {
                 console.error('Erro ao adicionar listener ao botão adicionar primeiro serviço:', error);
             }
