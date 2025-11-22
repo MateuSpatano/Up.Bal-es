@@ -7058,7 +7058,8 @@ Qualquer dúvida, estou à disposição! 😊`;
     function setupPortfolioEventListeners() {
         console.log('Configurando event listeners do portfólio...');
         
-        // Re-buscar elementos caso tenham sido removidos/recriados
+        try {
+            // Re-buscar elementos caso tenham sido removidos/recriados
         const currentAddServiceBtn = document.getElementById('add-service-btn') || addServiceBtn;
         const currentAddFirstServiceBtn = document.getElementById('add-first-service-btn') || addFirstServiceBtn;
         const currentServiceForm = document.getElementById('service-form') || serviceForm;
@@ -7093,17 +7094,22 @@ Qualquer dúvida, estou à disposição! 😊`;
             }
         }
         
-        // Fechar modal de serviço
-        if (closeServiceModal) {
-            closeServiceModal.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        // Fechar modal de serviço - buscar elementos diretamente
+        const currentCloseServiceModal = document.getElementById('close-service-modal');
+        const currentCancelService = document.getElementById('cancel-service');
+        const currentServiceModalOverlay = document.getElementById('service-modal-overlay');
+        const currentServiceModal = document.getElementById('service-modal');
+        
+        if (currentCloseServiceModal && currentServiceModal) {
+            currentCloseServiceModal.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
         }
         
-        if (cancelService) {
-            cancelService.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        if (currentCancelService && currentServiceModal) {
+            currentCancelService.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
         }
         
-        if (serviceModalOverlay) {
-            serviceModalOverlay.addEventListener('click', () => serviceModal.classList.add('hidden'));
+        if (currentServiceModalOverlay && currentServiceModal) {
+            currentServiceModalOverlay.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
         }
         
         // Preview de imagem e editor
@@ -7116,20 +7122,35 @@ Qualquer dúvida, estou à disposição! 😊`;
                     reader.onload = (e) => {
                         const preview = document.getElementById('image-preview');
                         const previewImg = document.getElementById('preview-img');
-                        previewImg.src = e.target.result;
-                        preview.classList.remove('hidden');
-                        document.getElementById('open-image-editor').classList.remove('hidden');
+                        const openImageEditorBtn = document.getElementById('open-image-editor');
+                        if (previewImg) {
+                            previewImg.src = e.target.result;
+                        }
+                        if (preview) {
+                            preview.classList.remove('hidden');
+                        }
+                        if (openImageEditorBtn) {
+                            openImageEditorBtn.classList.remove('hidden');
+                        }
                     };
                     reader.readAsDataURL(file);
                 }
             });
         }
         
-        // Editor de imagem
-        if (openImageEditorBtn) {
-            openImageEditorBtn.addEventListener('click', () => {
+        // Editor de imagem - buscar elementos diretamente
+        const currentOpenImageEditorBtn = document.getElementById('open-image-editor');
+        const currentEditImageBtn = document.getElementById('edit-image-btn');
+        const currentCloseImageEditorModal = document.getElementById('close-image-editor-modal');
+        const currentImageEditorModalOverlay = document.getElementById('image-editor-modal-overlay');
+        const currentCancelImageEdit = document.getElementById('cancel-image-edit');
+        const currentApplyImageEdit = document.getElementById('apply-image-edit');
+        const currentImageEditorModal = document.getElementById('image-editor-modal');
+        
+        if (currentOpenImageEditorBtn) {
+            currentOpenImageEditorBtn.addEventListener('click', () => {
                 const fileInput = document.getElementById('service-image');
-                if (fileInput.files.length > 0) {
+                if (fileInput && fileInput.files.length > 0) {
                     openImageEditor(fileInput.files[0]);
                 } else {
                     showWarningToast('Nenhuma Imagem', 'Selecione uma imagem primeiro para editá-la.');
@@ -7137,30 +7158,30 @@ Qualquer dúvida, estou à disposição! 😊`;
             });
         }
         
-        if (editImageBtn) {
-            editImageBtn.addEventListener('click', () => {
+        if (currentEditImageBtn) {
+            currentEditImageBtn.addEventListener('click', () => {
                 const fileInput = document.getElementById('service-image');
-                if (fileInput.files.length > 0) {
+                if (fileInput && fileInput.files.length > 0) {
                     openImageEditor(fileInput.files[0]);
                 }
             });
         }
         
         // Event listeners do editor de imagem
-        if (closeImageEditorModal) {
-            closeImageEditorModal.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        if (currentCloseImageEditorModal && currentImageEditorModal) {
+            currentCloseImageEditorModal.addEventListener('click', () => currentImageEditorModal.classList.add('hidden'));
         }
         
-        if (imageEditorModalOverlay) {
-            imageEditorModalOverlay.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        if (currentImageEditorModalOverlay && currentImageEditorModal) {
+            currentImageEditorModalOverlay.addEventListener('click', () => currentImageEditorModal.classList.add('hidden'));
         }
         
-        if (cancelImageEdit) {
-            cancelImageEdit.addEventListener('click', () => imageEditorModal.classList.add('hidden'));
+        if (currentCancelImageEdit && currentImageEditorModal) {
+            currentCancelImageEdit.addEventListener('click', () => currentImageEditorModal.classList.add('hidden'));
         }
         
-        if (applyImageEdit) {
-            applyImageEdit.addEventListener('click', applyImageEdits);
+        if (currentApplyImageEdit) {
+            currentApplyImageEdit.addEventListener('click', applyImageEdits);
         }
         
         // Controles de zoom
@@ -7230,12 +7251,13 @@ Qualquer dúvida, estou à disposição! 😊`;
         }
         
         // Modal de confirmação de exclusão - adicionar listeners diretamente
+        const currentDeleteServiceModal = document.getElementById('delete-service-modal');
         if (currentCancelDeleteService) {
             try {
                 currentCancelDeleteService.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    if (currentDeleteServiceModal) currentDeleteServiceModal.classList.add('hidden');
                 });
             } catch (error) {
                 console.error('Erro ao adicionar listener ao botão cancelar exclusão:', error);
@@ -7260,7 +7282,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 currentDeleteServiceModalOverlay.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                    if (currentDeleteServiceModal) currentDeleteServiceModal.classList.add('hidden');
                 });
             } catch (error) {
                 console.error('Erro ao adicionar listener ao overlay do modal de exclusão:', error);
@@ -7268,6 +7290,11 @@ Qualquer dúvida, estou à disposição! 😊`;
         }
         
         console.log('Event listeners do portfólio configurados com sucesso');
+        } catch (error) {
+            console.error('Erro ao configurar event listeners do portfólio:', error);
+            console.error('Stack trace:', error.stack);
+            // Não relançar o erro para evitar quebrar o fluxo da aplicação
+        }
     }
     
     // Função para recarregar imagens quando a tela for redimensionada
