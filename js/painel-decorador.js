@@ -6903,6 +6903,15 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Atualizar portfólio na página inicial
     function updateHomepagePortfolio() {
+        // Obter ID do decorador logado
+        let decoratorId = null;
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            decoratorId = userData.id || userData.user_id || null;
+        } catch (e) {
+            console.warn('Erro ao obter ID do decorador:', e);
+        }
+        
         const sanitizedServices = portfolioServices.map(service => ({
             id: service.id,
             type: service.type,
@@ -6910,7 +6919,9 @@ Qualquer dúvida, estou à disposição! 😊`;
             description: service.description,
             price: service.price,
             arcSize: service.arcSize,
-            image: service.image
+            image: service.image,
+            decorator_id: decoratorId,
+            decorador_id: decoratorId // Para compatibilidade
         }));
         
         localStorage.setItem('homepage_portfolio', JSON.stringify(sanitizedServices));

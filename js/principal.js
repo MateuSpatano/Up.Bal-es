@@ -1354,6 +1354,102 @@ function addToCartGlobal(productId, productName, quantity = 1, additionalData = 
     return updatedItems;
 }
 
+// Função para adicionar item do portfólio ao carrinho (usada nos cards da página inicial)
+function addPortfolioItemToCart(button) {
+    const card = button.closest('.portfolio-card');
+    if (!card) {
+        console.error('Card do portfólio não encontrado');
+        return;
+    }
+    
+    // Obter dados do card
+    const itemData = {
+        id: 'portfolio_' + (card.getAttribute('data-item-id') || Date.now()),
+        name: card.getAttribute('data-item-title') || 'Item do Portfólio',
+        description: card.getAttribute('data-item-description') || '',
+        price: parseFloat(card.getAttribute('data-item-price')) || 0,
+        service_type: card.getAttribute('data-item-type') || '',
+        arc_size: card.getAttribute('data-item-arc-size') || '',
+        image: card.getAttribute('data-item-image') || '',
+        decorator_id: parseInt(card.getAttribute('data-decorator-id')) || null,
+        decorador_id: parseInt(card.getAttribute('data-decorator-id')) || null,
+        quantity: 1,
+        tamanho_arco_m: card.getAttribute('data-item-arc-size') || null
+    };
+    
+    // Usar a função global para adicionar ao carrinho
+    if (typeof addToCartGlobal === 'function') {
+        addToCartGlobal(
+            itemData.id,
+            itemData.name,
+            itemData.quantity,
+            itemData
+        );
+    } else if (typeof addItemToCartStorage === 'function') {
+        addItemToCartStorage(itemData);
+        
+        // Disparar evento de atualização
+        const items = getStoredCartItems();
+        window.dispatchEvent(new CustomEvent('cart-items-updated', {
+            detail: {
+                items: items,
+                total: getCartItemsTotal(items)
+            }
+        }));
+        
+        // Mostrar notificação
+        if (typeof showNotification === 'function') {
+            showNotification(`${itemData.name} adicionado ao carrinho!`, 'success');
+        } else {
+            alert(`${itemData.name} adicionado ao carrinho!`);
+        }
+    } else {
+        // Fallback: usar localStorage diretamente
+        const CART_STORAGE_KEY = 'upbaloes_cart_items';
+        try {
+            const storedItems = localStorage.getItem(CART_STORAGE_KEY);
+            const items = storedItems ? JSON.parse(storedItems) : [];
+            
+            const existingIndex = items.findIndex(item => item.id === itemData.id);
+            if (existingIndex >= 0) {
+                items[existingIndex].quantity = (parseInt(items[existingIndex].quantity) || 1) + 1;
+            } else {
+                items.push(itemData);
+            }
+            
+            localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+            window.dispatchEvent(new CustomEvent('cart-items-updated'));
+            
+            if (typeof showNotification === 'function') {
+                showNotification(`${itemData.name} adicionado ao carrinho!`, 'success');
+            } else {
+                alert(`${itemData.name} adicionado ao carrinho!`);
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar item ao carrinho:', error);
+            alert('Erro ao adicionar item ao carrinho. Tente novamente.');
+            return;
+        }
+    }
+    
+    // Feedback visual no botão
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i><span>Adicionado!</span>';
+    button.classList.add('bg-green-600', 'hover:bg-green-700');
+    button.classList.remove('from-blue-600', 'to-indigo-600', 'hover:from-blue-700', 'hover:to-indigo-700');
+    button.disabled = true;
+    
+    setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.classList.remove('bg-green-600', 'hover:bg-green-700');
+        button.classList.add('from-blue-600', 'to-indigo-600', 'hover:from-blue-700', 'hover:to-indigo-700');
+        button.disabled = false;
+    }, 2000);
+}
+
+// Tornar função globalmente acessível
+window.addPortfolioItemToCart = addPortfolioItemToCart;
+
 // Função para fazer login (pode ser chamada de outros scripts)
 function loginUser(email, password) {
     console.log(`Tentativa de login com email: ${email}`);
@@ -1433,19 +1529,57 @@ function loadHomepagePortfolio() {
 // Criar card de serviço para a página inicial (otimizado)
 function createHomepageServiceCard(service) {
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200 group';
+    card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-200 group portfolio-card';
     
-    // Processar imagem de forma otimizada
+    // Adicionar atributos de dados para o botão de adicionar ao carrinho
+    card.setAttribute('data-item-id', service.id || '');
+    card.setAttribute('data-item-type', service.type || '');
+    card.setAttribute('data-item-title', service.title || 'Título do Serviço');
+    card.setAttribute('data-item-description', service.description || '');
+    card.setAttribute('data-item-price', service.price || '0');
+    card.setAttribute('data-item-arc-size', service.arcSize || '');
+    card.setAttribute('data-item-image', service.image || '');
+    card.setAttribute('data-decorator-id', service.decorator_id || service.decorador_id || '');
+    
+    // Processar imagem de forma otimizada - corrigir caminho relativo
+    let imageUrl = service.image || '';
+    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('//') && !imageUrl.startsWith('data:')) {
+        // Detectar se estamos na raiz ou em subpasta
+        const currentPath = window.location.pathname;
+        const isRoot = !currentPath.includes('/pages/') && !currentPath.includes('/services/') && 
+                       (currentPath === '/' || currentPath.endsWith('/index.html') || currentPath.endsWith('/'));
+        
+        // Se o caminho começa com ../uploads/, remover ../ se estivermos na raiz
+        if (imageUrl.startsWith('../uploads/')) {
+            if (isRoot) {
+                // Remover ../ se estivermos na raiz
+                imageUrl = imageUrl.replace(/^\.\.\//, '');
+            }
+            // Se não estiver na raiz, manter ../uploads/
+        } else if (imageUrl.startsWith('uploads/')) {
+            // Se começa com uploads/ diretamente, está correto para a raiz
+            // Se estivermos em subpasta, adicionar ../
+            if (!isRoot) {
+                imageUrl = '../' + imageUrl;
+            }
+        } else if (!imageUrl.startsWith('../') && !imageUrl.startsWith('/')) {
+            // Se não começa com ../ ou /, adicionar ../ se necessário
+            if (!isRoot) {
+                imageUrl = '../' + imageUrl;
+            }
+        }
+    }
+    
     let imageHtml = '';
-    if (service.image) {
+    if (imageUrl) {
         // Usar imagem otimizada com lazy loading
         imageHtml = `
-            <img src="${service.image}" 
-                 alt="${service.title || 'Serviço'}" 
-                 class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300" 
+            <img src="${escapeHtml(imageUrl)}" 
+                 alt="${escapeHtml(service.title || 'Serviço')}" 
+                 class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300 portfolio-image" 
                  loading="lazy"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center" style="display:none;">
+            <div class="w-full h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center portfolio-image-placeholder" style="display:none;">
                 <i class="fas fa-image text-4xl text-purple-400"></i>
             </div>
         `;
@@ -1455,6 +1589,14 @@ function createHomepageServiceCard(service) {
                 <i class="fas fa-image text-4xl text-purple-400"></i>
             </div>
         `;
+    }
+    
+    // Função auxiliar para escapar HTML
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     card.innerHTML = `
@@ -1471,13 +1613,18 @@ function createHomepageServiceCard(service) {
         <div class="p-4">
             <div class="mb-2">
                 <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
-                    ${service.type || 'Serviço'}
+                    ${escapeHtml(service.type || 'Serviço')}
                 </span>
             </div>
-            <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${service.title || 'Título do Serviço'}</h3>
-            <p class="text-gray-600 text-sm mb-3 line-clamp-3">${service.description || 'Descrição do serviço'}</p>
-            ${service.arcSize ? `<p class="text-blue-600 text-sm mb-2"><i class="fas fa-ruler mr-1"></i>${service.arcSize}</p>` : ''}
-            ${service.price ? `<p class="text-green-600 font-semibold">R$ ${parseFloat(service.price).toFixed(2)}</p>` : ''}
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">${escapeHtml(service.title || 'Título do Serviço')}</h3>
+            <p class="text-gray-600 text-sm mb-3 line-clamp-3">${escapeHtml(service.description || 'Descrição do serviço')}</p>
+            ${service.arcSize ? `<p class="text-blue-600 text-sm mb-2"><i class="fas fa-ruler mr-1"></i>${escapeHtml(service.arcSize)}</p>` : ''}
+            ${service.price ? `<p class="text-green-600 font-semibold mb-4">R$ ${parseFloat(service.price).toFixed(2).replace('.', ',')}</p>` : ''}
+            <button onclick="addPortfolioItemToCart(this)" 
+                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2 add-to-cart-btn">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Selecionar</span>
+            </button>
         </div>
     `;
     
