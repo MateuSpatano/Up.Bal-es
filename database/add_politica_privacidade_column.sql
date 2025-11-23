@@ -23,7 +23,7 @@ BEGIN
         AND COLUMN_NAME = 'politica_privacidade';
 
     IF col_count = 0 THEN
-        SET @sql = 'ALTER TABLE usuarios ADD COLUMN politica_privacidade TEXT NULL AFTER termos_condicoes COMMENT ''Política de privacidade personalizada do decorador''';
+        SET @sql = 'ALTER TABLE usuarios ADD COLUMN politica_privacidade TEXT NULL AFTER termos_condicoes COMMENT "Política de privacidade personalizada do decorador"';
         PREPARE stmt FROM @sql;
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
