@@ -599,7 +599,8 @@ function handleGetUser($input) {
  */
 function handleUpdateUser($input) {
     try {
-        $userId = intval($input['user_id'] ?? 0);
+        // Tratar campos que podem vir com nomes diferentes do frontend
+        $userId = intval($input['id'] ?? $input['user_id'] ?? 0);
         if (!$userId) {
             errorResponse('ID do usuário é obrigatório', 400);
         }
@@ -609,13 +610,19 @@ function handleUpdateUser($input) {
         $updates = [];
         $params = [];
         
-        $allowedFields = ['nome', 'email', 'telefone', 'endereco', 'cidade', 'estado', 'cep', 'ativo', 'aprovado_por_admin'];
+        $allowedFields = ['nome', 'email', 'telefone', 'endereco', 'cidade', 'estado', 'cep', 'ativo', 'aprovado_por_admin', 'termos_condicoes', 'politica_privacidade'];
         
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
                 $updates[] = "{$field} = ?";
                 $params[] = $input[$field];
             }
+        }
+        
+        // Mapear campos do frontend para campos do banco (caso venham com nomes diferentes)
+        if (isset($input['name']) && !isset($input['nome'])) {
+            $updates[] = "nome = ?";
+            $params[] = $input['name'];
         }
         
         if (empty($updates)) {

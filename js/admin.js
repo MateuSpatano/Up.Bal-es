@@ -739,6 +739,28 @@ class AdminSystem {
                 this.closeModal('edit-user-modal');
             });
         }
+
+        // Modal de edição de termos e condições
+        const closeEditTermsModal = document.getElementById('close-edit-terms-modal');
+        if (closeEditTermsModal) {
+            closeEditTermsModal.addEventListener('click', () => {
+                this.closeModal('edit-terms-modal');
+            });
+        }
+
+        const editTermsModalOverlay = document.getElementById('edit-terms-modal-overlay');
+        if (editTermsModalOverlay) {
+            editTermsModalOverlay.addEventListener('click', () => {
+                this.closeModal('edit-terms-modal');
+            });
+        }
+
+        const cancelEditTerms = document.getElementById('cancel-edit-terms');
+        if (cancelEditTerms) {
+            cancelEditTerms.addEventListener('click', () => {
+                this.closeModal('edit-terms-modal');
+            });
+        }
     }
 
     // Configurar máscaras de input
@@ -3093,20 +3115,63 @@ class AdminSystem {
 
     // Editar termos e condições do decorador
     async editTermsAndConditions(userId) {
-        // Abrir modal de edição e focar na seção de termos
-        await this.editUser(userId);
-        
-        // Scroll para a seção de termos após um pequeno delay para garantir que o modal está aberto
-        setTimeout(() => {
-            const termsSection = document.getElementById('decorator-terms-section');
-            if (termsSection) {
-                termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const termsTextarea = document.getElementById('edit-user-terms');
-                if (termsTextarea) {
-                    termsTextarea.focus();
+        try {
+            // Buscar dados do usuário do servidor
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_user',
+                    user_id: userId
+                })
+            });
+            
+            const result = await this.safeJsonParse(response, { success: false });
+            
+            let user;
+            if (!result || !result.success) {
+                // Fallback: buscar da lista local
+                user = this.users.find(u => u.id === userId);
+                if (!user) {
+                    this.showNotification('Usuário não encontrado', 'error');
+                    return;
                 }
+            } else {
+                user = result.data;
             }
-        }, 300);
+            
+            // Verificar se é decorador
+            if (user.type !== 'decorator') {
+                this.showNotification('Apenas decoradores possuem termos e condições personalizados', 'error');
+                return;
+            }
+            
+            // Preencher modal de edição de termos
+            document.getElementById('edit-terms-user-id').value = user.id;
+            document.getElementById('edit-terms-decorator-name').textContent = `Decorador: ${user.name || user.nome || ''}`;
+            
+            // Carregar termos e condições
+            const termsValue = user.termos_condicoes || user.termosCondicoes || '';
+            document.getElementById('edit-terms-text').value = termsValue;
+            
+            // Carregar política de privacidade
+            const privacyValue = user.politica_privacidade || user.politicaPrivacidade || '';
+            document.getElementById('edit-privacy-text').value = privacyValue;
+            
+            // Mostrar modal
+            document.getElementById('edit-terms-modal').classList.remove('hidden');
+            
+            // Focar no primeiro campo após um pequeno delay
+            setTimeout(() => {
+                document.getElementById('edit-terms-text').focus();
+            }, 300);
+            
+        } catch (error) {
+            console.error('Erro ao carregar termos e condições:', error);
+            this.showNotification('Erro ao carregar dados do decorador', 'error');
+        }
     }
 
     // Carregar termos padrão do sistema
@@ -3152,6 +3217,142 @@ class AdminSystem {
         } catch (error) {
             console.error('Erro ao carregar termos padrão:', error);
             this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
+        }
+    }
+
+    // Carregar termos padrão para o modal de termos
+    async loadDefaultTermsForModal() {
+        try {
+            // Buscar termos padrão do arquivo termos-e-condicoes.html
+            const response = await fetch('../pages/termos-e-condicoes.html');
+            const html = await response.text();
+            
+            // Extrair apenas o conteúdo dos termos (remover HTML)
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const sections = doc.querySelectorAll('.prose section');
+            
+            let defaultTerms = '';
+            sections.forEach((section, index) => {
+                const title = section.querySelector('h2');
+                const content = section.querySelectorAll('p, ul');
+                
+                if (title) {
+                    defaultTerms += title.textContent.trim() + '\n\n';
+                }
+                
+                content.forEach(el => {
+                    if (el.tagName === 'P') {
+                        defaultTerms += el.textContent.trim() + '\n\n';
+                    } else if (el.tagName === 'UL') {
+                        const items = el.querySelectorAll('li');
+                        items.forEach(li => {
+                            defaultTerms += '• ' + li.textContent.trim() + '\n';
+                        });
+                        defaultTerms += '\n';
+                    }
+                });
+            });
+            
+            // Preencher o campo de termos no modal
+            const termsTextarea = document.getElementById('edit-terms-text');
+            if (termsTextarea) {
+                termsTextarea.value = defaultTerms.trim();
+                this.showNotification('Termos padrão carregados com sucesso!', 'success');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar termos padrão:', error);
+            this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
+        }
+    }
+
+    // Carregar política de privacidade padrão para o modal
+    async loadDefaultPrivacyForModal() {
+        try {
+            // Buscar política padrão do arquivo politica-de-privacidade.html
+            const response = await fetch('../pages/politica-de-privacidade.html');
+            const html = await response.text();
+            
+            // Extrair apenas o conteúdo da política (remover HTML)
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const sections = doc.querySelectorAll('.prose section');
+            
+            let defaultPrivacy = '';
+            sections.forEach((section, index) => {
+                const title = section.querySelector('h2');
+                const content = section.querySelectorAll('p, ul');
+                
+                if (title) {
+                    defaultPrivacy += title.textContent.trim() + '\n\n';
+                }
+                
+                content.forEach(el => {
+                    if (el.tagName === 'P') {
+                        defaultPrivacy += el.textContent.trim() + '\n\n';
+                    } else if (el.tagName === 'UL') {
+                        const items = el.querySelectorAll('li');
+                        items.forEach(li => {
+                            defaultPrivacy += '• ' + li.textContent.trim() + '\n';
+                        });
+                        defaultPrivacy += '\n';
+                    }
+                });
+            });
+            
+            // Preencher o campo de política no modal
+            const privacyTextarea = document.getElementById('edit-privacy-text');
+            if (privacyTextarea) {
+                privacyTextarea.value = defaultPrivacy.trim();
+                this.showNotification('Política padrão carregada com sucesso!', 'success');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar política padrão:', error);
+            this.showNotification('Erro ao carregar política padrão. Você pode editá-la manualmente.', 'error');
+        }
+    }
+
+    // Salvar termos e condições e política de privacidade
+    async saveTermsAndPrivacy() {
+        try {
+            const userId = document.getElementById('edit-terms-user-id').value;
+            const termosCondicoes = document.getElementById('edit-terms-text').value;
+            const politicaPrivacidade = document.getElementById('edit-privacy-text').value;
+            
+            if (!userId) {
+                this.showNotification('ID do usuário não encontrado', 'error');
+                return;
+            }
+            
+            const formData = {
+                id: userId,
+                termos_condicoes: termosCondicoes,
+                politica_privacidade: politicaPrivacidade
+            };
+            
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'update_user',
+                    ...formData
+                })
+            });
+            
+            const result = await this.safeJsonParse(response, { success: false });
+            
+            if (result && result.success) {
+                this.showNotification('Termos e condições e política de privacidade atualizados com sucesso!', 'success');
+                document.getElementById('edit-terms-modal').classList.add('hidden');
+                this.loadUsers(); // Recarregar lista
+            } else {
+                this.showNotification('Erro: ' + (result.message || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar termos e política:', error);
+            this.showNotification('Erro de conexão', 'error');
         }
     }
 
