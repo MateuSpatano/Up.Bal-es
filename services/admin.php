@@ -548,13 +548,63 @@ function handleGetDashboardData() {
             error_log('Erro ao buscar atividades: ' . $e->getMessage());
         }
         
+        // Buscar chamados de suporte agrupados por mês (últimos 6 meses)
+        $supportRequestsByMonth = [];
+        try {
+            // Verificar se a tabela existe
+            $tableCheck = $pdo->query("SHOW TABLES LIKE 'support_tickets'");
+            if ($tableCheck->rowCount() > 0) {
+                // Buscar chamados dos últimos 6 meses
+                $stmt = $pdo->query("
+                    SELECT 
+                        DATE_FORMAT(created_at, '%Y-%m') as mes,
+                        DATE_FORMAT(created_at, '%b') as mes_nome,
+                        COUNT(*) as total
+                    FROM support_tickets
+                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b')
+                    ORDER BY mes ASC
+                ");
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Criar array com todos os últimos 6 meses
+                $months = [];
+                $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                for ($i = 5; $i >= 0; $i--) {
+                    $date = new DateTime();
+                    $date->modify("-{$i} months");
+                    $monthKey = $date->format('Y-m');
+                    $monthIndex = (int)$date->format('n') - 1;
+                    $months[$monthKey] = [
+                        'mes' => $monthKey,
+                        'mes_nome' => $monthNames[$monthIndex],
+                        'total' => 0
+                    ];
+                }
+                
+                // Preencher com dados reais
+                foreach ($results as $result) {
+                    $mes = $result['mes'] ?? '';
+                    if (isset($months[$mes])) {
+                        $months[$mes]['total'] = (int)($result['total'] ?? 0);
+                    }
+                }
+                
+                // Converter para array indexado numericamente
+                $supportRequestsByMonth = array_values($months);
+            }
+        } catch (PDOException $e) {
+            error_log('Erro ao buscar chamados de suporte por mês: ' . $e->getMessage());
+        }
+        
         successResponse([
             'total_clients' => $totalClients,
             'active_decorators' => $activeDecorators,
             'total_requests' => $totalRequests,
             'total_services' => $totalServices,
             'pending_approvals' => $pendingApprovals,
-            'activities' => $activities
+            'activities' => $activities,
+            'support_requests_by_month' => $supportRequestsByMonth
         ]);
         
     } catch (PDOException $e) {

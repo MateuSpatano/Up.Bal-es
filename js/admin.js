@@ -932,6 +932,7 @@ class AdminSystem {
                 this.dashboardData = null;
                 this.updateDashboardMetrics(fallbackMetrics);
                 this.loadRecentActivities([]);
+                this.updateSupportRequestsChart([]);
                 return;
             }
 
@@ -941,6 +942,7 @@ class AdminSystem {
                 this.dashboardData = data;
                 this.updateDashboardMetrics(data);
                 this.loadRecentActivities(data.activities || []);
+                this.updateSupportRequestsChart(data.support_requests_by_month || []);
                 return;
             } else {
                 const errorMsg = result?.message || 'Erro desconhecido';
@@ -965,6 +967,7 @@ class AdminSystem {
         this.dashboardData = null;
         this.updateDashboardMetrics(fallbackMetrics);
         this.loadRecentActivities([]);
+        this.updateSupportRequestsChart([]);
     }
 
     updateDashboardMetrics(metrics = {}) {
@@ -1137,6 +1140,27 @@ class AdminSystem {
         ];
 
         this.charts.users.update();
+    }
+
+    // Atualizar gráfico de chamados de suporte
+    updateSupportRequestsChart(supportData = []) {
+        if (!this.charts.requests) return;
+
+        // Se não houver dados, usar array vazio
+        if (!Array.isArray(supportData) || supportData.length === 0) {
+            // Manter os labels padrão mas zerar os dados
+            this.charts.requests.data.labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
+            this.charts.requests.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
+        } else {
+            // Extrair labels e dados dos últimos 6 meses
+            const labels = supportData.map(item => item.mes_nome || '');
+            const data = supportData.map(item => item.total || 0);
+            
+            this.charts.requests.data.labels = labels;
+            this.charts.requests.data.datasets[0].data = data;
+        }
+
+        this.charts.requests.update();
     }
 
     // Criar decorador
