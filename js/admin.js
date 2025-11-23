@@ -447,9 +447,8 @@ class AdminSystem {
             document.getElementById('edit-user-id').setAttribute('data-original-status', statusValue);
             document.getElementById('edit-user-id').setAttribute('data-original-approved', originalApproved ? '1' : '0');
             
-            // Mostrar seção de aprovação e termos se for decorador
+            // Mostrar seção de aprovação se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
-            const termsSection = document.getElementById('decorator-terms-section');
             if (user && user.type === 'decorator') {
                 if (approvalSection) {
                     approvalSection.classList.remove('hidden');
@@ -457,18 +456,9 @@ class AdminSystem {
                     const approvedValue = user.aprovado_por_admin !== undefined ? (user.aprovado_por_admin ? '1' : '0') : (statusValue === 'active' ? '1' : '0');
                     document.getElementById('edit-user-approved').value = approvedValue;
                 }
-                if (termsSection) {
-                    termsSection.classList.remove('hidden');
-                    // Carregar termos e condições do decorador
-                    const termsValue = user.termos_condicoes || user.termosCondicoes || '';
-                    document.getElementById('edit-user-terms').value = termsValue;
-                }
             } else {
                 if (approvalSection) {
                     approvalSection.classList.add('hidden');
-                }
-                if (termsSection) {
-                    termsSection.classList.add('hidden');
                 }
             }
             
@@ -503,9 +493,8 @@ class AdminSystem {
                 formData.status = currentStatus;
             }
             
-            // Adicionar aprovação e termos se for decorador
+            // Adicionar aprovação se for decorador
             const approvalSection = document.getElementById('decorator-approval-section');
-            const termsSection = document.getElementById('decorator-terms-section');
             if (approvalSection && !approvalSection.classList.contains('hidden')) {
                 const originalApproved = document.getElementById('edit-user-id').getAttribute('data-original-approved') === '1';
                 const currentApproved = document.getElementById('edit-user-approved').value === '1';
@@ -514,9 +503,6 @@ class AdminSystem {
                 if (currentApproved !== originalApproved) {
                     formData.aprovado_por_admin = currentApproved;
                 }
-            }
-            if (termsSection && !termsSection.classList.contains('hidden')) {
-                formData.termos_condicoes = document.getElementById('edit-user-terms').value;
             }
             
             const response = await fetch('../services/admin.php', {
@@ -740,25 +726,40 @@ class AdminSystem {
             });
         }
 
-        // Modal de edição de termos e condições
-        const closeEditTermsModal = document.getElementById('close-edit-terms-modal');
-        if (closeEditTermsModal) {
-            closeEditTermsModal.addEventListener('click', () => {
-                this.closeModal('edit-terms-modal');
+        // Modal de edição de documentos legais
+        const closeEditLegalDocumentModal = document.getElementById('close-edit-legal-document-modal');
+        if (closeEditLegalDocumentModal) {
+            closeEditLegalDocumentModal.addEventListener('click', () => {
+                this.closeModal('edit-legal-document-modal');
             });
         }
 
-        const editTermsModalOverlay = document.getElementById('edit-terms-modal-overlay');
-        if (editTermsModalOverlay) {
-            editTermsModalOverlay.addEventListener('click', () => {
-                this.closeModal('edit-terms-modal');
+        const editLegalDocumentModalOverlay = document.getElementById('edit-legal-document-modal-overlay');
+        if (editLegalDocumentModalOverlay) {
+            editLegalDocumentModalOverlay.addEventListener('click', () => {
+                this.closeModal('edit-legal-document-modal');
             });
         }
 
-        const cancelEditTerms = document.getElementById('cancel-edit-terms');
-        if (cancelEditTerms) {
-            cancelEditTerms.addEventListener('click', () => {
-                this.closeModal('edit-terms-modal');
+        const cancelEditLegalDocument = document.getElementById('cancel-edit-legal-document');
+        if (cancelEditLegalDocument) {
+            cancelEditLegalDocument.addEventListener('click', () => {
+                this.closeModal('edit-legal-document-modal');
+            });
+        }
+
+        // Botão de visualizar documento legal
+        const previewLegalDocument = document.getElementById('preview-legal-document');
+        if (previewLegalDocument) {
+            previewLegalDocument.addEventListener('click', () => {
+                const documentType = document.getElementById('legal-document-type').value;
+                const content = document.getElementById('legal-document-content').value;
+                const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+                
+                // Abrir em nova aba para visualização
+                const blob = new Blob([content], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
             });
         }
     }
@@ -1372,9 +1373,6 @@ class AdminSystem {
                                     class="text-emerald-600 hover:text-emerald-900 p-1"
                                     title="Copiar link público">
                                 <i class="fas fa-share-nodes text-xs md:text-sm"></i>
-                            </button>
-                            <button onclick="adminSystem.editTermsAndConditions(${user.id})" class="text-orange-600 hover:text-orange-900 p-1" title="Editar Termos e Condições">
-                                <i class="fas fa-file-contract text-xs md:text-sm"></i>
                             </button>
                         ` : ''}
                         ${user.type === 'decorator' ? `
@@ -3113,222 +3111,66 @@ class AdminSystem {
         }
     }
 
-    // Editar termos e condições do decorador
-    async editTermsAndConditions(userId) {
+    // Editar documento legal (Termos ou Política de Privacidade)
+    async editLegalDocument(type) {
         try {
-            // Buscar dados do usuário do servidor
-            const response = await fetch('../services/admin.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'get_user',
-                    user_id: userId
-                })
-            });
+            const filePath = type === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
             
-            const result = await this.safeJsonParse(response, { success: false });
+            // Buscar conteúdo do arquivo
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error('Erro ao carregar arquivo');
+            }
             
-            let user;
-            if (!result || !result.success) {
-                // Fallback: buscar da lista local
-                user = this.users.find(u => u.id === userId);
-                if (!user) {
-                    this.showNotification('Usuário não encontrado', 'error');
-                    return;
-                }
+            const html = await response.text();
+            
+            // Configurar modal
+            const modal = document.getElementById('edit-legal-document-modal');
+            const title = document.getElementById('legal-document-title');
+            const subtitle = document.getElementById('legal-document-subtitle');
+            const icon = document.getElementById('legal-document-icon');
+            const content = document.getElementById('legal-document-content');
+            const documentType = document.getElementById('legal-document-type');
+            
+            if (type === 'termos') {
+                title.textContent = 'Editar Termos e Condições';
+                subtitle.textContent = 'Atualize o conteúdo dos Termos e Condições do sistema';
+                icon.className = 'fas fa-file-contract text-white text-lg';
             } else {
-                user = result.data;
+                title.textContent = 'Editar Política de Privacidade';
+                subtitle.textContent = 'Atualize o conteúdo da Política de Privacidade do sistema';
+                icon.className = 'fas fa-shield-alt text-white text-lg';
             }
             
-            // Verificar se é decorador
-            if (user.type !== 'decorator') {
-                this.showNotification('Apenas decoradores possuem termos e condições personalizados', 'error');
-                return;
-            }
-            
-            // Preencher modal de edição de termos
-            document.getElementById('edit-terms-user-id').value = user.id;
-            document.getElementById('edit-terms-decorator-name').textContent = `Decorador: ${user.name || user.nome || ''}`;
-            
-            // Carregar termos e condições
-            const termsValue = user.termos_condicoes || user.termosCondicoes || '';
-            document.getElementById('edit-terms-text').value = termsValue;
-            
-            // Carregar política de privacidade
-            const privacyValue = user.politica_privacidade || user.politicaPrivacidade || '';
-            document.getElementById('edit-privacy-text').value = privacyValue;
+            documentType.value = type;
+            content.value = html;
             
             // Mostrar modal
-            document.getElementById('edit-terms-modal').classList.remove('hidden');
+            modal.classList.remove('hidden');
             
-            // Focar no primeiro campo após um pequeno delay
+            // Focar no campo de conteúdo
             setTimeout(() => {
-                document.getElementById('edit-terms-text').focus();
+                content.focus();
             }, 300);
             
         } catch (error) {
-            console.error('Erro ao carregar termos e condições:', error);
-            this.showNotification('Erro ao carregar dados do decorador', 'error');
+            console.error('Erro ao carregar documento legal:', error);
+            this.showNotification('Erro ao carregar arquivo do documento', 'error');
         }
     }
 
-    // Carregar termos padrão do sistema
-    async loadDefaultTerms() {
+    // Salvar documento legal
+    async saveLegalDocument() {
         try {
-            // Buscar termos padrão do arquivo termos-e-condicoes.html
-            const response = await fetch('../pages/termos-e-condicoes.html');
-            const html = await response.text();
+            const documentType = document.getElementById('legal-document-type').value;
+            const content = document.getElementById('legal-document-content').value;
             
-            // Extrair apenas o conteúdo dos termos (remover HTML)
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sections = doc.querySelectorAll('.prose section');
-            
-            let defaultTerms = '';
-            sections.forEach((section, index) => {
-                const title = section.querySelector('h2');
-                const content = section.querySelectorAll('p, ul');
-                
-                if (title) {
-                    defaultTerms += title.textContent.trim() + '\n\n';
-                }
-                
-                content.forEach(el => {
-                    if (el.tagName === 'P') {
-                        defaultTerms += el.textContent.trim() + '\n\n';
-                    } else if (el.tagName === 'UL') {
-                        const items = el.querySelectorAll('li');
-                        items.forEach(li => {
-                            defaultTerms += '• ' + li.textContent.trim() + '\n';
-                        });
-                        defaultTerms += '\n';
-                    }
-                });
-            });
-            
-            // Preencher o campo de termos
-            const termsTextarea = document.getElementById('edit-user-terms');
-            if (termsTextarea) {
-                termsTextarea.value = defaultTerms.trim();
-                this.showNotification('Termos padrão carregados com sucesso!', 'success');
-            }
-        } catch (error) {
-            console.error('Erro ao carregar termos padrão:', error);
-            this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
-        }
-    }
-
-    // Carregar termos padrão para o modal de termos
-    async loadDefaultTermsForModal() {
-        try {
-            // Buscar termos padrão do arquivo termos-e-condicoes.html
-            const response = await fetch('../pages/termos-e-condicoes.html');
-            const html = await response.text();
-            
-            // Extrair apenas o conteúdo dos termos (remover HTML)
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sections = doc.querySelectorAll('.prose section');
-            
-            let defaultTerms = '';
-            sections.forEach((section, index) => {
-                const title = section.querySelector('h2');
-                const content = section.querySelectorAll('p, ul');
-                
-                if (title) {
-                    defaultTerms += title.textContent.trim() + '\n\n';
-                }
-                
-                content.forEach(el => {
-                    if (el.tagName === 'P') {
-                        defaultTerms += el.textContent.trim() + '\n\n';
-                    } else if (el.tagName === 'UL') {
-                        const items = el.querySelectorAll('li');
-                        items.forEach(li => {
-                            defaultTerms += '• ' + li.textContent.trim() + '\n';
-                        });
-                        defaultTerms += '\n';
-                    }
-                });
-            });
-            
-            // Preencher o campo de termos no modal
-            const termsTextarea = document.getElementById('edit-terms-text');
-            if (termsTextarea) {
-                termsTextarea.value = defaultTerms.trim();
-                this.showNotification('Termos padrão carregados com sucesso!', 'success');
-            }
-        } catch (error) {
-            console.error('Erro ao carregar termos padrão:', error);
-            this.showNotification('Erro ao carregar termos padrão. Você pode editá-los manualmente.', 'error');
-        }
-    }
-
-    // Carregar política de privacidade padrão para o modal
-    async loadDefaultPrivacyForModal() {
-        try {
-            // Buscar política padrão do arquivo politica-de-privacidade.html
-            const response = await fetch('../pages/politica-de-privacidade.html');
-            const html = await response.text();
-            
-            // Extrair apenas o conteúdo da política (remover HTML)
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sections = doc.querySelectorAll('.prose section');
-            
-            let defaultPrivacy = '';
-            sections.forEach((section, index) => {
-                const title = section.querySelector('h2');
-                const content = section.querySelectorAll('p, ul');
-                
-                if (title) {
-                    defaultPrivacy += title.textContent.trim() + '\n\n';
-                }
-                
-                content.forEach(el => {
-                    if (el.tagName === 'P') {
-                        defaultPrivacy += el.textContent.trim() + '\n\n';
-                    } else if (el.tagName === 'UL') {
-                        const items = el.querySelectorAll('li');
-                        items.forEach(li => {
-                            defaultPrivacy += '• ' + li.textContent.trim() + '\n';
-                        });
-                        defaultPrivacy += '\n';
-                    }
-                });
-            });
-            
-            // Preencher o campo de política no modal
-            const privacyTextarea = document.getElementById('edit-privacy-text');
-            if (privacyTextarea) {
-                privacyTextarea.value = defaultPrivacy.trim();
-                this.showNotification('Política padrão carregada com sucesso!', 'success');
-            }
-        } catch (error) {
-            console.error('Erro ao carregar política padrão:', error);
-            this.showNotification('Erro ao carregar política padrão. Você pode editá-la manualmente.', 'error');
-        }
-    }
-
-    // Salvar termos e condições e política de privacidade
-    async saveTermsAndPrivacy() {
-        try {
-            const userId = document.getElementById('edit-terms-user-id').value;
-            const termosCondicoes = document.getElementById('edit-terms-text').value;
-            const politicaPrivacidade = document.getElementById('edit-privacy-text').value;
-            
-            if (!userId) {
-                this.showNotification('ID do usuário não encontrado', 'error');
+            if (!documentType || !content) {
+                this.showNotification('Tipo de documento ou conteúdo não encontrado', 'error');
                 return;
             }
             
-            const formData = {
-                id: userId,
-                termos_condicoes: termosCondicoes,
-                politica_privacidade: politicaPrivacidade
-            };
+            const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
             
             const response = await fetch('../services/admin.php', {
                 method: 'POST',
@@ -3336,25 +3178,28 @@ class AdminSystem {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    action: 'update_user',
-                    ...formData
+                    action: 'save_legal_document',
+                    file_path: filePath,
+                    content: content
                 })
             });
             
             const result = await this.safeJsonParse(response, { success: false });
             
             if (result && result.success) {
-                this.showNotification('Termos e condições e política de privacidade atualizados com sucesso!', 'success');
-                document.getElementById('edit-terms-modal').classList.add('hidden');
-                this.loadUsers(); // Recarregar lista
+                this.showNotification('Documento salvo com sucesso!', 'success');
+                document.getElementById('edit-legal-document-modal').classList.add('hidden');
             } else {
                 this.showNotification('Erro: ' + (result.message || 'Erro desconhecido'), 'error');
             }
         } catch (error) {
-            console.error('Erro ao salvar termos e política:', error);
+            console.error('Erro ao salvar documento legal:', error);
             this.showNotification('Erro de conexão', 'error');
         }
     }
+
+    // Carregar termos padrão do sistema
+
 
     // ========== MÓDULO DE CONFIGURAÇÕES ==========
     

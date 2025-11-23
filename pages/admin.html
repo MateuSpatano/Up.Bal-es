@@ -643,6 +643,30 @@
                             
                             <div class="admin-card p-4 md:p-6 rounded-xl">
                                 <div class="mb-4 md:mb-6">
+                                    <h3 class="text-lg md:text-2xl font-bold text-gray-800">Documentos Legais</h3>
+                                    <p class="text-sm md:text-base text-gray-600">Edite os arquivos de Termos e Condições e Política de Privacidade do sistema</p>
+                                </div>
+                                
+                                <div class="space-y-4 md:space-y-6">
+                                    <div class="flex flex-col sm:flex-row gap-3">
+                                        <button type="button" onclick="adminSystem.editLegalDocument('termos')" 
+                                                class="flex-1 px-4 py-3 text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                            <i class="fas fa-file-contract mr-2"></i>Editar Termos e Condições
+                                        </button>
+                                        <button type="button" onclick="adminSystem.editLegalDocument('privacidade')" 
+                                                class="flex-1 px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                                            <i class="fas fa-shield-alt mr-2"></i>Editar Política de Privacidade
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        As alterações nos documentos legais serão aplicadas globalmente para todos os decoradores do sistema.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="admin-card p-4 md:p-6 rounded-xl">
+                                <div class="mb-4 md:mb-6">
                                     <h3 class="text-lg md:text-2xl font-bold text-gray-800">Segurança</h3>
                                     <p class="text-sm md:text-base text-gray-600">Atualize sua senha de acesso ao painel</p>
                                 </div>
@@ -708,6 +732,74 @@
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Modal de Edição de Documentos Legais -->
+    <div id="edit-legal-document-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="edit-legal-document-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-5xl p-0 my-4 md:my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl mx-4">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-orange-600 to-red-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-file-contract text-white text-lg" id="legal-document-icon"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white" id="legal-document-title">Editar Documento Legal</h3>
+                                <p class="text-orange-100 text-sm" id="legal-document-subtitle">Atualize o conteúdo do documento</p>
+                            </div>
+                        </div>
+                        <button id="close-edit-legal-document-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="edit-legal-document-form" class="p-4 md:p-6 space-y-4 md:space-y-6">
+                    <input type="hidden" id="legal-document-type" name="document_type">
+                    
+                    <!-- Editor HTML -->
+                    <div class="space-y-2">
+                        <label for="legal-document-content" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-code mr-2 text-orange-600"></i>Conteúdo do Documento (HTML)
+                        </label>
+                        <div class="relative">
+                            <textarea id="legal-document-content" name="content" rows="20"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none font-mono text-sm"
+                                    placeholder="Digite o conteúdo HTML do documento..."></textarea>
+                            <div class="mt-2 flex items-center justify-between">
+                                <p class="text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Este conteúdo será aplicado globalmente para todos os decoradores do sistema.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" id="cancel-edit-legal-document" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="button" id="preview-legal-document" 
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-eye mr-2"></i>Visualizar
+                        </button>
+                        <button type="button" id="save-legal-document" onclick="adminSystem.saveLegalDocument()"
+                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -828,27 +920,6 @@
                         </select>
                     </div>
 
-                    <!-- Termos e Condições (apenas para decoradores) -->
-                    <div id="decorator-terms-section" class="space-y-2 hidden">
-                        <label for="edit-user-terms" class="block text-sm font-medium text-gray-700">
-                            <i class="fas fa-file-contract mr-2 text-orange-600"></i>Termos e Condições do Decorador
-                        </label>
-                        <div class="relative">
-                            <textarea id="edit-user-terms" name="termos_condicoes" rows="10"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none"
-                                    placeholder="Digite os termos e condições personalizados para este decorador..."></textarea>
-                            <div class="mt-2 flex items-center justify-between">
-                                <p class="text-xs text-gray-500">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Estes termos serão exibidos na página do decorador. Se deixado em branco, serão usados os termos padrão do sistema.
-                                </p>
-                                <button type="button" onclick="adminSystem.loadDefaultTerms()" 
-                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                    <i class="fas fa-undo mr-1"></i>Usar termos padrão
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Botões -->
                     <div class="flex flex-col sm:flex-row gap-3 pt-4">
@@ -858,96 +929,6 @@
                         </button>
                         <button type="button" id="save-edit-user" onclick="adminSystem.saveUserEdit()"
                                 class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
-                            <i class="fas fa-save mr-2"></i>Salvar Alterações
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Edição de Termos e Condições e Política de Privacidade -->
-    <div id="edit-terms-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <!-- Overlay -->
-            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="edit-terms-modal-overlay"></div>
-
-            <!-- Modal Content -->
-            <div class="inline-block w-full max-w-4xl p-0 my-4 md:my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl mx-4">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-orange-600 to-red-700 px-6 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <i class="fas fa-file-contract text-white text-lg"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-semibold text-white">Termos e Condições / Política de Privacidade</h3>
-                                <p class="text-orange-100 text-sm" id="edit-terms-decorator-name">Atualize os documentos legais do decorador</p>
-                            </div>
-                        </div>
-                        <button id="close-edit-terms-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Form -->
-                <form id="edit-terms-form" class="p-4 md:p-6 space-y-4 md:space-y-6">
-                    <input type="hidden" id="edit-terms-user-id" name="user_id">
-                    
-                    <!-- Termos e Condições -->
-                    <div class="space-y-2">
-                        <label for="edit-terms-text" class="block text-sm font-medium text-gray-700">
-                            <i class="fas fa-file-contract mr-2 text-orange-600"></i>Termos e Condições do Decorador
-                        </label>
-                        <div class="relative">
-                            <textarea id="edit-terms-text" name="termos_condicoes" rows="12"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none"
-                                    placeholder="Digite os termos e condições personalizados para este decorador..."></textarea>
-                            <div class="mt-2 flex items-center justify-between">
-                                <p class="text-xs text-gray-500">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Estes termos serão exibidos na página do decorador. Se deixado em branco, serão usados os termos padrão do sistema.
-                                </p>
-                                <button type="button" onclick="adminSystem.loadDefaultTermsForModal()" 
-                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                    <i class="fas fa-undo mr-1"></i>Usar termos padrão
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Política de Privacidade -->
-                    <div class="space-y-2">
-                        <label for="edit-privacy-text" class="block text-sm font-medium text-gray-700">
-                            <i class="fas fa-shield-alt mr-2 text-blue-600"></i>Política de Privacidade do Decorador
-                        </label>
-                        <div class="relative">
-                            <textarea id="edit-privacy-text" name="politica_privacidade" rows="12"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                                    placeholder="Digite a política de privacidade personalizada para este decorador..."></textarea>
-                            <div class="mt-2 flex items-center justify-between">
-                                <p class="text-xs text-gray-500">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Esta política será exibida na página do decorador. Se deixado em branco, será usada a política padrão do sistema.
-                                </p>
-                                <button type="button" onclick="adminSystem.loadDefaultPrivacyForModal()" 
-                                        class="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                    <i class="fas fa-undo mr-1"></i>Usar política padrão
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Botões -->
-                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
-                        <button type="button" id="cancel-edit-terms" 
-                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
-                            <i class="fas fa-times mr-2"></i>Cancelar
-                        </button>
-                        <button type="button" id="save-edit-terms" onclick="adminSystem.saveTermsAndPrivacy()"
-                                class="flex-1 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
                             <i class="fas fa-save mr-2"></i>Salvar Alterações
                         </button>
                     </div>

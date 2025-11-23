@@ -296,6 +296,10 @@ try {
                 handleUpdateSettings($input);
                 break;
                 
+            case 'save_legal_document':
+                handleSaveLegalDocument($input);
+                break;
+                
             default:
                 errorResponse('Ação não reconhecida: ' . $action, 400);
         }
@@ -610,7 +614,7 @@ function handleUpdateUser($input) {
         $updates = [];
         $params = [];
         
-        $allowedFields = ['nome', 'email', 'telefone', 'endereco', 'cidade', 'estado', 'cep', 'ativo', 'aprovado_por_admin', 'termos_condicoes', 'politica_privacidade'];
+        $allowedFields = ['nome', 'email', 'telefone', 'endereco', 'cidade', 'estado', 'cep', 'ativo', 'aprovado_por_admin'];
         
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
@@ -922,4 +926,62 @@ function handleGetSettings() {
  */
 function handleUpdateSettings($input) {
     errorResponse('Funcionalidade em desenvolvimento', 501);
+}
+
+/**
+ * Salvar documento legal (Termos ou Política de Privacidade)
+ */
+function handleSaveLegalDocument($input) {
+    try {
+        $filePath = trim($input['file_path'] ?? '');
+        $content = $input['content'] ?? '';
+        
+        if (empty($filePath)) {
+            errorResponse('Caminho do arquivo não informado', 400);
+        }
+        
+        // Validar que o arquivo é um dos permitidos
+        $allowedFiles = ['termos-e-condicoes.html', 'politica-de-privacidade.html'];
+        if (!in_array($filePath, $allowedFiles)) {
+            errorResponse('Arquivo não permitido', 403);
+        }
+        
+        // Caminho completo do arquivo
+        $fullPath = __DIR__ . '/../pages/' . $filePath;
+        
+        // Verificar se o diretório existe
+        $dir = dirname($fullPath);
+        if (!is_dir($dir)) {
+            errorResponse('Diretório não encontrado', 500);
+        }
+        
+        // Verificar se o arquivo existe e é gravável
+        if (file_exists($fullPath) && !is_writable($fullPath)) {
+            errorResponse('Arquivo não tem permissão de escrita', 500);
+        }
+        
+        // Criar backup antes de salvar
+        if (file_exists($fullPath)) {
+            $backupPath = $fullPath . '.backup.' . date('Y-m-d_H-i-s');
+            if (!copy($fullPath, $backupPath)) {
+                error_log('Aviso: Não foi possível criar backup do arquivo ' . $filePath);
+            }
+        }
+        
+        // Salvar o conteúdo
+        $result = file_put_contents($fullPath, $content);
+        
+        if ($result === false) {
+            errorResponse('Erro ao salvar arquivo', 500);
+        }
+        
+        successResponse([
+            'file_path' => $filePath,
+            'bytes_written' => $result
+        ], 'Documento salvo com sucesso');
+        
+    } catch (Exception $e) {
+        error_log('Erro ao salvar documento legal: ' . $e->getMessage());
+        errorResponse('Erro ao salvar documento: ' . $e->getMessage(), 500);
+    }
 }
