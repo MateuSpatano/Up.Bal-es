@@ -3247,6 +3247,21 @@ class AdminSystem {
             });
         }
 
+        // Configurar botões de edição de documentos legais
+        const editTermosBtn = document.getElementById('edit-termos-btn');
+        if (editTermosBtn) {
+            editTermosBtn.addEventListener('click', () => {
+                this.editLegalDocument('termos');
+            });
+        }
+
+        const editPrivacidadeBtn = document.getElementById('edit-privacidade-btn');
+        if (editPrivacidadeBtn) {
+            editPrivacidadeBtn.addEventListener('click', () => {
+                this.editLegalDocument('privacidade');
+            });
+        }
+
         // Configurar contador de caracteres da bio
         const adminBio = document.getElementById('admin-bio');
         if (adminBio) {
