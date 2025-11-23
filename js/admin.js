@@ -3312,94 +3312,156 @@ class AdminSystem {
     async saveLegalDocument() {
         try {
             const documentType = document.getElementById('legal-document-type')?.value;
-            const content = document.getElementById('legal-document-content')?.value;
+            const textContent = document.getElementById('legal-document-content')?.value;
             
-            if (!documentType || !content) {
+            if (!documentType || !textContent) {
                 this.showNotification('Tipo de documento ou conteúdo não encontrado', 'error');
                 return;
             }
             
             console.log('Salvando documento:', documentType);
+            console.log('Conteúdo a salvar (primeiros 200 chars):', textContent.substring(0, 200));
             
-            // Como estamos salvando apenas texto, precisamos reconstruir o HTML completo
-            // Buscar o HTML original para manter a estrutura
+            // Buscar o HTML original para manter a estrutura completa
             const filePath = documentType === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
             const originalResponse = await fetch(filePath);
+            
+            if (!originalResponse.ok) {
+                throw new Error('Erro ao carregar arquivo original: ' + originalResponse.status);
+            }
+            
             const originalHtml = await originalResponse.text();
             
             // Criar um novo HTML com o conteúdo atualizado
             const parser = new DOMParser();
             const doc = parser.parseFromString(originalHtml, 'text/html');
-            const proseSection = doc.querySelector('.prose') || doc.querySelector('main');
+            const proseSection = doc.querySelector('.prose');
             
-            if (proseSection) {
-                // Converter o texto de volta para HTML básico
-                const lines = content.split('\n');
-                let htmlContent = '';
-                let currentSection = '';
+            if (!proseSection) {
+                throw new Error('Seção .prose não encontrada no HTML');
+            }
+            
+            // Converter o texto de volta para HTML básico
+            const lines = textContent.split('\n');
+            let htmlContent = '';
+            let inList = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
                 
-                lines.forEach(line => {
-                    line = line.trim();
-                    if (!line) return;
-                    
-                    // Se for um título (começa com número ou é tudo maiúsculo)
-                    if (/^\d+\./.test(line) || line.length < 100 && !line.includes('•')) {
-                        if (currentSection) {
-                            htmlContent += '</section>\n';
-                        }
-                        currentSection = line;
-                        htmlContent += `<section>\n<h2 class="text-2xl font-semibold text-gray-800 mb-4">${line}</h2>\n`;
-                    } else if (line.startsWith('•')) {
-                        if (!htmlContent.includes('<ul')) {
-                            htmlContent += '<ul class="list-disc pl-6 space-y-2 mb-4">\n';
-                        }
-                        htmlContent += `<li>${line.substring(1).trim()}</li>\n`;
-                    } else {
-                        if (htmlContent.includes('<ul') && !line.startsWith('•')) {
-                            htmlContent += '</ul>\n';
-                        }
-                        htmlContent += `<p class="mb-4">${line}</p>\n`;
+                // Pular linhas vazias
+                if (!line) {
+                    if (inList) {
+                        htmlContent += '</ul>\n';
+                        inList = false;
                     }
-                });
-                
-                if (currentSection) {
-                    htmlContent += '</section>\n';
+                    continue;
                 }
                 
-                proseSection.innerHTML = htmlContent;
-                
-                // Salvar o HTML completo atualizado
-                const updatedHtml = doc.documentElement.outerHTML;
-                
-                const saveFilePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
-                
-                const response = await fetch('../services/admin.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'save_legal_document',
-                        file_path: saveFilePath,
-                        content: updatedHtml
-                    })
-                });
-                
-                const result = await this.safeJsonParse(response, { success: false });
-                
-                if (result && result.success) {
-                    this.showNotification('Documento salvo com sucesso!', 'success');
-                    this.closeLegalDocumentModal();
-                } else {
-                    this.showNotification('Erro: ' + (result.message || 'Erro desconhecido'), 'error');
+                // Verificar se é um título (começa com número seguido de ponto)
+                if (/^\d+\.\s/.test(line)) {
+                    if (inList) {
+                        htmlContent += '</ul>\n';
+                        inList = false;
+                    }
+                    // Extrair o número e o texto do título
+                    const titleMatch = line.match(/^(\d+\.)\s*(.+)$/);
+                    if (titleMatch) {
+                        const titleText = titleMatch[2];
+                        htmlContent += `<section>\n<h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">\n<i class="fas fa-info-circle text-blue-500 mr-3"></i>\n${titleMatch[1]} ${titleText}\n</h2>\n`;
+                    }
                 }
+                // Verificar se é um item de lista
+                else if (line.startsWith('•') || line.startsWith('-')) {
+                    if (!inList) {
+                        htmlContent += '<ul class="list-disc pl-6 space-y-2 mb-4">\n';
+                        inList = true;
+                    }
+                    const itemText = line.substring(1).trim();
+                    htmlContent += `<li>${itemText}</li>\n`;
+                }
+                // Verificar se é um subtítulo (h3)
+                else if (/^\d+\.\d+\./.test(line)) {
+                    if (inList) {
+                        htmlContent += '</ul>\n';
+                        inList = false;
+                    }
+                    htmlContent += `<h3 class="text-xl font-semibold text-gray-800 mb-3 mt-4">${line}</h3>\n`;
+                }
+                // É um parágrafo normal
+                else {
+                    if (inList) {
+                        htmlContent += '</ul>\n';
+                        inList = false;
+                    }
+                    htmlContent += `<p class="mb-4">${line}</p>\n`;
+                }
+            }
+            
+            // Fechar lista se ainda estiver aberta
+            if (inList) {
+                htmlContent += '</ul>\n';
+            }
+            
+            // Fechar última seção se necessário
+            if (htmlContent && !htmlContent.includes('</section>')) {
+                htmlContent += '</section>\n';
+            }
+            
+            // Substituir o conteúdo da seção .prose
+            proseSection.innerHTML = htmlContent;
+            
+            // Obter o HTML completo atualizado usando XMLSerializer
+            let updatedHtml;
+            try {
+                const serializer = new XMLSerializer();
+                updatedHtml = serializer.serializeToString(doc.documentElement);
+                
+                // Adicionar DOCTYPE se não existir
+                if (!updatedHtml.toLowerCase().startsWith('<!doctype')) {
+                    updatedHtml = '<!DOCTYPE html>\n' + updatedHtml;
+                }
+            } catch (e) {
+                console.error('Erro ao serializar HTML:', e);
+                // Fallback: reconstruir manualmente
+                updatedHtml = originalHtml.replace(
+                    /<div class="prose[^"]*">[\s\S]*?<\/div>/,
+                    `<div class="prose prose-lg max-w-none space-y-6 text-gray-700">\n                \n${htmlContent}            </div>`
+                );
+            }
+            
+            console.log('HTML atualizado gerado, tamanho:', updatedHtml.length);
+            
+            const saveFilePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+            
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'save_legal_document',
+                    file_path: saveFilePath,
+                    content: updatedHtml
+                })
+            });
+            
+            const result = await this.safeJsonParse(response, { success: false });
+            
+            console.log('Resposta do servidor:', result);
+            
+            if (result && result.success) {
+                this.showNotification('Documento salvo com sucesso!', 'success');
+                this.closeLegalDocumentModal();
             } else {
-                this.showNotification('Erro: Não foi possível processar o arquivo HTML', 'error');
+                const errorMsg = result?.message || 'Erro desconhecido';
+                console.error('Erro ao salvar:', errorMsg);
+                this.showNotification('Erro: ' + errorMsg, 'error');
             }
             
         } catch (error) {
             console.error('Erro ao salvar documento legal:', error);
-            this.showNotification('Erro de conexão: ' + error.message, 'error');
+            this.showNotification('Erro ao salvar: ' + error.message, 'error');
         }
     }
 
