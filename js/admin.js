@@ -3114,15 +3114,18 @@ class AdminSystem {
     // Editar documento legal (Termos ou Política de Privacidade)
     async editLegalDocument(type) {
         try {
+            console.log('editLegalDocument chamado com tipo:', type);
             const filePath = type === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
             
+            console.log('Carregando arquivo:', filePath);
             // Buscar conteúdo do arquivo
             const response = await fetch(filePath);
             if (!response.ok) {
-                throw new Error('Erro ao carregar arquivo');
+                throw new Error('Erro ao carregar arquivo: ' + response.status);
             }
             
             const html = await response.text();
+            console.log('Arquivo carregado, tamanho:', html.length);
             
             // Configurar modal
             const modal = document.getElementById('edit-legal-document-modal');
@@ -3131,6 +3134,18 @@ class AdminSystem {
             const icon = document.getElementById('legal-document-icon');
             const content = document.getElementById('legal-document-content');
             const documentType = document.getElementById('legal-document-type');
+            
+            if (!modal) {
+                console.error('Modal edit-legal-document-modal não encontrado');
+                this.showNotification('Erro: Modal não encontrado', 'error');
+                return;
+            }
+            
+            if (!title || !subtitle || !icon || !content || !documentType) {
+                console.error('Elementos do modal não encontrados:', { title, subtitle, icon, content, documentType });
+                this.showNotification('Erro: Elementos do modal não encontrados', 'error');
+                return;
+            }
             
             if (type === 'termos') {
                 title.textContent = 'Editar Termos e Condições';
@@ -3146,6 +3161,7 @@ class AdminSystem {
             content.value = html;
             
             // Mostrar modal
+            console.log('Mostrando modal');
             modal.classList.remove('hidden');
             
             // Focar no campo de conteúdo
@@ -3155,7 +3171,7 @@ class AdminSystem {
             
         } catch (error) {
             console.error('Erro ao carregar documento legal:', error);
-            this.showNotification('Erro ao carregar arquivo do documento', 'error');
+            this.showNotification('Erro ao carregar arquivo do documento: ' + error.message, 'error');
         }
     }
 
@@ -3248,18 +3264,48 @@ class AdminSystem {
         }
 
         // Configurar botões de edição de documentos legais
+        // Usar delegação de eventos para garantir que funcione mesmo se os elementos ainda não existirem
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'edit-termos-btn') {
+                console.log('Botão termos clicado (delegação)');
+                e.preventDefault();
+                this.editLegalDocument('termos');
+            } else if (e.target && e.target.id === 'edit-privacidade-btn') {
+                console.log('Botão privacidade clicado (delegação)');
+                e.preventDefault();
+                this.editLegalDocument('privacidade');
+            } else if (e.target && e.target.closest('#edit-termos-btn')) {
+                console.log('Botão termos clicado (closest)');
+                e.preventDefault();
+                this.editLegalDocument('termos');
+            } else if (e.target && e.target.closest('#edit-privacidade-btn')) {
+                console.log('Botão privacidade clicado (closest)');
+                e.preventDefault();
+                this.editLegalDocument('privacidade');
+            }
+        });
+
+        // Também tentar adicionar listeners diretos como fallback
         const editTermosBtn = document.getElementById('edit-termos-btn');
         if (editTermosBtn) {
-            editTermosBtn.addEventListener('click', () => {
+            editTermosBtn.addEventListener('click', (e) => {
+                console.log('Botão termos clicado (direto)');
+                e.preventDefault();
                 this.editLegalDocument('termos');
             });
+        } else {
+            console.warn('Botão edit-termos-btn não encontrado no momento da inicialização');
         }
 
         const editPrivacidadeBtn = document.getElementById('edit-privacidade-btn');
         if (editPrivacidadeBtn) {
-            editPrivacidadeBtn.addEventListener('click', () => {
+            editPrivacidadeBtn.addEventListener('click', (e) => {
+                console.log('Botão privacidade clicado (direto)');
+                e.preventDefault();
                 this.editLegalDocument('privacidade');
             });
+        } else {
+            console.warn('Botão edit-privacidade-btn não encontrado no momento da inicialização');
         }
 
         // Configurar contador de caracteres da bio
