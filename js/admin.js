@@ -3496,9 +3496,31 @@ class AdminSystem {
         // Configurar formulário de senha do admin
         const adminPasswordForm = document.getElementById('admin-password-form');
         if (adminPasswordForm) {
+            // Inicializar campo de senha atual com mascaramento
+            const currentPasswordField = document.getElementById('admin-current-password');
+            if (currentPasswordField && !currentPasswordField.value) {
+                currentPasswordField.value = '••••••••';
+                currentPasswordField.setAttribute('readonly', 'readonly');
+                currentPasswordField.setAttribute('data-masked', 'true');
+            }
+            
             adminPasswordForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.changeAdminPassword();
+            });
+            
+            // Restaurar campo mascarado quando o formulário for resetado
+            adminPasswordForm.addEventListener('reset', () => {
+                const currentPasswordField = document.getElementById('admin-current-password');
+                if (currentPasswordField) {
+                    setTimeout(() => {
+                        currentPasswordField.value = '••••••••';
+                        currentPasswordField.setAttribute('readonly', 'readonly');
+                        currentPasswordField.setAttribute('data-masked', 'true');
+                        currentPasswordField.classList.add('bg-gray-50', 'cursor-not-allowed');
+                        currentPasswordField.classList.remove('bg-white');
+                    }, 0);
+                }
             });
         }
 
@@ -3680,6 +3702,36 @@ class AdminSystem {
         if (adminBio && bioCount) {
             bioCount.textContent = adminBio.value.length;
         }
+
+        // Preencher campo de senha atual com caracteres mascarados
+        const adminCurrentPassword = document.getElementById('admin-current-password');
+        if (adminCurrentPassword) {
+            // Preencher com caracteres mascarados (não é a senha real)
+            adminCurrentPassword.value = '••••••••';
+            adminCurrentPassword.setAttribute('data-masked', 'true');
+            
+            // Permitir edição quando o usuário focar no campo (para digitar a senha atual ao alterar)
+            adminCurrentPassword.addEventListener('focus', function() {
+                if (this.getAttribute('data-masked') === 'true') {
+                    this.value = '';
+                    this.removeAttribute('readonly');
+                    this.classList.remove('bg-gray-50', 'cursor-not-allowed');
+                    this.classList.add('bg-white');
+                    this.setAttribute('data-masked', 'false');
+                }
+            });
+
+            // Se o campo perder o foco e estiver vazio, restaurar o mascaramento
+            adminCurrentPassword.addEventListener('blur', function() {
+                if (this.value === '' && this.getAttribute('data-masked') === 'false') {
+                    this.value = '••••••••';
+                    this.setAttribute('readonly', 'readonly');
+                    this.setAttribute('data-masked', 'true');
+                    this.classList.add('bg-gray-50', 'cursor-not-allowed');
+                    this.classList.remove('bg-white');
+                }
+            });
+        }
     }
 
     // Salvar perfil do admin
@@ -3747,9 +3799,23 @@ class AdminSystem {
     // Alterar senha do admin
     async changeAdminPassword() {
         try {
-            const currentPassword = document.getElementById('admin-current-password')?.value || '';
+            const currentPasswordField = document.getElementById('admin-current-password');
+            const currentPassword = currentPasswordField?.value || '';
             const newPassword = document.getElementById('admin-new-password')?.value || '';
             const confirmPassword = document.getElementById('admin-confirm-password')?.value || '';
+
+            // Verificar se o campo está mascarado (não foi editado)
+            if (currentPasswordField && (currentPasswordField.getAttribute('data-masked') === 'true' || currentPassword === '••••••••')) {
+                this.showNotification('Por favor, clique no campo "Senha atual" e digite sua senha atual para continuar', 'error');
+                currentPasswordField.focus();
+                return;
+            }
+
+            if (!currentPassword) {
+                this.showNotification('Por favor, digite sua senha atual', 'error');
+                currentPasswordField?.focus();
+                return;
+            }
 
             if (newPassword !== confirmPassword) {
                 this.showNotification('As senhas não coincidem', 'error');
@@ -3780,6 +3846,15 @@ class AdminSystem {
                 if (result.success) {
                     this.showNotification('Senha alterada com sucesso!', 'success');
                     document.getElementById('admin-password-form')?.reset();
+                    
+                    // Restaurar campo de senha atual com mascaramento
+                    if (currentPasswordField) {
+                        currentPasswordField.value = '••••••••';
+                        currentPasswordField.setAttribute('readonly', 'readonly');
+                        currentPasswordField.setAttribute('data-masked', 'true');
+                        currentPasswordField.classList.add('bg-gray-50', 'cursor-not-allowed');
+                        currentPasswordField.classList.remove('bg-white');
+                    }
                 } else {
                     this.showNotification('Erro: ' + (result.message || 'Erro ao alterar senha'), 'error');
                 }
