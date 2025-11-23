@@ -763,17 +763,15 @@ class AdminSystem {
                 self.saveLegalDocument();
             }
             
-            // Botão visualizar
+            // Botão visualizar - abrir a página HTML correspondente
             if (target.id === 'preview-legal-document' || target.closest('#preview-legal-document')) {
                 e.preventDefault();
                 e.stopPropagation();
                 const documentType = document.getElementById('legal-document-type')?.value;
-                const content = document.getElementById('legal-document-content')?.value;
-                if (content) {
-                    const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
-                    const blob = new Blob([content], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank');
+                if (documentType) {
+                    const filePath = documentType === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
+                    console.log('Abrindo página:', filePath);
+                    window.open(filePath, '_blank');
                 }
             }
         });
@@ -801,12 +799,10 @@ class AdminSystem {
             if (previewBtn) {
                 previewBtn.addEventListener('click', () => {
                     const documentType = document.getElementById('legal-document-type')?.value;
-                    const content = document.getElementById('legal-document-content')?.value;
-                    if (content) {
-                        const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
-                        const blob = new Blob([content], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
+                    if (documentType) {
+                        const filePath = documentType === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
+                        console.log('Abrindo página:', filePath);
+                        window.open(filePath, '_blank');
                     }
                 });
             }
@@ -3237,15 +3233,26 @@ class AdminSystem {
                 return;
             }
             
-            // Configurar título e ícone baseado no tipo
+            // Configurar título, ícone e cores baseado no tipo
+            const modalHeader = document.getElementById('legal-document-header') || modal.querySelector('.bg-gradient-to-r');
             if (type === 'termos') {
                 title.textContent = 'Editar Termos e Condições';
                 subtitle.textContent = 'Atualize o conteúdo dos Termos e Condições do sistema';
+                subtitle.className = 'text-orange-100 text-sm';
                 icon.className = 'fas fa-file-contract text-white text-lg';
+                // Manter cor laranja/vermelho para termos
+                if (modalHeader) {
+                    modalHeader.className = 'bg-gradient-to-r from-orange-600 to-red-700 px-6 py-4';
+                }
             } else if (type === 'privacidade') {
                 title.textContent = 'Editar Política de Privacidade';
                 subtitle.textContent = 'Atualize o conteúdo da Política de Privacidade do sistema';
+                subtitle.className = 'text-blue-100 text-sm';
                 icon.className = 'fas fa-shield-alt text-white text-lg';
+                // Alterar para cor azul/indigo para política de privacidade (mesma do botão: from-blue-600 to-indigo-600)
+                if (modalHeader) {
+                    modalHeader.className = 'bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4';
+                }
             }
             
             documentType.value = type;
