@@ -3431,14 +3431,22 @@ class AdminSystem {
             }
             
             console.log('HTML atualizado gerado, tamanho:', updatedHtml.length);
+            console.log('Primeiros 500 caracteres do HTML:', updatedHtml.substring(0, 500));
             
             const saveFilePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+            
+            console.log('Enviando para salvar:', {
+                action: 'save_legal_document',
+                file_path: saveFilePath,
+                content_length: updatedHtml.length
+            });
             
             const response = await fetch('../services/admin.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin', // Incluir cookies de sessão
                 body: JSON.stringify({
                     action: 'save_legal_document',
                     file_path: saveFilePath,
@@ -3446,17 +3454,21 @@ class AdminSystem {
                 })
             });
             
+            console.log('Status da resposta:', response.status, response.statusText);
+            
             const result = await this.safeJsonParse(response, { success: false });
             
-            console.log('Resposta do servidor:', result);
+            console.log('Resposta completa do servidor:', result);
             
             if (result && result.success) {
+                console.log('Documento salvo com sucesso!', result.data);
                 this.showNotification('Documento salvo com sucesso!', 'success');
                 this.closeLegalDocumentModal();
             } else {
                 const errorMsg = result?.message || 'Erro desconhecido';
                 console.error('Erro ao salvar:', errorMsg);
-                this.showNotification('Erro: ' + errorMsg, 'error');
+                console.error('Resposta completa:', result);
+                this.showNotification('Erro ao salvar: ' + errorMsg, 'error');
             }
             
         } catch (error) {

@@ -227,7 +227,8 @@ try {
     $requiresAuth = ['get_users', 'get_dashboard_data', 'get_user', 'update_user', 
                      'create_decorator', 'approve_decorator', 'toggle_user_status', 
                      'delete_user', 'get_admin_profile', 'update_admin_profile', 
-                     'update_admin_password', 'get_settings', 'update_settings'];
+                     'update_admin_password', 'get_settings', 'update_settings', 
+                     'save_legal_document'];
     
     if (in_array($action, $requiresAuth)) {
         try {
@@ -933,55 +934,85 @@ function handleUpdateSettings($input) {
  */
 function handleSaveLegalDocument($input) {
     try {
+        // Verificar autenticação de admin
+        session_start();
+        if (!isset($_SESSION['admin_id'])) {
+            errorResponse('Acesso negado. Apenas administradores podem editar documentos legais.', 403);
+        }
+        
         $filePath = trim($input['file_path'] ?? '');
         $content = $input['content'] ?? '';
+        
+        error_log('Tentando salvar documento legal: ' . $filePath);
+        error_log('Tamanho do conteúdo: ' . strlen($content) . ' bytes');
         
         if (empty($filePath)) {
             errorResponse('Caminho do arquivo não informado', 400);
         }
         
+        if (empty($content)) {
+            errorResponse('Conteúdo não informado', 400);
+        }
+        
         // Validar que o arquivo é um dos permitidos
         $allowedFiles = ['termos-e-condicoes.html', 'politica-de-privacidade.html'];
         if (!in_array($filePath, $allowedFiles)) {
-            errorResponse('Arquivo não permitido', 403);
+            errorResponse('Arquivo não permitido: ' . $filePath, 403);
         }
         
         // Caminho completo do arquivo
         $fullPath = __DIR__ . '/../pages/' . $filePath;
+        error_log('Caminho completo: ' . $fullPath);
         
         // Verificar se o diretório existe
         $dir = dirname($fullPath);
         if (!is_dir($dir)) {
-            errorResponse('Diretório não encontrado', 500);
+            error_log('Diretório não encontrado: ' . $dir);
+            errorResponse('Diretório não encontrado: ' . $dir, 500);
+        }
+        
+        // Verificar se o diretório é gravável
+        if (!is_writable($dir)) {
+            error_log('Diretório não tem permissão de escrita: ' . $dir);
+            errorResponse('Diretório não tem permissão de escrita', 500);
         }
         
         // Verificar se o arquivo existe e é gravável
         if (file_exists($fullPath) && !is_writable($fullPath)) {
+            error_log('Arquivo não tem permissão de escrita: ' . $fullPath);
             errorResponse('Arquivo não tem permissão de escrita', 500);
         }
         
         // Criar backup antes de salvar
         if (file_exists($fullPath)) {
             $backupPath = $fullPath . '.backup.' . date('Y-m-d_H-i-s');
-            if (!copy($fullPath, $backupPath)) {
+            if (copy($fullPath, $backupPath)) {
+                error_log('Backup criado: ' . $backupPath);
+            } else {
                 error_log('Aviso: Não foi possível criar backup do arquivo ' . $filePath);
             }
         }
         
         // Salvar o conteúdo
-        $result = file_put_contents($fullPath, $content);
+        $result = file_put_contents($fullPath, $content, LOCK_EX);
         
         if ($result === false) {
-            errorResponse('Erro ao salvar arquivo', 500);
+            $error = error_get_last();
+            error_log('Erro ao salvar arquivo: ' . ($error['message'] ?? 'Erro desconhecido'));
+            errorResponse('Erro ao salvar arquivo: ' . ($error['message'] ?? 'Erro desconhecido'), 500);
         }
+        
+        error_log('Arquivo salvo com sucesso: ' . $filePath . ' (' . $result . ' bytes)');
         
         successResponse([
             'file_path' => $filePath,
-            'bytes_written' => $result
+            'bytes_written' => $result,
+            'full_path' => $fullPath
         ], 'Documento salvo com sucesso');
         
     } catch (Exception $e) {
         error_log('Erro ao salvar documento legal: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         errorResponse('Erro ao salvar documento: ' . $e->getMessage(), 500);
     }
 }
