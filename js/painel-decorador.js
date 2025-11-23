@@ -123,8 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const navItems = document.querySelectorAll('.nav-item');
     const moduleContents = document.querySelectorAll('.module-content');
     const pageTitle = document.getElementById('page-title');
-    const userName = document.getElementById('user-name');
-    const userEmail = document.getElementById('user-email');
     const userDisplayName = document.getElementById('user-display-name');
     
     // Modal de gerenciamento de conta
@@ -3152,16 +3150,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ? userData.email.trim()
             : '--';
         
-        if (userName) {
-            userName.textContent = nameValue;
-        }
-        
         if (userDisplayName) {
             userDisplayName.textContent = nameValue;
-        }
-        
-        if (userEmail) {
-            userEmail.textContent = emailValue;
         }
         
         const shouldPersist = userData && Object.values(userData).some(value => {
@@ -5591,7 +5581,6 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     const userBtn = document.getElementById('user-btn');
     const userDropdown = document.getElementById('user-dropdown');
-    const manageAccountBtn = document.getElementById('manage-account-btn');
     const adminPanelBtn = document.getElementById('admin-panel-btn');
     const logoutHeaderBtn = document.getElementById('logout-header-btn');
     
@@ -5796,16 +5785,6 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     // ========== AÇÕES DOS DROPDOWNS ==========
-    
-    // Gerenciar conta
-    if (manageAccountBtn) {
-        manageAccountBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            closeUserDropdown();
-            // Redirecionar para a página de gerenciamento de conta do decorador
-            window.location.href = 'login.html';
-        });
-    }
     
     // Painel Admin
     if (adminPanelBtn) {

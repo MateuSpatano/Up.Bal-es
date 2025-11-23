@@ -111,16 +111,6 @@
 
         <!-- Footer do Sidebar -->
         <div class="border-t border-gray-200 p-4">
-            <div class="flex items-center space-x-3 mb-4">
-                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                    <i class="fas fa-user text-white text-sm"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-800 truncate" id="user-name">--</p>
-                    <p class="text-xs text-gray-500 truncate" id="user-email">--</p>
-                </div>
-            </div>
-            
             <button id="logout-btn" class="w-full flex items-center space-x-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Sair</span>
@@ -187,10 +177,6 @@
                         <!-- Dropdown do Usuário -->
                         <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2 z-50">
                             <div class="py-2">
-                                <a href="#account" id="manage-account-btn" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
-                                    <i class="fas fa-user-cog mr-3"></i>
-                                    Gerenciar Conta
-                                </a>
                                 <a href="#admin" id="admin-panel-btn" class="dropdown-item flex items-center px-4 py-2 text-purple-600 hover:bg-purple-50 transition-colors duration-200 hidden">
                                     <i class="fas fa-crown mr-3"></i>
                                     Painel Admin
