@@ -726,42 +726,91 @@ class AdminSystem {
             });
         }
 
-        // Modal de edição de documentos legais
-        const closeEditLegalDocumentModal = document.getElementById('close-edit-legal-document-modal');
-        if (closeEditLegalDocumentModal) {
-            closeEditLegalDocumentModal.addEventListener('click', () => {
-                this.closeModal('edit-legal-document-modal');
-            });
-        }
-
-        const editLegalDocumentModalOverlay = document.getElementById('edit-legal-document-modal-overlay');
-        if (editLegalDocumentModalOverlay) {
-            editLegalDocumentModalOverlay.addEventListener('click', () => {
-                this.closeModal('edit-legal-document-modal');
-            });
-        }
-
-        const cancelEditLegalDocument = document.getElementById('cancel-edit-legal-document');
-        if (cancelEditLegalDocument) {
-            cancelEditLegalDocument.addEventListener('click', () => {
-                this.closeModal('edit-legal-document-modal');
-            });
-        }
-
-        // Botão de visualizar documento legal
-        const previewLegalDocument = document.getElementById('preview-legal-document');
-        if (previewLegalDocument) {
-            previewLegalDocument.addEventListener('click', () => {
-                const documentType = document.getElementById('legal-document-type').value;
-                const content = document.getElementById('legal-document-content').value;
-                const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
-                
-                // Abrir em nova aba para visualização
-                const blob = new Blob([content], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-            });
-        }
+        // Modal de edição de documentos legais - usar delegação de eventos
+        const self = this;
+        document.addEventListener('click', function(e) {
+            const target = e.target;
+            
+            // Botão fechar (X)
+            if (target.id === 'close-edit-legal-document-modal' || target.closest('#close-edit-legal-document-modal')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Fechando modal (botão X)');
+                self.closeLegalDocumentModal();
+            }
+            
+            // Botão cancelar
+            if (target.id === 'cancel-edit-legal-document' || target.closest('#cancel-edit-legal-document')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Fechando modal (botão cancelar)');
+                self.closeLegalDocumentModal();
+            }
+            
+            // Overlay
+            if (target.id === 'edit-legal-document-modal-overlay') {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Fechando modal (overlay)');
+                self.closeLegalDocumentModal();
+            }
+            
+            // Botão salvar
+            if (target.id === 'save-legal-document' || target.closest('#save-legal-document')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Salvando documento legal');
+                self.saveLegalDocument();
+            }
+            
+            // Botão visualizar
+            if (target.id === 'preview-legal-document' || target.closest('#preview-legal-document')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const documentType = document.getElementById('legal-document-type')?.value;
+                const content = document.getElementById('legal-document-content')?.value;
+                if (content) {
+                    const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+                    const blob = new Blob([content], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                }
+            }
+        });
+        
+        // Também adicionar listeners diretos como fallback
+        setTimeout(() => {
+            const closeBtn = document.getElementById('close-edit-legal-document-modal');
+            const cancelBtn = document.getElementById('cancel-edit-legal-document');
+            const overlay = document.getElementById('edit-legal-document-modal-overlay');
+            const saveBtn = document.getElementById('save-legal-document');
+            const previewBtn = document.getElementById('preview-legal-document');
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => self.closeLegalDocumentModal());
+            }
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => self.closeLegalDocumentModal());
+            }
+            if (overlay) {
+                overlay.addEventListener('click', () => self.closeLegalDocumentModal());
+            }
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => self.saveLegalDocument());
+            }
+            if (previewBtn) {
+                previewBtn.addEventListener('click', () => {
+                    const documentType = document.getElementById('legal-document-type')?.value;
+                    const content = document.getElementById('legal-document-content')?.value;
+                    if (content) {
+                        const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+                        const blob = new Blob([content], { type: 'text/html' });
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                    }
+                });
+            }
+        }, 500);
     }
 
     // Configurar máscaras de input
@@ -3112,6 +3161,52 @@ class AdminSystem {
     }
 
     // Editar documento legal (Termos ou Política de Privacidade)
+    // Extrair conteúdo textual do HTML
+    extractTextContent(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Tentar encontrar a seção de conteúdo principal
+        const proseSection = doc.querySelector('.prose') || doc.querySelector('main') || doc.querySelector('body');
+        
+        if (!proseSection) {
+            // Se não encontrar, retornar o HTML completo
+            return html;
+        }
+        
+        // Extrair apenas o texto das seções, preservando estrutura básica
+        const sections = proseSection.querySelectorAll('section');
+        let textContent = '';
+        
+        sections.forEach((section, index) => {
+            const title = section.querySelector('h2');
+            const paragraphs = section.querySelectorAll('p');
+            const lists = section.querySelectorAll('ul, ol');
+            
+            if (title) {
+                textContent += title.textContent.trim() + '\n\n';
+            }
+            
+            paragraphs.forEach(p => {
+                textContent += p.textContent.trim() + '\n\n';
+            });
+            
+            lists.forEach(list => {
+                const items = list.querySelectorAll('li');
+                items.forEach(item => {
+                    textContent += '• ' + item.textContent.trim() + '\n';
+                });
+                textContent += '\n';
+            });
+            
+            if (index < sections.length - 1) {
+                textContent += '\n';
+            }
+        });
+        
+        return textContent.trim() || proseSection.textContent.trim();
+    }
+
     async editLegalDocument(type) {
         try {
             console.log('editLegalDocument chamado com tipo:', type);
@@ -3147,7 +3242,7 @@ class AdminSystem {
                 title.textContent = 'Editar Termos e Condições';
                 subtitle.textContent = 'Atualize o conteúdo dos Termos e Condições do sistema';
                 icon.className = 'fas fa-file-contract text-white text-lg';
-            } else {
+            } else if (type === 'privacidade') {
                 title.textContent = 'Editar Política de Privacidade';
                 subtitle.textContent = 'Atualize o conteúdo da Política de Privacidade do sistema';
                 icon.className = 'fas fa-shield-alt text-white text-lg';
@@ -3159,9 +3254,9 @@ class AdminSystem {
             content.value = 'Carregando conteúdo...';
             content.disabled = true;
             
-            // Buscar conteúdo do arquivo
+            // Buscar conteúdo do arquivo correto baseado no tipo
             const filePath = type === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
-            console.log('Carregando arquivo:', filePath);
+            console.log('Carregando arquivo:', filePath, 'para tipo:', type);
             
             const response = await fetch(filePath);
             if (!response.ok) {
@@ -3171,8 +3266,12 @@ class AdminSystem {
             const html = await response.text();
             console.log('Arquivo carregado, tamanho:', html.length);
             
-            // Preencher conteúdo
-            content.value = html;
+            // Extrair apenas o conteúdo textual
+            const textContent = this.extractTextContent(html);
+            console.log('Conteúdo extraído, tamanho:', textContent.length);
+            
+            // Preencher conteúdo com texto extraído
+            content.value = textContent;
             content.disabled = false;
             
             // Focar no campo de conteúdo
@@ -3192,42 +3291,108 @@ class AdminSystem {
         }
     }
 
+    // Fechar modal de documento legal
+    closeLegalDocumentModal() {
+        const modal = document.getElementById('edit-legal-document-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            console.log('Modal fechado');
+        }
+    }
+
     // Salvar documento legal
     async saveLegalDocument() {
         try {
-            const documentType = document.getElementById('legal-document-type').value;
-            const content = document.getElementById('legal-document-content').value;
+            const documentType = document.getElementById('legal-document-type')?.value;
+            const content = document.getElementById('legal-document-content')?.value;
             
             if (!documentType || !content) {
                 this.showNotification('Tipo de documento ou conteúdo não encontrado', 'error');
                 return;
             }
             
-            const filePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+            console.log('Salvando documento:', documentType);
             
-            const response = await fetch('../services/admin.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'save_legal_document',
-                    file_path: filePath,
-                    content: content
-                })
-            });
+            // Como estamos salvando apenas texto, precisamos reconstruir o HTML completo
+            // Buscar o HTML original para manter a estrutura
+            const filePath = documentType === 'termos' ? '../pages/termos-e-condicoes.html' : '../pages/politica-de-privacidade.html';
+            const originalResponse = await fetch(filePath);
+            const originalHtml = await originalResponse.text();
             
-            const result = await this.safeJsonParse(response, { success: false });
+            // Criar um novo HTML com o conteúdo atualizado
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(originalHtml, 'text/html');
+            const proseSection = doc.querySelector('.prose') || doc.querySelector('main');
             
-            if (result && result.success) {
-                this.showNotification('Documento salvo com sucesso!', 'success');
-                document.getElementById('edit-legal-document-modal').classList.add('hidden');
+            if (proseSection) {
+                // Converter o texto de volta para HTML básico
+                const lines = content.split('\n');
+                let htmlContent = '';
+                let currentSection = '';
+                
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (!line) return;
+                    
+                    // Se for um título (começa com número ou é tudo maiúsculo)
+                    if (/^\d+\./.test(line) || line.length < 100 && !line.includes('•')) {
+                        if (currentSection) {
+                            htmlContent += '</section>\n';
+                        }
+                        currentSection = line;
+                        htmlContent += `<section>\n<h2 class="text-2xl font-semibold text-gray-800 mb-4">${line}</h2>\n`;
+                    } else if (line.startsWith('•')) {
+                        if (!htmlContent.includes('<ul')) {
+                            htmlContent += '<ul class="list-disc pl-6 space-y-2 mb-4">\n';
+                        }
+                        htmlContent += `<li>${line.substring(1).trim()}</li>\n`;
+                    } else {
+                        if (htmlContent.includes('<ul') && !line.startsWith('•')) {
+                            htmlContent += '</ul>\n';
+                        }
+                        htmlContent += `<p class="mb-4">${line}</p>\n`;
+                    }
+                });
+                
+                if (currentSection) {
+                    htmlContent += '</section>\n';
+                }
+                
+                proseSection.innerHTML = htmlContent;
+                
+                // Salvar o HTML completo atualizado
+                const updatedHtml = doc.documentElement.outerHTML;
+                
+                const saveFilePath = documentType === 'termos' ? 'termos-e-condicoes.html' : 'politica-de-privacidade.html';
+                
+                const response = await fetch('../services/admin.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'save_legal_document',
+                        file_path: saveFilePath,
+                        content: updatedHtml
+                    })
+                });
+                
+                const result = await this.safeJsonParse(response, { success: false });
+                
+                if (result && result.success) {
+                    this.showNotification('Documento salvo com sucesso!', 'success');
+                    this.closeLegalDocumentModal();
+                } else {
+                    this.showNotification('Erro: ' + (result.message || 'Erro desconhecido'), 'error');
+                }
             } else {
-                this.showNotification('Erro: ' + (result.message || 'Erro desconhecido'), 'error');
+                this.showNotification('Erro: Não foi possível processar o arquivo HTML', 'error');
             }
+            
         } catch (error) {
             console.error('Erro ao salvar documento legal:', error);
-            this.showNotification('Erro de conexão', 'error');
+            this.showNotification('Erro de conexão: ' + error.message, 'error');
         }
     }
 
