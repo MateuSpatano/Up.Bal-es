@@ -6423,7 +6423,12 @@ Qualquer dúvida, estou à disposição! 😊`;
         document.getElementById('service-modal-title').textContent = 'Adicionar Serviço';
         document.getElementById('service-modal-subtitle').textContent = 'Preencha as informações do seu serviço';
         document.getElementById('image-preview').classList.add('hidden');
-        serviceModal.classList.remove('hidden');
+        const currentServiceModal = document.getElementById('service-modal') || serviceModal;
+        if (currentServiceModal) {
+            currentServiceModal.classList.remove('hidden');
+            currentServiceModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
     }
     
     // Abrir modal para editar serviço
@@ -6617,7 +6622,12 @@ Qualquer dúvida, estou à disposição! 😊`;
             console.log('Resultado da exclusão:', result);
             
             if (result.success) {
-                if (deleteServiceModal) deleteServiceModal.classList.add('hidden');
+                const currentDeleteModal = document.getElementById('delete-service-modal') || deleteServiceModal;
+                if (currentDeleteModal) {
+                    currentDeleteModal.classList.add('hidden');
+                    currentDeleteModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
                 const deletedId = deletingServiceId;
                 deletingServiceId = null;
                 
@@ -6957,7 +6967,12 @@ Qualquer dúvida, estou à disposição! 😊`;
             if (result.success) {
                 await loadPortfolioServices(false);
                 
-                if (serviceModal) serviceModal.classList.add('hidden');
+                const currentServiceModal = document.getElementById('service-modal') || serviceModal;
+                if (currentServiceModal) {
+                    currentServiceModal.classList.add('hidden');
+                    currentServiceModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
                 if (serviceForm) serviceForm.reset();
                 editingServiceId = null;
                 const preview = document.getElementById('image-preview');
@@ -7095,16 +7110,24 @@ Qualquer dúvida, estou à disposição! 😊`;
         const currentServiceModalOverlay = document.getElementById('service-modal-overlay');
         const currentServiceModal = document.getElementById('service-modal');
         
+        const closeServiceModalFunc = function() {
+            if (currentServiceModal) {
+                currentServiceModal.classList.add('hidden');
+                currentServiceModal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        };
+        
         if (currentCloseServiceModal && currentServiceModal) {
-            currentCloseServiceModal.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
+            currentCloseServiceModal.addEventListener('click', closeServiceModalFunc);
         }
         
         if (currentCancelService && currentServiceModal) {
-            currentCancelService.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
+            currentCancelService.addEventListener('click', closeServiceModalFunc);
         }
         
         if (currentServiceModalOverlay && currentServiceModal) {
-            currentServiceModalOverlay.addEventListener('click', () => currentServiceModal.classList.add('hidden'));
+            currentServiceModalOverlay.addEventListener('click', closeServiceModalFunc);
         }
         
         // Preview de imagem e editor
@@ -7247,21 +7270,42 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         // Modal de confirmação de exclusão - adicionar listeners diretamente
         const currentDeleteServiceModal = document.getElementById('delete-service-modal');
+        
+        const closeDeleteModalFunc = function() {
+            if (currentDeleteServiceModal) {
+                currentDeleteServiceModal.classList.add('hidden');
+                currentDeleteServiceModal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        };
+        
         if (currentCancelDeleteService) {
             try {
-                currentCancelDeleteService.addEventListener('click', function(e) {
+                // Remover listeners antigos se existirem
+                const newCancelBtn = currentCancelDeleteService.cloneNode(true);
+                currentCancelDeleteService.parentNode.replaceChild(newCancelBtn, currentCancelDeleteService);
+                newCancelBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (currentDeleteServiceModal) currentDeleteServiceModal.classList.add('hidden');
+                    closeDeleteModalFunc();
                 });
             } catch (error) {
                 console.error('Erro ao adicionar listener ao botão cancelar exclusão:', error);
+                // Fallback: adicionar listener diretamente sem clonar
+                currentCancelDeleteService.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeDeleteModalFunc();
+                });
             }
         }
         
         if (currentConfirmDeleteService) {
             try {
-                currentConfirmDeleteService.addEventListener('click', async function(e) {
+                // Remover listeners antigos se existirem
+                const newConfirmBtn = currentConfirmDeleteService.cloneNode(true);
+                currentConfirmDeleteService.parentNode.replaceChild(newConfirmBtn, currentConfirmDeleteService);
+                newConfirmBtn.addEventListener('click', async function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('Botão confirmar exclusão clicado');
@@ -7269,6 +7313,13 @@ Qualquer dúvida, estou à disposição! 😊`;
                 });
             } catch (error) {
                 console.error('Erro ao adicionar listener ao botão confirmar exclusão:', error);
+                // Fallback: adicionar listener diretamente sem clonar
+                currentConfirmDeleteService.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Botão confirmar exclusão clicado');
+                    await deleteService();
+                });
             }
         }
         
@@ -7277,7 +7328,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 currentDeleteServiceModalOverlay.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (currentDeleteServiceModal) currentDeleteServiceModal.classList.add('hidden');
+                    closeDeleteModalFunc();
                 });
             } catch (error) {
                 console.error('Erro ao adicionar listener ao overlay do modal de exclusão:', error);

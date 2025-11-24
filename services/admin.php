@@ -869,7 +869,7 @@ function handleApproveDecorator($input) {
 function handleToggleUserStatus($input) {
     try {
         $userId = intval($input['user_id'] ?? 0);
-        if (!$userId) {
+         if (!$userId) {
             errorResponse('ID do usuário é obrigatório', 400);
         }
         
