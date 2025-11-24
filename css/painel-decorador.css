@@ -1012,6 +1012,54 @@ button:focus {
     z-index: 50;
 }
 
+/* Modal de Adicionar/Editar Serviço - Centralizado */
+#service-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    overflow-y: auto;
+}
+
+#service-modal.hidden {
+    display: none !important;
+}
+
+#service-modal > div:first-child {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 1rem;
+}
+
+/* Modal de Confirmação de Exclusão - Centralizado */
+#delete-service-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    overflow-y: auto;
+}
+
+#delete-service-modal.hidden {
+    display: none !important;
+}
+
+#delete-service-modal > div:first-child {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 1rem;
+}
+
 .modal-content {
     background: white;
     border-radius: 1rem;

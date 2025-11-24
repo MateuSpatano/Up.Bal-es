@@ -6426,7 +6426,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         const currentServiceModal = document.getElementById('service-modal') || serviceModal;
         if (currentServiceModal) {
             currentServiceModal.classList.remove('hidden');
-            currentServiceModal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
     }
@@ -6521,7 +6520,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         const currentServiceModal = document.getElementById('service-modal') || serviceModal;
         if (currentServiceModal) {
             currentServiceModal.classList.remove('hidden');
-            currentServiceModal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             showInfoToast('Editando Serviço', 'Modifique as informações conforme necessário.');
         } else {
@@ -6561,7 +6559,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         const currentDeleteModal = document.getElementById('delete-service-modal') || deleteServiceModal;
         if (currentDeleteModal) {
             currentDeleteModal.classList.remove('hidden');
-            currentDeleteModal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         } else {
             console.error('Modal de confirmação de exclusão não encontrado!');
@@ -6625,7 +6622,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const currentDeleteModal = document.getElementById('delete-service-modal') || deleteServiceModal;
                 if (currentDeleteModal) {
                     currentDeleteModal.classList.add('hidden');
-                    currentDeleteModal.style.display = 'none';
                     document.body.style.overflow = '';
                 }
                 const deletedId = deletingServiceId;
@@ -6970,7 +6966,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const currentServiceModal = document.getElementById('service-modal') || serviceModal;
                 if (currentServiceModal) {
                     currentServiceModal.classList.add('hidden');
-                    currentServiceModal.style.display = 'none';
                     document.body.style.overflow = '';
                 }
                 if (serviceForm) serviceForm.reset();
@@ -7113,7 +7108,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         const closeServiceModalFunc = function() {
             if (currentServiceModal) {
                 currentServiceModal.classList.add('hidden');
-                currentServiceModal.style.display = 'none';
                 document.body.style.overflow = '';
             }
         };
@@ -7274,7 +7268,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         const closeDeleteModalFunc = function() {
             if (currentDeleteServiceModal) {
                 currentDeleteServiceModal.classList.add('hidden');
-                currentDeleteServiceModal.style.display = 'none';
                 document.body.style.overflow = '';
             }
         };
