@@ -6033,9 +6033,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         emptyPortfolio.classList.add('hidden');
         servicesGrid.innerHTML = '';
         
-        // Criar fragmento para melhor performance
-        const fragment = document.createDocumentFragment();
-        
         // Processar serviços em lotes para melhor performance
         const batchSize = 4;
         const batches = [];
@@ -6082,15 +6079,12 @@ Qualquer dúvida, estou à disposição! 😊`;
                 }
             }
             
-            // Adicionar cards ao fragmento
+            // Adicionar cards diretamente ao DOM (sem fragmento para evitar duplicação)
             batchCards.forEach(card => {
                 if (card) {
-                    fragment.appendChild(card);
+                    servicesGrid.appendChild(card);
                 }
             });
-            
-            // Adicionar fragmento ao DOM em lotes para melhor performance
-            servicesGrid.appendChild(fragment.cloneNode(true));
             
             // Pequena pausa entre lotes para não bloquear a UI
             if (batchIndex < batches.length - 1) {
@@ -6880,11 +6874,15 @@ Qualquer dúvida, estou à disposição! 😊`;
         const isEdit = Boolean(editingServiceId);
         let originalButtonContent = null;
         
+        // Buscar o botão de salvar diretamente para garantir que está atualizado
+        const currentSaveServiceBtn = document.getElementById('save-service');
+        const saveBtn = currentSaveServiceBtn || saveService;
+        
         try {
-            if (saveService) {
-                originalButtonContent = saveService.innerHTML;
-                saveService.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
-                saveService.disabled = true;
+            if (saveBtn) {
+                originalButtonContent = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+                saveBtn.disabled = true;
             }
             
             const payload = new FormData();
@@ -6894,9 +6892,9 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const serviceIdToUpdate = typeof editingServiceId === 'string' ? parseInt(editingServiceId, 10) : editingServiceId;
                 if (!serviceIdToUpdate || isNaN(serviceIdToUpdate)) {
                     showErrorToast('Erro', 'ID do serviço inválido para edição.');
-                    if (saveService) {
-                        saveService.disabled = false;
-                        saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
                     }
                     return;
                 }
@@ -6916,9 +6914,9 @@ Qualquer dúvida, estou à disposição! 😊`;
             // Validar campos obrigatórios
             if (!type || !title) {
                 showErrorToast('Erro', 'Tipo e título do serviço são obrigatórios.');
-                if (saveService) {
-                    saveService.disabled = false;
-                    saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
                 }
                 return;
             }
@@ -6961,6 +6959,12 @@ Qualquer dúvida, estou à disposição! 😊`;
             console.log('Resultado do salvamento:', result);
             
             if (result.success) {
+                // Resetar botão ANTES de recarregar serviços para evitar estado de carregamento infinito
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+                }
+                
                 await loadPortfolioServices(false);
                 
                 const currentServiceModal = document.getElementById('service-modal') || serviceModal;
@@ -6985,9 +6989,11 @@ Qualquer dúvida, estou à disposição! 😊`;
             console.error('Erro ao salvar serviço:', error);
             showErrorToast('Erro', 'Ocorreu um erro ao salvar o serviço. Verifique sua conexão e tente novamente.');
         } finally {
-            if (saveService) {
-                saveService.disabled = false;
-                saveService.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
+            // Buscar o botão novamente para garantir que está atualizado
+            const finalSaveBtn = document.getElementById('save-service') || saveService;
+            if (finalSaveBtn) {
+                finalSaveBtn.disabled = false;
+                finalSaveBtn.innerHTML = originalButtonContent || '<i class="fas fa-save mr-2"></i>Salvar Serviço';
             }
         }
     }
