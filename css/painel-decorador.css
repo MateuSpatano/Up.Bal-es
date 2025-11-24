@@ -86,14 +86,25 @@
     justify-content: center;
 }
 
-/* Imagem responsiva dentro do card */
+/* Imagem responsiva dentro do card - preenche e centraliza automaticamente */
 .service-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
     background-color: #f9fafb; /* bg-gray-50 */
     transition: transform 0.3s ease;
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
+/* Garantir que imagens dentro do container preencham o espaço */
+.service-image-container img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
 }
 
 /* Placeholder quando não há imagem */

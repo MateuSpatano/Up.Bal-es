@@ -6378,43 +6378,36 @@ Qualquer dúvida, estou à disposição! 😊`;
         `;
     }
     
-    // Criar imagem com ajuste automático
+    // Criar imagem com ajuste automático - preenche o espaço e centraliza
     async function createAutoFitImage(imageSrc, altText) {
         return new Promise((resolve) => {
             const img = new Image();
-            img.onload = function() {
-                const containerWidth = 280; // Largura do card
-                const containerHeight = 256; // Altura da imagem (16rem)
-                
-                // Calcular dimensões mantendo proporção
-                const imgAspectRatio = img.width / img.height;
-                const containerAspectRatio = containerWidth / containerHeight;
-                
-                let finalWidth, finalHeight;
-                
-                if (imgAspectRatio > containerAspectRatio) {
-                    // Imagem mais larga que o container
-                    finalWidth = containerWidth;
-                    finalHeight = containerWidth / imgAspectRatio;
-                } else {
-                    // Imagem mais alta que o container
-                    finalHeight = containerHeight;
-                    finalWidth = containerHeight * imgAspectRatio;
+            img.crossOrigin = 'anonymous';
+            
+            // Timeout para evitar espera infinita
+            const timeout = setTimeout(() => {
+                if (!img.complete) {
+                    console.warn('Timeout ao carregar imagem:', imageSrc);
+                    resolve(createImagePlaceholder());
                 }
-                
-                // Centralizar a imagem
-                const offsetX = (containerWidth - finalWidth) / 2;
-                const offsetY = (containerHeight - finalHeight) / 2;
-                
+            }, 10000);
+            
+            img.onload = function() {
+                clearTimeout(timeout);
+                // Usar CSS para preencher e centralizar automaticamente
+                // object-fit: cover preenche o espaço mantendo proporção
+                // object-position: center centraliza a imagem
                 resolve(`
                     <img src="${imageSrc}" 
                          alt="${altText || 'Imagem do serviço'}" 
                          class="service-image" 
-                         style="width: ${finalWidth}px; height: ${finalHeight}px; object-fit: contain; position: absolute; top: ${offsetY}px; left: ${offsetX}px;">
+                         style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
                 `);
             };
             
             img.onerror = function() {
+                clearTimeout(timeout);
+                console.warn('Erro ao carregar imagem:', imageSrc);
                 resolve(createImagePlaceholder());
             };
             
