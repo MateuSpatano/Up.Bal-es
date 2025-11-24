@@ -1984,33 +1984,22 @@
 
     <!-- Modal de Visualização de Imagem -->
     <div id="image-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="flex items-center justify-center min-h-screen px-4 py-4">
             <!-- Overlay -->
-            <div class="fixed inset-0 transition-opacity bg-black bg-opacity-75" id="image-modal-overlay"></div>
+            <div class="fixed inset-0 transition-opacity bg-black bg-opacity-90" id="image-modal-overlay"></div>
 
             <!-- Modal Content -->
-            <div class="inline-block w-full max-w-4xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+            <div class="relative w-full max-w-7xl p-0 overflow-hidden text-left align-middle transition-all transform shadow-xl rounded-2xl bg-transparent">
                 <!-- Header -->
-                <div class="bg-gray-800 px-6 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <i class="fas fa-image text-white text-lg"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-semibold text-white">Imagem de Inspiração</h3>
-                                <p class="text-gray-300 text-sm">Visualização ampliada</p>
-                            </div>
-                        </div>
-                        <button id="close-image-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
+                <div class="absolute top-4 right-4 z-10">
+                    <button id="close-image-modal" class="w-10 h-10 bg-black bg-opacity-70 hover:bg-opacity-90 text-white rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
                 </div>
 
                 <!-- Content -->
-                <div class="p-6 text-center">
-                    <img id="modal-image" src="" alt="Imagem de inspiração" class="max-w-full max-h-96 mx-auto rounded-lg shadow-lg">
+                <div class="p-4 text-center">
+                    <img id="modal-image" src="" alt="Imagem" class="max-w-full max-h-[90vh] mx-auto rounded-lg shadow-2xl" style="object-fit: contain; width: auto; height: auto;">
                 </div>
             </div>
         </div>

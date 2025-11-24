@@ -6300,10 +6300,24 @@ Qualquer dúvida, estou à disposição! 😊`;
             imageHtml = createImagePlaceholder();
         }
         
+        // Escapar caracteres especiais para uso seguro no HTML
+        const escapedImageSrc = (service.image || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const escapedTitle = (service.title || 'Imagem do serviço').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
         card.innerHTML = `
             <div class="relative">
                 <div class="service-image-container">
                     ${imageHtml}
+                    ${service.image ? `
+                    <button class="view-image-btn" 
+                            data-image-src="${escapedImageSrc}" 
+                            data-image-alt="${escapedTitle}"
+                            title="Ver imagem em tamanho real" 
+                            type="button"
+                            onclick="if(typeof window.viewPortfolioImage==='function'){event.stopPropagation();event.preventDefault();window.viewPortfolioImage('${escapedImageSrc}', '${escapedTitle}');}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ` : ''}
                 </div>
                 <div class="service-actions">
                     <button class="edit-service-btn" data-id="${service.id}" data-service-id="${service.id}" title="Editar serviço" type="button" onclick="if(typeof window.editService==='function'){event.stopPropagation();event.preventDefault();window.editService('${service.id}');}else{console.error('editService não disponível');alert('Erro: função de edição não disponível');}">
@@ -6331,8 +6345,19 @@ Qualquer dúvida, estou à disposição! 😊`;
         card.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.edit-service-btn');
             const deleteBtn = e.target.closest('.delete-service-btn');
+            const viewImageBtn = e.target.closest('.view-image-btn');
             
-            if (editBtn) {
+            if (viewImageBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const imageSrc = viewImageBtn.getAttribute('data-image-src') || service.image;
+                const imageAlt = viewImageBtn.getAttribute('data-image-alt') || service.title || 'Imagem do serviço';
+                if (typeof window.viewPortfolioImage === 'function') {
+                    window.viewPortfolioImage(imageSrc, imageAlt);
+                } else {
+                    console.error('Função viewPortfolioImage não encontrada');
+                }
+            } else if (editBtn) {
                 e.preventDefault();
                 e.stopPropagation();
                 const serviceId = editBtn.getAttribute('data-id') || editBtn.getAttribute('data-service-id') || service.id;
@@ -7502,6 +7527,66 @@ Qualquer dúvida, estou à disposição! 😊`;
     window.deleteService = function() {
         console.log('window.deleteService chamado');
         return deleteService();
+    };
+    
+    // Função para visualizar imagem do portfólio em tamanho real
+    window.viewPortfolioImage = function(imageSrc, imageAlt) {
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeImageModal = document.getElementById('close-image-modal');
+        const imageModalOverlay = document.getElementById('image-modal-overlay');
+        
+        if (!imageModal || !modalImage) {
+            console.error('Modal de imagem não encontrado');
+            return;
+        }
+        
+        // Garantir que o caminho da imagem esteja correto
+        let finalImageSrc = imageSrc;
+        if (imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('data:')) {
+            // Se não começar com ../, adicionar
+            if (!imageSrc.startsWith('../')) {
+                finalImageSrc = '../' + imageSrc;
+            }
+        }
+        
+        // Definir a imagem no modal
+        modalImage.src = finalImageSrc;
+        modalImage.alt = imageAlt || 'Imagem do portfólio';
+        
+        // Abrir modal
+        imageModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        // Função para fechar modal
+        const closeModal = function() {
+            imageModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        };
+        
+        // Configurar event listeners
+        if (closeImageModal) {
+            // Remover listeners antigos
+            const newCloseBtn = closeImageModal.cloneNode(true);
+            closeImageModal.parentNode.replaceChild(newCloseBtn, closeImageModal);
+            newCloseBtn.addEventListener('click', closeModal);
+        }
+        
+        if (imageModalOverlay) {
+            // Remover listeners antigos
+            const newOverlay = imageModalOverlay.cloneNode(true);
+            imageModalOverlay.parentNode.replaceChild(newOverlay, imageModalOverlay);
+            newOverlay.addEventListener('click', closeModal);
+        }
+        
+        // Fechar com ESC
+        const handleEsc = function(e) {
+            if (e.key === 'Escape' && !imageModal.classList.contains('hidden')) {
+                closeModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
     };
     
     window.portfolioServices = () => portfolioServices;

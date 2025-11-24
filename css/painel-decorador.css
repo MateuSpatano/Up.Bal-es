@@ -107,6 +107,30 @@
     object-position: center !important;
 }
 
+/* Modal de visualização de imagem - Centralizado */
+#image-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    overflow-y: auto;
+}
+
+#image-modal.hidden {
+    display: none !important;
+}
+
+#image-modal > div:first-child {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 1rem;
+}
+
 /* Placeholder quando não há imagem */
 .service-image-placeholder {
     width: 100%;
@@ -1628,6 +1652,53 @@ button:focus {
     font-size: 0.875rem;
     font-weight: 500;
     margin: 0;
+}
+
+/* Botão de visualizar imagem - aparece apenas no hover */
+.view-image-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3.5rem;
+    height: 3.5rem;
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    pointer-events: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.view-image-btn:hover {
+    background-color: rgba(59, 130, 246, 0.9);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.view-image-btn:active {
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.service-image-container:hover .view-image-btn {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Garantir que o botão não interfira com outros elementos */
+.service-image-container {
+    position: relative;
 }
 
 /* Botões de ação do card */
