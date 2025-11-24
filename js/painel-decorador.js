@@ -5976,7 +5976,19 @@ Qualquer dúvida, estou à disposição! 😊`;
             
             if (result.success) {
                 const items = Array.isArray(result.data?.items) ? result.data.items : [];
-                portfolioServices = items.map(normalizePortfolioItem);
+                // Remover duplicatas baseado no ID antes de normalizar
+                const uniqueItems = [];
+                const seenIds = new Set();
+                items.forEach(item => {
+                    const itemId = item.id || item.ID;
+                    if (itemId && !seenIds.has(itemId)) {
+                        seenIds.add(itemId);
+                        uniqueItems.push(item);
+                    }
+                });
+                
+                portfolioServices = uniqueItems.map(normalizePortfolioItem);
+                console.log('Portfólio carregado:', portfolioServices.length, 'itens únicos');
             } else {
                 portfolioServices = [];
                 if (showToastOnError) {
@@ -6871,6 +6883,13 @@ Qualquer dúvida, estou à disposição! 😊`;
     
     // Salvar serviço
     async function saveServiceData(formData) {
+        // Prevenir múltiplos salvamentos simultâneos
+        if (window.savingService === true) {
+            console.warn('Já existe um salvamento em andamento, ignorando requisição duplicada');
+            return;
+        }
+        
+        window.savingService = true;
         const isEdit = Boolean(editingServiceId);
         let originalButtonContent = null;
         
@@ -6989,6 +7008,9 @@ Qualquer dúvida, estou à disposição! 😊`;
             console.error('Erro ao salvar serviço:', error);
             showErrorToast('Erro', 'Ocorreu um erro ao salvar o serviço. Verifique sua conexão e tente novamente.');
         } finally {
+            // Liberar flag de salvamento
+            window.savingService = false;
+            
             // Buscar o botão novamente para garantir que está atualizado
             const finalSaveBtn = document.getElementById('save-service') || saveService;
             if (finalSaveBtn) {
@@ -7253,18 +7275,59 @@ Qualquer dúvida, estou à disposição! 😊`;
             resetImageBtn.addEventListener('click', resetImageEditor);
         }
         
-        // Salvar serviço - adicionar listener diretamente
+        // Salvar serviço - remover listeners antigos e adicionar novo
         if (currentServiceForm) {
             try {
+                // Criar uma nova cópia do formulário para remover todos os listeners antigos
+                const newForm = currentServiceForm.cloneNode(true);
+                currentServiceForm.parentNode.replaceChild(newForm, currentServiceForm);
+                
+                // Buscar o formulário atualizado
+                const updatedForm = document.getElementById('service-form');
+                if (updatedForm) {
+                    // Adicionar listener único ao formulário
+                    updatedForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Formulário de serviço submetido');
+                        
+                        // Prevenir múltiplos envios simultâneos
+                        if (updatedForm.dataset.submitting === 'true') {
+                            console.warn('Formulário já está sendo enviado, ignorando submit duplicado');
+                            return;
+                        }
+                        
+                        updatedForm.dataset.submitting = 'true';
+                        const formData = new FormData(updatedForm);
+                        try {
+                            await saveServiceData(formData);
+                        } finally {
+                            // Remover flag de envio após um delay para permitir novo envio
+                            setTimeout(() => {
+                                updatedForm.dataset.submitting = 'false';
+                            }, 1000);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar listener ao formulário de serviço:', error);
+                // Fallback: adicionar listener diretamente sem clonar
                 currentServiceForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Formulário de serviço submetido');
+                    if (currentServiceForm.dataset.submitting === 'true') {
+                        return;
+                    }
+                    currentServiceForm.dataset.submitting = 'true';
                     const formData = new FormData(currentServiceForm);
-                    await saveServiceData(formData);
+                    try {
+                        await saveServiceData(formData);
+                    } finally {
+                        setTimeout(() => {
+                            currentServiceForm.dataset.submitting = 'false';
+                        }, 1000);
+                    }
                 });
-            } catch (error) {
-                console.error('Erro ao adicionar listener ao formulário de serviço:', error);
             }
         }
         
