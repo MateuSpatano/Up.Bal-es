@@ -8249,19 +8249,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 if (accentColorEl) accentColorEl.value = accentColor;
                 if (accentColorHexEl) accentColorHexEl.value = accentColor;
                 
-                // Preencher redes sociais
-                const socialFacebookEl = document.getElementById('decorator-social-facebook');
-                const socialInstagramEl = document.getElementById('decorator-social-instagram');
-                const socialWhatsappEl = document.getElementById('decorator-social-whatsapp');
-                const socialYoutubeEl = document.getElementById('decorator-social-youtube');
-                
-                if (config.social_media) {
-                    const social = typeof config.social_media === 'string' ? JSON.parse(config.social_media) : config.social_media;
-                    if (socialFacebookEl) socialFacebookEl.value = social.facebook || '';
-                    if (socialInstagramEl) socialInstagramEl.value = social.instagram || '';
-                    if (socialWhatsappEl) socialWhatsappEl.value = social.whatsapp || '';
-                    if (socialYoutubeEl) socialYoutubeEl.value = social.youtube || '';
-                }
+                // Campos de redes sociais removidos - não são mais necessários
                 
                 // Preencher contatos
                 const contactEmailEl = document.getElementById('decorator-contact-email');
@@ -8348,10 +8336,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                     primary_color: formData.get('primary_color'),
                     secondary_color: formData.get('secondary_color'),
                     accent_color: formData.get('accent_color'),
-                    social_facebook: formData.get('social_facebook'),
-                    social_instagram: formData.get('social_instagram'),
-                    social_whatsapp: formData.get('social_whatsapp'),
-                    social_youtube: formData.get('social_youtube'),
                     meta_title: formData.get('meta_title'),
                     meta_description: formData.get('meta_description'),
                     meta_keywords: formData.get('meta_keywords'),

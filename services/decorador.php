@@ -133,13 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit();
                 }
                 
-                // Preparar dados de customização
-                $socialMedia = [
-                    'facebook' => $input['social_facebook'] ?? '',
-                    'instagram' => $input['social_instagram'] ?? '',
-                    'whatsapp' => $input['social_whatsapp'] ?? '',
-                    'youtube' => $input['social_youtube'] ?? ''
-                ];
+                // Preparar dados de customização (redes sociais removidas da interface)
+                $socialMedia = [];
                 
                 // Verificar se já existe customização
                 $stmt = $pdo->prepare("
