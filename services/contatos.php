@@ -61,10 +61,8 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             email,
-            COALESCE(email_comunicacao, email) as email_comunicacao,
-            COALESCE(whatsapp, telefone, '') as whatsapp,
-            COALESCE(instagram, '') as instagram,
-            COALESCE(telefone, '') as telefone
+            telefone,
+            redes_sociais
         FROM usuarios 
         WHERE perfil IN ('admin', 'decorator') 
         AND ativo = 1
@@ -91,10 +89,23 @@ try {
         exit();
     }
     
+    // Extrair dados das redes sociais (JSON)
+    $redesSociais = [];
+    if (!empty($contact['redes_sociais'])) {
+        $redesSociais = json_decode($contact['redes_sociais'], true) ?: [];
+    }
+    
     // Preparar dados de resposta
-    $email = !empty($contact['email_comunicacao']) ? $contact['email_comunicacao'] : ($contact['email'] ?? '');
-    $whatsapp = $contact['whatsapp'] ?? '';
-    $instagram = $contact['instagram'] ?? '';
+    // Email: priorizar communication_email das redes sociais, senão usar email
+    $email = !empty($redesSociais['communication_email']) 
+        ? $redesSociais['communication_email'] 
+        : ($contact['email'] ?? '');
+    
+    // WhatsApp: buscar das redes sociais, senão usar telefone
+    $whatsapp = $redesSociais['whatsapp'] ?? $contact['telefone'] ?? '';
+    
+    // Instagram: buscar das redes sociais
+    $instagram = $redesSociais['instagram'] ?? '';
     
     // Formatar WhatsApp para link
     $whatsappLink = '';
