@@ -12,16 +12,67 @@ header('Content-Type: text/html; charset=utf-8');
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/decorador-service.php';
 
+// Função auxiliar para garantir URL base correta
+function getCorrectBaseUrl() {
+    global $urls;
+    
+    // Se já temos a URL base configurada, usar ela
+    if (isset($urls) && !empty($urls['base'])) {
+        $base = rtrim($urls['base'], '/') . '/';
+        // Garantir que não há duplicação
+        $base = preg_replace('#([^:])//+#', '$1/', $base);
+        return $base;
+    }
+    
+    // Detectar do REQUEST_URI (mais confiável para rewrite rules)
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    
+    // Tentar detectar o nome do projeto do REQUEST_URI
+    // Exemplo: /Up.Bal-es/mateus-rian-da-silva-teixeira
+    if (preg_match('#^/([^/]+)#', $requestUri, $matches)) {
+        $firstSegment = $matches[1];
+        // Verificar se é um nome de projeto conhecido
+        $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
+        if (in_array($firstSegment, $knownProjects) || strpos($firstSegment, 'Baloes') !== false || strpos($firstSegment, 'Bal-es') !== false) {
+            $base = $protocol . '://' . $host . '/' . $firstSegment . '/';
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            error_log("Base URL detectada do REQUEST_URI: $base");
+            return $base;
+        }
+    }
+    
+    // Fallback: tentar do SCRIPT_NAME
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+        $base = $protocol . '://' . $host . '/' . $matches[1] . '/';
+        $base = preg_replace('#([^:])//+#', '$1/', $base);
+        error_log("Base URL detectada do SCRIPT_NAME: $base");
+        return $base;
+    }
+    
+    // Último fallback
+    $base = $protocol . '://' . $host . '/Up.Bal-es/';
+    error_log("Base URL usando fallback padrão: $base");
+    return $base;
+}
+
 // Obter slug da URL
 $slug = $_GET['slug'] ?? '';
 
-// Log para debug
-error_log("Tentando acessar decorador com slug: " . $slug);
+// Log detalhado para debug
+error_log("=== PÁGINA DECORADOR ===");
+error_log("REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+error_log("QUERY_STRING: " . ($_SERVER['QUERY_STRING'] ?? 'N/A'));
+error_log("GET params: " . json_encode($_GET));
+error_log("Slug recebido: " . $slug);
+error_log("HTTP_REFERER: " . ($_SERVER['HTTP_REFERER'] ?? 'N/A'));
 
 if (empty($slug)) {
     error_log("Slug vazio, redirecionando para index");
     // Detectar base URL automaticamente
-    $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+    $baseUrl = getCorrectBaseUrl();
     header('Location: ' . $baseUrl . 'index.html');
     exit;
 }
@@ -127,8 +178,7 @@ try {
             $portfolio = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             // Processar caminhos das imagens
-            global $urls;
-            $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+            $baseUrl = getCorrectBaseUrl();
             foreach ($portfolio as &$item) {
                 if (!empty($item['image_path'])) {
                     $item['image_url'] = $baseUrl . ltrim($item['image_path'], '/');
@@ -164,7 +214,7 @@ try {
     if (!$result['success']) {
         error_log("Decorador não encontrado ou inativo: " . $slug);
         http_response_code(404);
-        $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+        $baseUrl = getCorrectBaseUrl();
         ?>
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -262,22 +312,8 @@ try {
     $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? $socialMedia['whatsapp'] ?? '';
     $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? $socialMedia['instagram'] ?? '';
     
-    // Base URL para assets (usar a configuração do config.php)
-    global $urls;
-    if (!isset($urls) || empty($urls['base'])) {
-        // Fallback se $urls não estiver disponível
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-        if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
-            $projectName = $matches[1];
-            $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
-        } else {
-            $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
-        }
-    } else {
-        $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
-    }
+    // Base URL para assets - usar função auxiliar para garantir correção
+    $baseUrl = getCorrectBaseUrl();
     
 } catch (Exception $e) {
     error_log("Erro ao carregar página do decorador: " . $e->getMessage());
@@ -286,22 +322,8 @@ try {
     
     http_response_code(500);
     
-    // Garantir que $urls está disponível
-    global $urls;
-    if (!isset($urls) || empty($urls['base'])) {
-        // Fallback se $urls não estiver disponível
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-        if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
-            $projectName = $matches[1];
-            $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
-        } else {
-            $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
-        }
-    } else {
-        $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
-    }
+    // Garantir que $baseUrl está disponível usando função auxiliar
+    $baseUrl = getCorrectBaseUrl();
     
     // Em desenvolvimento, mostrar mais detalhes do erro
     $showDetails = (defined('ENVIRONMENT') && ENVIRONMENT === 'development');

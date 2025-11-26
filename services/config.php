@@ -107,16 +107,37 @@ if (empty($baseUrl)) {
     // Tentar detectar automaticamente
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    
+    // Tentar detectar do REQUEST_URI primeiro (mais confiável para rewrite rules)
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
     
-    // Extrair o caminho base do script (ex: /Up.Bal-es/services/pagina-decorador.php)
-    if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+    $projectName = null;
+    
+    // Tentar do REQUEST_URI primeiro
+    if (preg_match('#^/([^/]+)#', $requestUri, $matches)) {
+        $firstSegment = $matches[1];
+        // Verificar se é um nome de projeto conhecido (não um slug)
+        $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
+        if (in_array($firstSegment, $knownProjects) || strpos($firstSegment, 'Baloes') !== false || strpos($firstSegment, 'Bal-es') !== false) {
+            $projectName = $firstSegment;
+        }
+    }
+    
+    // Se não encontrou no REQUEST_URI, tentar do SCRIPT_NAME
+    if (!$projectName && preg_match('#^/([^/]+)#', $scriptName, $matches)) {
         $projectName = $matches[1];
+    }
+    
+    if ($projectName) {
         $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
     } else {
-        // Fallback
+        // Fallback padrão
         $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
     }
+    
+    // Garantir que não há duplicação de caminho
+    $baseUrl = preg_replace('#([^:])//+#', '$1/', $baseUrl);
 }
 $baseUrl = ensureHttps($baseUrl);
 

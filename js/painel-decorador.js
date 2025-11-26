@@ -8131,7 +8131,6 @@ Qualquer dúvida, estou à disposição! 😊`;
 
     // ========== FUNCIONALIDADES DE PERSONALIZAÇÃO DA TELA INICIAL ==========
     
-    let editModeActive = false;
     let currentCustomizationData = null;
     
     async function loadPersonalizarTelaData() {
@@ -8209,10 +8208,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                         
                         // Pequeno delay para garantir que o conteúdo está renderizado
                         setTimeout(() => {
-                            // Se o modo de edição estiver ativo, reativar
-                            if (editModeActive) {
-                                enableEditMode();
-                            }
+                            // Preview carregado com sucesso
                         }, 500);
                     } else {
                         console.warn('Iframe carregou mas não é possível acessar o conteúdo (possível problema de CORS ou X-Frame-Options)');
@@ -8355,7 +8351,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                 setupDecoratorCustomizationTabs();
                 setupDecoratorColorInputs();
                 setupDecoratorCharCounters();
-                setupEditModeToggle();
                 setupSaveButton();
                 console.log('Eventos configurados com sucesso');
             }, 200);
@@ -8615,209 +8610,6 @@ Qualquer dúvida, estou à disposição! 😊`;
         }
     }
     
-    function setupEditModeToggle() {
-        const toggleBtn = document.getElementById('decorator-toggle-edit-mode');
-        const overlay = document.getElementById('edit-overlay');
-        
-        if (!toggleBtn) {
-            console.warn('Botão de modo edição não encontrado, tentando novamente...');
-            setTimeout(setupEditModeToggle, 200);
-            return;
-        }
-        
-        console.log('Configurando botão de modo edição...');
-        
-        // Adicionar listener diretamente sem usar replaceChild
-        if (!toggleBtn) {
-            console.warn('Botão de modo edição não encontrado');
-            return;
-        }
-        
-        if (toggleBtn && overlay) {
-            toggleBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Botão modo edição clicado! Modo ativo:', !editModeActive);
-                
-                editModeActive = !editModeActive;
-                
-                if (editModeActive) {
-                    overlay.classList.remove('hidden');
-                    toggleBtn.innerHTML = '<i class="fas fa-times mr-2"></i>Sair do Modo Edição';
-                    toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                    toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
-                    
-                    // Aguardar iframe carregar antes de habilitar modo edição
-                    const previewIframe = document.getElementById('decorator-page-preview');
-                    if (previewIframe) {
-                        if (previewIframe.contentDocument || previewIframe.contentWindow) {
-                            enableEditMode();
-                        } else {
-                            previewIframe.onload = function() {
-                                enableEditMode();
-                            };
-                        }
-                    }
-                } else {
-                    overlay.classList.add('hidden');
-                    toggleBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Modo Edição';
-                    toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                    toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                    disableEditMode();
-                }
-            });
-        }
-    }
-    
-    function enableEditMode() {
-        const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe) return;
-        
-        // Aguardar iframe carregar completamente
-        const tryEnableEdit = () => {
-            try {
-                const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
-                if (!iframeDoc || !iframeDoc.body) {
-                    setTimeout(tryEnableEdit, 200);
-                    return;
-                }
-                
-                // Verificar se já foi adicionado o estilo
-                if (iframeDoc.getElementById('decorator-edit-style')) return;
-                
-                const style = iframeDoc.createElement('style');
-                style.id = 'decorator-edit-style';
-                style.textContent = `
-                    .editable-element {
-                        position: relative !important;
-                        cursor: pointer !important;
-                        outline: 2px dashed rgba(59, 130, 246, 0.5) !important;
-                        outline-offset: 2px !important;
-                    }
-                    .editable-element:hover {
-                        outline-color: rgba(59, 130, 246, 0.8) !important;
-                        background-color: rgba(59, 130, 246, 0.1) !important;
-                    }
-                    .edit-icon {
-                        position: absolute !important;
-                        top: -8px !important;
-                        right: -8px !important;
-                        background: #3b82f6 !important;
-                        color: white !important;
-                        border-radius: 50% !important;
-                        width: 24px !important;
-                        height: 24px !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        font-size: 12px !important;
-                        z-index: 10000 !important;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-                    }
-                `;
-                iframeDoc.head.appendChild(style);
-                
-                // Função auxiliar para tornar elementos editáveis
-                function makeElementEditable(el, field, iframeDoc) {
-                    if (el.classList.contains('editable-element')) return;
-                    
-                    el.classList.add('editable-element');
-                    el.setAttribute('data-edit-field', field);
-                    
-                    // Verificar se já tem ícone
-                    if (el.querySelector('.edit-icon')) return;
-                    
-                    const editIcon = iframeDoc.createElement('div');
-                    editIcon.className = 'edit-icon';
-                    editIcon.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                    el.style.position = 'relative';
-                    el.appendChild(editIcon);
-                    
-                    el.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        let value = '';
-                        // cover_image_url removido - sempre usar padrão
-                        value = el.textContent || el.innerText || '';
-                        openEditModal(field, value);
-                    });
-                }
-                
-                // Adicionar classe editável e ícone de lápis aos elementos principais
-                // Baseado na nova estrutura simplificada da pagina-decorador.php
-                // Estrutura: section#inicio.decorator-hero > h1 e p.text-xl
-                
-                // 1. Título (h1 dentro de #inicio)
-                try {
-                    let titleEl = iframeDoc.querySelector('#inicio h1') || 
-                                  iframeDoc.querySelector('section#inicio h1') ||
-                                  iframeDoc.querySelector('.decorator-hero h1');
-                    if (titleEl) {
-                        makeElementEditable(titleEl, 'page_title', iframeDoc);
-                    }
-                } catch (err) {
-                    console.error('Erro ao adicionar edição para título:', err);
-                }
-                
-                // 2. Descrição (p.text-xl dentro de #inicio)
-                try {
-                    let descEl = iframeDoc.querySelector('#inicio p.text-xl') ||
-                                 iframeDoc.querySelector('#inicio p.text-xl.md\\:text-2xl') ||
-                                 iframeDoc.querySelector('section#inicio p.text-xl') ||
-                                 iframeDoc.querySelector('section#inicio p');
-                    if (descEl) {
-                        makeElementEditable(descEl, 'page_description', iframeDoc);
-                    }
-                } catch (err) {
-                    console.error('Erro ao adicionar edição para descrição:', err);
-                }
-                
-                // 3. Imagem de capa (section.decorator-hero)
-                try {
-                    let heroEl = iframeDoc.querySelector('section.decorator-hero') ||
-                                 iframeDoc.querySelector('section#inicio.decorator-hero') ||
-                                 iframeDoc.querySelector('#inicio.decorator-hero');
-                    // Imagem de capa removida - sempre usar padrão (não editável)
-                } catch (err) {
-                    // Ignorar erro - imagem de capa não é mais editável
-                }
-            } catch (e) {
-                console.error('Erro ao habilitar modo de edição:', e);
-                // Se houver erro de CORS, apenas mostrar mensagem
-                showNotification('Modo de edição visual disponível. Use os campos do formulário para editar.', 'info');
-            }
-        };
-        
-        // Tentar habilitar após um pequeno delay para garantir que o iframe carregou
-        setTimeout(tryEnableEdit, 500);
-    }
-    
-    function disableEditMode() {
-        const previewIframe = document.getElementById('decorator-page-preview');
-        if (!previewIframe) return;
-        
-        try {
-            const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
-            if (!iframeDoc || !iframeDoc.body) return;
-            
-            // Remover estilo de edição
-            const editStyle = iframeDoc.getElementById('decorator-edit-style');
-            if (editStyle) {
-                editStyle.remove();
-            }
-            
-            // Remover classes e ícones de edição
-            const editableElements = iframeDoc.querySelectorAll('.editable-element');
-            editableElements.forEach(el => {
-                el.classList.remove('editable-element');
-                el.removeAttribute('data-edit-field');
-                const editIcon = el.querySelector('.edit-icon');
-                if (editIcon) editIcon.remove();
-            });
-        } catch (e) {
-            console.error('Erro ao desabilitar modo de edição:', e);
-        }
-    }
     
     function openEditModal(field, currentValue) {
         // Não permitir edição de cover_image_url (sempre usar padrão)
