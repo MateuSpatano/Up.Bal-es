@@ -110,45 +110,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                         
                 // Buscar customização do decorador
-                // Tentar buscar com campos de contato, se não existirem, usar valores padrão
-                try {
-                    $stmt = $pdo->prepare("
-                        SELECT 
-                            page_title, page_description, welcome_text, cover_image_url,
-                            primary_color, secondary_color, accent_color,
-                            services_config, social_media,
-                            meta_title, meta_description, meta_keywords,
-                            show_contact_section, show_services_section, show_portfolio_section,
-                            COALESCE(contact_email, '') as contact_email,
-                            COALESCE(contact_whatsapp, '') as contact_whatsapp,
-                            COALESCE(contact_instagram, '') as contact_instagram
-                        FROM decorator_page_customization
-                        WHERE decorator_id = ? AND is_active = 1
-                    ");
-                    $stmt->execute([$userId]);
-                    $customization = $stmt->fetch(PDO::FETCH_ASSOC);
-                } catch (PDOException $e) {
-                    // Se os campos não existirem, buscar sem eles
-                    error_log("Campos de contato não encontrados na tabela, usando valores padrão: " . $e->getMessage());
-                    $stmt = $pdo->prepare("
-                        SELECT 
-                            page_title, page_description, welcome_text, cover_image_url,
-                            primary_color, secondary_color, accent_color,
-                            services_config, social_media,
-                            meta_title, meta_description, meta_keywords,
-                            show_contact_section, show_services_section, show_portfolio_section
-                        FROM decorator_page_customization
-                        WHERE decorator_id = ? AND is_active = 1
-                    ");
-                    $stmt->execute([$userId]);
-                    $customization = $stmt->fetch(PDO::FETCH_ASSOC);
-                    // Adicionar campos de contato vazios
-                    if ($customization) {
-                        $customization['contact_email'] = '';
-                        $customization['contact_whatsapp'] = '';
-                        $customization['contact_instagram'] = '';
-                    }
-                }
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        page_title, page_description, welcome_text, cover_image_url,
+                        primary_color, secondary_color, accent_color,
+                        services_config, social_media,
+                        meta_title, meta_description, meta_keywords,
+                        show_contact_section, show_services_section, show_portfolio_section
+                    FROM decorator_page_customization
+                    WHERE decorator_id = ? AND is_active = 1
+                ");
+                $stmt->execute([$userId]);
+                $customization = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if (!$customization) {
                     // Retornar valores padrão se não houver customização
@@ -161,30 +134,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'secondary_color' => '#764ba2',
                         'accent_color' => '#f59e0b',
                         'services_config' => null,
-                        'social_media' => '{}',
+                        'social_media' => [
+                            'contact_email' => $defaultEmail,
+                            'contact_whatsapp' => $defaultWhatsapp,
+                            'contact_instagram' => $defaultInstagram
+                        ],
                         'meta_title' => '',
                         'meta_description' => '',
-                        'meta_keywords' => '',
-                        'contact_email' => $defaultEmail,
-                        'contact_whatsapp' => $defaultWhatsapp,
-                        'contact_instagram' => $defaultInstagram
+                        'meta_keywords' => ''
                     ];
                 } else {
                     // Processar campos JSON
                     if (is_string($customization['social_media'])) {
                         $customization['social_media'] = json_decode($customization['social_media'], true) ?: [];
                     }
-                    // Usar valores da customização se existirem, senão usar valores padrão do decorador
-                    $customization['contact_email'] = !empty($customization['contact_email']) 
-                        ? $customization['contact_email'] 
-                        : $defaultEmail;
-                    $customization['contact_whatsapp'] = !empty($customization['contact_whatsapp']) 
-                        ? $customization['contact_whatsapp'] 
-                        : $defaultWhatsapp;
-                    $customization['contact_instagram'] = !empty($customization['contact_instagram']) 
-                        ? $customization['contact_instagram'] 
-                        : $defaultInstagram;
+                    // Garantir que os campos de contato existem no JSON, usando valores padrão se não existirem
+                    if (!isset($customization['social_media']['contact_email']) || empty($customization['social_media']['contact_email'])) {
+                        $customization['social_media']['contact_email'] = $defaultEmail;
+                    }
+                    if (!isset($customization['social_media']['contact_whatsapp']) || empty($customization['social_media']['contact_whatsapp'])) {
+                        $customization['social_media']['contact_whatsapp'] = $defaultWhatsapp;
+                    }
+                    if (!isset($customization['social_media']['contact_instagram']) || empty($customization['social_media']['contact_instagram'])) {
+                        $customization['social_media']['contact_instagram'] = $defaultInstagram;
+                    }
                 }
+                
+                // Extrair campos de contato do JSON para compatibilidade com o frontend
+                $customization['contact_email'] = $customization['social_media']['contact_email'] ?? $defaultEmail;
+                $customization['contact_whatsapp'] = $customization['social_media']['contact_whatsapp'] ?? $defaultWhatsapp;
+                $customization['contact_instagram'] = $customization['social_media']['contact_instagram'] ?? $defaultInstagram;
                 
                 echo json_encode([
                     'success' => true,
@@ -220,8 +199,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log("Título: " . ($input['page_title'] ?? 'vazio'));
                 error_log("Descrição: " . ($input['page_description'] ?? 'vazio'));
                 
-                // Preparar dados de customização (redes sociais removidas da interface)
-                $socialMedia = [];
+                // Preparar dados de customização - salvar contatos no JSON social_media
+                $socialMedia = [
+                    'contact_email' => $input['contact_email'] ?? '',
+                    'contact_whatsapp' => $input['contact_whatsapp'] ?? '',
+                    'contact_instagram' => $input['contact_instagram'] ?? ''
+                ];
                 
                 // Verificar se já existe customização (buscar qualquer, não apenas ativa)
                 $stmt = $pdo->prepare("
@@ -256,9 +239,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             meta_title = ?,
                             meta_description = ?,
                             meta_keywords = ?,
-                            contact_email = ?,
-                            contact_whatsapp = ?,
-                            contact_instagram = ?,
                             is_active = 1,
                             updated_at = NOW()
                         WHERE id = ?
@@ -276,9 +256,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
                         $input['meta_keywords'] ?? '',
-                        $input['contact_email'] ?? '',
-                        $input['contact_whatsapp'] ?? '',
-                        $input['contact_instagram'] ?? '',
                         $existing['id']
                     ]);
                     
@@ -290,9 +267,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             decorator_id, page_title, page_description, welcome_text,
                             cover_image_url, primary_color, secondary_color, accent_color,
                             social_media, meta_title, meta_description, meta_keywords,
-                            contact_email, contact_whatsapp, contact_instagram,
                             is_active, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                     ");
                     
                     $stmt->execute([
@@ -307,10 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         json_encode($socialMedia),
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
-                        $input['meta_keywords'] ?? '',
-                        $input['contact_email'] ?? '',
-                        $input['contact_whatsapp'] ?? '',
-                        $input['contact_instagram'] ?? ''
+                        $input['meta_keywords'] ?? ''
                     ]);
                     
                     error_log("Nova customização criada - User ID: $userId");
@@ -440,10 +413,19 @@ try {
     // Redes sociais
     $socialMedia = $customization['social_media'] ?? [];
     
-    // Contato
-    $contactEmail = $decorator['communication_email'] ?? $decorator['email'] ?? '';
+    // Contato - buscar primeiro da customização (social_media JSON), depois do decorador
+    // Processar social_media da customização se for string
+    if (is_string($socialMedia)) {
+        $socialMedia = json_decode($socialMedia, true) ?: [];
+    }
     
-    // WhatsApp e Instagram podem estar em redes_sociais (JSON) ou não existir como colunas separadas
+    // Email: priorizar da customização, senão usar communication_email ou email do decorador
+    $contactEmail = $socialMedia['contact_email'] ?? '';
+    if (empty($contactEmail)) {
+        $contactEmail = $decorator['communication_email'] ?? $decorator['email'] ?? '';
+    }
+    
+    // WhatsApp e Instagram: buscar da customização primeiro, depois do decorador
     $redesSociais = [];
     if (!empty($decorator['redes_sociais'])) {
         if (is_string($decorator['redes_sociais'])) {
@@ -453,9 +435,16 @@ try {
         }
     }
     
-    // Tentar obter WhatsApp e Instagram de várias fontes
-    $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? $socialMedia['whatsapp'] ?? '';
-    $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? $socialMedia['instagram'] ?? '';
+    // Tentar obter WhatsApp e Instagram de várias fontes (prioridade: customização > decorador)
+    $contactWhatsapp = $socialMedia['contact_whatsapp'] ?? '';
+    if (empty($contactWhatsapp)) {
+        $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? '';
+    }
+    
+    $contactInstagram = $socialMedia['contact_instagram'] ?? '';
+    if (empty($contactInstagram)) {
+        $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? '';
+    }
     
     // Base URL para assets
     $baseUrl = rtrim($urls['base'], '/') . '/';
