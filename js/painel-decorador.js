@@ -3,41 +3,54 @@
 // Função global para construir URLs corretas do projeto
 window.getProjectBasePath = function() {
     const path = window.location.pathname;
+    const href = window.location.href;
     
-    // Procurar por /Up.BaloesV3 no caminho (case sensitive)
-    if (path.includes('/Up.BaloesV3')) {
-        const index = path.indexOf('/Up.BaloesV3');
-        return path.substring(0, index + '/Up.BaloesV3'.length);
-    }
+    console.log('=== Detectando base path ===');
+    console.log('Pathname:', path);
+    console.log('Href:', href);
     
-    // Tentar encontrar o nome do projeto no caminho
+    // Extrair partes do caminho, removendo vazios e localhost
     const pathParts = path.split('/').filter(p => p && p !== 'localhost' && p !== '');
+    console.log('Path parts filtrados:', pathParts);
     
-    for (let part of pathParts) {
-        // Verificar se parece ser o nome do projeto
-        if (part.includes('Baloes') || (part.includes('Up') && part.includes('Baloes'))) {
-            return '/' + part;
-        }
+    // Se houver partes no caminho, o primeiro deve ser o nome do projeto
+    if (pathParts.length > 0) {
+        const firstPart = pathParts[0];
+        const basePath = '/' + firstPart;
+        console.log('Base path detectado do primeiro segmento:', basePath);
+        return basePath;
     }
     
-    // Fallback: usar o caminho padrão
-    return '/Up.BaloesV3';
+    // Fallback: tentar detectar do href (protocolo + hostname + /primeiro-segmento)
+    const hrefMatch = href.match(/https?:\/\/[^\/]+\/([^\/\?]+)/);
+    if (hrefMatch && hrefMatch[1] && hrefMatch[1] !== 'localhost') {
+        const basePath = '/' + hrefMatch[1];
+        console.log('Base path detectado do href:', basePath);
+        return basePath;
+    }
+    
+    // Último fallback: usar o nome conhecido do projeto
+    console.log('Usando base path padrão: /Up.Bal-es');
+    return '/Up.Bal-es';
 };
 
 // Função global para obter origin limpo (sem duplicações)
 window.getCleanOrigin = function() {
-    let origin = window.location.origin;
+    // Usar window.location diretamente para construir o origin corretamente
+    const protocol = window.location.protocol; // http: ou https:
+    const hostname = window.location.hostname; // localhost ou dominio.com
+    const port = window.location.port; // porta se houver (vazio se for padrão)
     
-    // Garantir que origin não contenha caminhos duplicados
-    if (origin.includes('localhost/localhost')) {
-        origin = origin.replace(/\/localhost/g, '');
+    // Construir origin manualmente para evitar problemas
+    let origin = protocol + '//' + hostname;
+    if (port && port !== '80' && port !== '443') {
+        origin += ':' + port;
     }
     
-    // Garantir que origin seja apenas protocolo + hostname + porta (se houver)
-    const originMatch = origin.match(/^(https?:\/\/[^\/]+)/);
-    if (originMatch) {
-        origin = originMatch[1];
-    }
+    console.log('Origin construído:', origin);
+    console.log('Protocol:', protocol);
+    console.log('Hostname:', hostname);
+    console.log('Port:', port);
     
     return origin;
 };
@@ -48,10 +61,28 @@ window.buildDecoratorUrl = function(slug) {
     
     const origin = window.getCleanOrigin();
     const basePath = window.getProjectBasePath();
-    const url = origin + basePath + '/' + slug;
     
-    // Limpar duplicações e barras duplas
-    return url.replace(/\/+/g, '/').replace(/localhost\/localhost/g, 'localhost');
+    console.log('Construindo URL - origin:', origin);
+    console.log('Construindo URL - basePath:', basePath);
+    console.log('Construindo URL - slug:', slug);
+    
+    // Construir URL: origin + basePath + /slug
+    // Garantir que basePath comece com / e não termine com /
+    const cleanBasePath = basePath.startsWith('/') ? basePath : '/' + basePath;
+    const cleanSlug = slug.startsWith('/') ? slug.substring(1) : slug;
+    
+    let url = origin + cleanBasePath + '/' + cleanSlug;
+    
+    // Limpar barras duplas (mas manter // após http: ou https:)
+    url = url.replace(/([^:]\/)\/+/g, '$1');
+    
+    // Garantir que não haja localhost duplicado em qualquer lugar
+    url = url.replace(/localhost\/localhost/g, 'localhost');
+    url = url.replace(/(https?:\/\/localhost)\/localhost/g, '$1');
+    
+    console.log('URL final construída:', url);
+    
+    return url;
 };
 
 // Função global simples de notificação (será substituída pela versão completa após DOMContentLoaded)

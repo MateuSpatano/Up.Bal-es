@@ -7,19 +7,21 @@ RewriteEngine On
 
 # Configuração da pasta raiz do projeto
 # Para XAMPP, o RewriteBase deve ser relativo ao DocumentRoot
-RewriteBase /Up.BaloesV3/
+# ATUALIZADO: Nome correto do projeto é Up.Bal-es (com hífen)
+RewriteBase /Up.Bal-es/
 
 # Se o arquivo ou pasta existir, não faz nada (carrega o arquivo real)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
 # Ignora pastas de sistema e arquivos estáticos
-RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/(pages|services|css|js|Images|utils|database|uploads)/
-RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/.*\.(html|php|css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$
+# ATUALIZADO: Usar o nome correto do projeto Up.Bal-es
+RewriteCond %{REQUEST_URI} !^/Up\.Bal-es/(pages|services|css|js|Images|utils|database|uploads)/
+RewriteCond %{REQUEST_URI} !^/Up\.Bal-es/.*\.(html|php|css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$
 
 # Redireciona slugs de decoradores para 'pagina-decorador.php'
 # Aceita apenas letras, números e hífens (slug válido)
-# IMPORTANTE: Esta regra só funciona se a URL for /Up.BaloesV3/slug
+# IMPORTANTE: Esta regra funciona para URLs como /Up.Bal-es/slug
 RewriteRule ^([a-zA-Z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
 
 # Segurança
