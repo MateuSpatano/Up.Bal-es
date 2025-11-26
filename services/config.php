@@ -124,6 +124,11 @@ $google_config = [
     'redirect_uri' => $_ENV['GOOGLE_REDIRECT_URI'] ?? $urls['base'] . 'services/google-callback.php'
 ];
 
+// Inicializar sessão se ainda não estiver iniciada
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Configurações de desenvolvimento
 if (ENVIRONMENT === 'development') {
     // Mostrar erros em desenvolvimento

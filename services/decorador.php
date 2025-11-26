@@ -50,18 +50,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Obter ID do usuário da sessão (método principal)
         $userId = $_SESSION['user_id'] ?? null;
         
+        // Log para debug
+        error_log("Decorador API - Action: $action, Session user_id: " . ($userId ?? 'null'));
+        error_log("Decorador API - Session data: " . json_encode($_SESSION));
+        
         // Se não houver na sessão, tentar obter do input (fallback)
         if (!$userId && isset($input['user_id'])) {
             $userId = intval($input['user_id']);
+            error_log("Decorador API - Using user_id from input: $userId");
         }
         
         switch ($action) {
             case 'get_my_page_customization':
                 if (!$userId) {
+                    error_log("Decorador API - Authentication failed: No user_id found");
                     http_response_code(401);
-                    echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'Usuário não autenticado. Faça login novamente.',
+                        'debug' => [
+                            'session_user_id' => $_SESSION['user_id'] ?? null,
+                            'input_user_id' => $input['user_id'] ?? null
+                        ]
+                    ]);
                     exit();
                 }
+                
+                error_log("Decorador API - Loading customization for user_id: $userId");
                         
                         // Buscar customização do decorador
                         $stmt = $pdo->prepare("

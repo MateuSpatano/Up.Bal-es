@@ -8070,16 +8070,23 @@ Qualquer dúvida, estou à disposição! 😊`;
             const viewPageLink = document.getElementById('decorator-view-page-link');
             if (viewPageLink) {
                 // Construir URL da página pública do decorador
+                const baseUrl = window.location.origin;
                 const currentPath = window.location.pathname;
-                let pageUrl;
-                if (currentPath.includes('/pages/')) {
-                    const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
-                    pageUrl = `${basePath}/${userData.slug}`;
+                let basePath = '/Up.BaloesV3';
+                
+                // Detectar caminho base
+                if (currentPath.includes('/Up.BaloesV3')) {
+                    basePath = currentPath.substring(0, currentPath.indexOf('/Up.BaloesV3') + '/Up.BaloesV3'.length);
+                } else if (currentPath.includes('/pages/')) {
+                    basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
                 } else {
-                    pageUrl = `../${userData.slug}`;
+                    const pathParts = currentPath.split('/').filter(p => p);
+                    if (pathParts.length > 0) {
+                        basePath = '/' + pathParts[0];
+                    }
                 }
-                // Garantir que a URL não tenha barras duplas
-                pageUrl = pageUrl.replace(/\/+/g, '/');
+                
+                const pageUrl = `${baseUrl}${basePath}/${userData.slug}`.replace(/\/+/g, '/');
                 viewPageLink.href = pageUrl;
                 console.log('Link de visualização configurado:', pageUrl);
             }
@@ -8098,28 +8105,36 @@ Qualquer dúvida, estou à disposição! 😊`;
                 console.error('Container de preview não encontrado!');
             }
             
-            // Construir URL correta - usar caminho absoluto baseado na estrutura do projeto
+            // Construir URL correta baseada no RewriteBase do .htaccess
+            // O .htaccess redireciona slugs para services/pagina-decorador.php?slug=xxx
+            // Mas a URL pública deve ser apenas /Up.BaloesV3/slug
             let previewUrl;
-            const currentPath = window.location.pathname;
             const baseUrl = window.location.origin;
             
-            // Verificar se estamos em /pages/
-            if (currentPath.includes('/pages/')) {
-                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
-                previewUrl = `${baseUrl}${basePath}/${userData.slug}`;
+            // Extrair o caminho base do projeto (ex: /Up.BaloesV3)
+            const currentPath = window.location.pathname;
+            let basePath = '/Up.BaloesV3';
+            
+            // Tentar detectar o caminho base do projeto
+            if (currentPath.includes('/Up.BaloesV3')) {
+                basePath = currentPath.substring(0, currentPath.indexOf('/Up.BaloesV3') + '/Up.BaloesV3'.length);
+            } else if (currentPath.includes('/pages/')) {
+                // Se estiver em /pages/, pegar o caminho até /pages/
+                basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
             } else {
-                // Se não estiver em /pages/, construir URL completa
+                // Tentar extrair do caminho atual
                 const pathParts = currentPath.split('/').filter(p => p);
-                // Remover o último segmento se for um arquivo HTML
-                if (pathParts.length > 0 && pathParts[pathParts.length - 1].endsWith('.html')) {
-                    pathParts.pop();
+                if (pathParts.length > 0) {
+                    // Pegar o primeiro segmento como base (ex: Up.BaloesV3)
+                    basePath = '/' + pathParts[0];
                 }
-                const basePath = '/' + pathParts.join('/');
-                previewUrl = `${baseUrl}${basePath}/${userData.slug}`;
             }
             
-            // Garantir que a URL não tenha barras duplas e não tenha pontos no nome do projeto
-            previewUrl = previewUrl.replace(/\/+/g, '/').replace(/\/\./g, '/');
+            // Construir URL do preview: baseUrl + basePath + /slug
+            previewUrl = `${baseUrl}${basePath}/${userData.slug}`;
+            
+            // Garantir que a URL não tenha barras duplas
+            previewUrl = previewUrl.replace(/\/+/g, '/');
             
             console.log('Carregando preview da URL:', previewUrl);
             console.log('Caminho atual:', currentPath);
@@ -8163,11 +8178,15 @@ Qualquer dúvida, estou à disposição! 😊`;
             const userToken = localStorage.getItem('userToken');
             const userDataForRequest = JSON.parse(localStorage.getItem('userData') || '{}');
             
+            console.log('Carregando personalização - UserData:', userDataForRequest);
+            console.log('Carregando personalização - UserToken:', userToken ? 'presente' : 'ausente');
+            
             const response = await fetch('../services/decorador.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin', // Incluir cookies de sessão
                 body: JSON.stringify({
                     action: 'get_my_page_customization',
                     user_id: userDataForRequest.id || userDataForRequest.user_id || null,
@@ -8175,13 +8194,27 @@ Qualquer dúvida, estou à disposição! 😊`;
                 })
             });
             
+            console.log('Resposta recebida - Status:', response.status, response.statusText);
+            
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Erro na resposta:', response.status, errorText);
-                throw new Error(`Erro ao carregar configurações: ${response.status} ${response.statusText}`);
+                let errorText;
+                try {
+                    errorText = await response.text();
+                    console.error('Erro na resposta:', response.status, errorText);
+                    // Tentar fazer parse como JSON
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        throw new Error(errorJson.message || `Erro ao carregar configurações: ${response.status}`);
+                    } catch (e) {
+                        throw new Error(`Erro ao carregar configurações: ${response.status} ${response.statusText}`);
+                    }
+                } catch (e) {
+                    throw new Error(`Erro ao carregar configurações: ${response.status} ${response.statusText}`);
+                }
             }
             
             const result = await response.json();
+            console.log('Resultado da personalização:', result);
             
             if (result.success && result.data) {
                 currentCustomizationData = result.data;
@@ -8347,22 +8380,39 @@ Qualquer dúvida, estou à disposição! 😊`;
                 customizationData.user_id = userDataForRequest.id || userDataForRequest.user_id || null;
                 customizationData.token = userToken;
                 
+                console.log('Salvando personalização - UserData:', userDataForRequest);
+                
                 // Enviar para o servidor
                 const response = await fetch('../services/decorador.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
+                    credentials: 'same-origin', // Incluir cookies de sessão
                     body: JSON.stringify(customizationData)
                 });
                 
+                console.log('Resposta do salvamento - Status:', response.status, response.statusText);
+                
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Erro na resposta:', response.status, errorText);
-                    throw new Error(`Erro ao salvar: ${response.status} ${response.statusText}`);
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                        console.error('Erro na resposta:', response.status, errorText);
+                        // Tentar fazer parse como JSON
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            throw new Error(errorJson.message || `Erro ao salvar: ${response.status}`);
+                        } catch (e) {
+                            throw new Error(`Erro ao salvar: ${response.status} ${response.statusText}`);
+                        }
+                    } catch (e) {
+                        throw new Error(`Erro ao salvar: ${response.status} ${response.statusText}`);
+                    }
                 }
                 
                 const result = await response.json();
+                console.log('Resultado do salvamento:', result);
                 
                 if (result.success) {
                     showNotification('Personalização salva com sucesso!', 'success');
@@ -8427,21 +8477,23 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
-            const currentPath = window.location.pathname;
             const baseUrl = window.location.origin;
-            let pageUrl;
-            if (currentPath.includes('/pages/')) {
-                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
-                pageUrl = `${baseUrl}${basePath}/${userData.slug}`;
+            const currentPath = window.location.pathname;
+            let basePath = '/Up.BaloesV3';
+            
+            // Detectar caminho base
+            if (currentPath.includes('/Up.BaloesV3')) {
+                basePath = currentPath.substring(0, currentPath.indexOf('/Up.BaloesV3') + '/Up.BaloesV3'.length);
+            } else if (currentPath.includes('/pages/')) {
+                basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
             } else {
                 const pathParts = currentPath.split('/').filter(p => p);
-                if (pathParts.length > 0 && pathParts[pathParts.length - 1].endsWith('.html')) {
-                    pathParts.pop();
+                if (pathParts.length > 0) {
+                    basePath = '/' + pathParts[0];
                 }
-                const basePath = '/' + pathParts.join('/');
-                pageUrl = `${baseUrl}${basePath}/${userData.slug}`;
             }
-            pageUrl = pageUrl.replace(/\/+/g, '/').replace(/\/\./g, '/');
+            
+            const pageUrl = `${baseUrl}${basePath}/${userData.slug}`.replace(/\/+/g, '/');
             viewPageLink.href = pageUrl;
         }
     }
@@ -8456,22 +8508,23 @@ Qualquer dúvida, estou à disposição! 😊`;
         // Obter dados do usuário para recarregar com o slug correto
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
-            // Construir URL correta
-            const currentPath = window.location.pathname;
             const baseUrl = window.location.origin;
-            let previewUrl;
-            if (currentPath.includes('/pages/')) {
-                const basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
-                previewUrl = `${baseUrl}${basePath}/${userData.slug}`;
+            const currentPath = window.location.pathname;
+            let basePath = '/Up.BaloesV3';
+            
+            // Detectar caminho base
+            if (currentPath.includes('/Up.BaloesV3')) {
+                basePath = currentPath.substring(0, currentPath.indexOf('/Up.BaloesV3') + '/Up.BaloesV3'.length);
+            } else if (currentPath.includes('/pages/')) {
+                basePath = currentPath.substring(0, currentPath.indexOf('/pages/'));
             } else {
                 const pathParts = currentPath.split('/').filter(p => p);
-                if (pathParts.length > 0 && pathParts[pathParts.length - 1].endsWith('.html')) {
-                    pathParts.pop();
+                if (pathParts.length > 0) {
+                    basePath = '/' + pathParts[0];
                 }
-                const basePath = '/' + pathParts.join('/');
-                previewUrl = `${baseUrl}${basePath}/${userData.slug}`;
             }
-            previewUrl = previewUrl.replace(/\/+/g, '/').replace(/\/\./g, '/');
+            
+            const previewUrl = `${baseUrl}${basePath}/${userData.slug}`.replace(/\/+/g, '/');
             
             console.log('Atualizando preview com URL:', previewUrl);
             
