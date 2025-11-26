@@ -23,10 +23,12 @@ class DecoratorService {
             error_log("DecoratorService::getDecoratorBySlug - Buscando decorador com slug: " . $slug);
             
             // Buscar decorador pelo slug
+            // Remover colunas que podem não existir: whatsapp, instagram
             $stmt = $this->pdo->prepare("
                 SELECT 
-                    id, nome as name, email, email_comunicacao as communication_email,
-                    telefone, whatsapp, instagram, slug, bio, especialidades,
+                    id, nome as name, email, 
+                    COALESCE(email_comunicacao, email) as communication_email,
+                    telefone, slug, bio, especialidades,
                     perfil, ativo, aprovado_por_admin, redes_sociais
                 FROM usuarios 
                 WHERE slug = ? 

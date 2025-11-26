@@ -40,10 +40,12 @@ try {
         $pdo = getDatabaseConnection($database_config);
         
         // Buscar decorador pelo slug (sem filtros de ativo/aprovado)
+        // Remover colunas que podem não existir: whatsapp, instagram
         $stmt = $pdo->prepare("
             SELECT 
-                id, nome as name, email, email_comunicacao as communication_email,
-                telefone, whatsapp, instagram, slug, bio, especialidades,
+                id, nome as name, email, 
+                COALESCE(email_comunicacao, email) as communication_email,
+                telefone, slug, bio, especialidades,
                 perfil, ativo, aprovado_por_admin, redes_sociais
             FROM usuarios 
             WHERE slug = ? AND perfil = 'decorator'
@@ -233,8 +235,20 @@ try {
     
     // Contato
     $contactEmail = $decorator['communication_email'] ?? $decorator['email'] ?? '';
-    $contactWhatsapp = $decorator['whatsapp'] ?? '';
-    $contactInstagram = $decorator['instagram'] ?? ($socialMedia['instagram'] ?? '');
+    
+    // WhatsApp e Instagram podem estar em redes_sociais (JSON) ou não existir como colunas separadas
+    $redesSociais = [];
+    if (!empty($decorator['redes_sociais'])) {
+        if (is_string($decorator['redes_sociais'])) {
+            $redesSociais = json_decode($decorator['redes_sociais'], true) ?: [];
+        } elseif (is_array($decorator['redes_sociais'])) {
+            $redesSociais = $decorator['redes_sociais'];
+        }
+    }
+    
+    // Tentar obter WhatsApp e Instagram de várias fontes
+    $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? $socialMedia['whatsapp'] ?? '';
+    $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? $socialMedia['instagram'] ?? '';
     
     // Base URL para assets (usar a configuração do config.php)
     global $urls;
