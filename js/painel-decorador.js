@@ -8305,21 +8305,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                 if (pageDescEl) pageDescEl.value = config.page_description || '';
                 if (welcomeTextEl) welcomeTextEl.value = config.welcome_text || '';
                 
-                // Preencher campos visuais (cover_image_url removido - sempre usar padrão)
-                const primaryColor = config.primary_color || '#667eea';
-                const secondaryColor = config.secondary_color || '#764ba2';
-                const accentColor = config.accent_color || '#f59e0b';
-                
-                const primaryColorEl = document.getElementById('decorator-primary-color');
-                const secondaryColorEl = document.getElementById('decorator-secondary-color');
-                const accentColorEl = document.getElementById('decorator-accent-color');
-                
-                if (primaryColorEl) primaryColorEl.value = primaryColor;
-                if (secondaryColorEl) secondaryColorEl.value = secondaryColor;
-                if (accentColorEl) accentColorEl.value = accentColor;
-                
-                // Campos de redes sociais removidos - não são mais necessários
-                
                 // Preencher contatos
                 const contactEmailEl = document.getElementById('decorator-contact-email');
                 const contactWhatsappEl = document.getElementById('decorator-contact-whatsapp');
@@ -8328,15 +8313,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                 if (contactEmailEl) contactEmailEl.value = config.contact_email || '';
                 if (contactWhatsappEl) contactWhatsappEl.value = config.contact_whatsapp || '';
                 if (contactInstagramEl) contactInstagramEl.value = config.contact_instagram || '';
-                
-                // Preencher SEO
-                const metaTitleEl = document.getElementById('decorator-meta-title');
-                const metaDescEl = document.getElementById('decorator-meta-description');
-                const metaKeywordsEl = document.getElementById('decorator-meta-keywords');
-                
-                if (metaTitleEl) metaTitleEl.value = config.meta_title || '';
-                if (metaDescEl) metaDescEl.value = config.meta_description || '';
-                if (metaKeywordsEl) metaKeywordsEl.value = config.meta_keywords || '';
                 
                 // Atualizar contadores
                 updateDecoratorCharCounters();
@@ -8349,7 +8325,6 @@ Qualquer dúvida, estou à disposição! 😊`;
             setTimeout(() => {
                 console.log('Configurando eventos do módulo...');
                 setupDecoratorCustomizationTabs();
-                setupDecoratorColorInputs();
                 setupDecoratorCharCounters();
                 setupSaveButton();
                 console.log('Eventos configurados com sucesso');
@@ -8392,38 +8367,6 @@ Qualquer dúvida, estou à disposição! 😊`;
             const originalText = saveBtn.innerHTML;
             
             try {
-                // Coletar cores diretamente dos inputs ANTES de criar FormData
-                const primaryColorEl = document.getElementById('decorator-primary-color');
-                const secondaryColorEl = document.getElementById('decorator-secondary-color');
-                const accentColorEl = document.getElementById('decorator-accent-color');
-                
-                console.log('Elementos de cor encontrados:', {
-                    primary: !!primaryColorEl,
-                    secondary: !!secondaryColorEl,
-                    accent: !!accentColorEl
-                });
-                
-                if (!primaryColorEl || !secondaryColorEl || !accentColorEl) {
-                    console.error('Alguns elementos de cor não foram encontrados!');
-                    showNotification('Erro: Campos de cor não encontrados. Recarregue a página.', 'error');
-                    return;
-                }
-                
-                const primaryColor = primaryColorEl.value || '#667eea';
-                const secondaryColor = secondaryColorEl.value || '#764ba2';
-                const accentColor = accentColorEl.value || '#f59e0b';
-                
-                console.log('Cores coletadas:', { primaryColor, secondaryColor, accentColor });
-                
-                // Validar que as cores são válidas
-                if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor) || 
-                    !/^#[0-9A-Fa-f]{6}$/.test(secondaryColor) || 
-                    !/^#[0-9A-Fa-f]{6}$/.test(accentColor)) {
-                    console.error('Cores inválidas detectadas:', { primaryColor, secondaryColor, accentColor });
-                    showNotification('Erro: Cores inválidas. Por favor, selecione cores válidas.', 'error');
-                    return;
-                }
-                
                 const formData = new FormData(form);
                 
                 // Coletar dados do formulário
@@ -8433,12 +8376,6 @@ Qualquer dúvida, estou à disposição! 😊`;
                     page_description: formData.get('page_description'),
                     welcome_text: formData.get('welcome_text'),
                     cover_image_url: '', // Sempre vazio - usar padrão
-                    primary_color: primaryColor,
-                    secondary_color: secondaryColor,
-                    accent_color: accentColor,
-                    meta_title: formData.get('meta_title'),
-                    meta_description: formData.get('meta_description'),
-                    meta_keywords: formData.get('meta_keywords'),
                     contact_email: formData.get('contact_email'),
                     contact_whatsapp: formData.get('contact_whatsapp'),
                     contact_instagram: formData.get('contact_instagram')
@@ -8785,45 +8722,11 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     function setupDecoratorCharCounters() {
-        const metaTitle = document.getElementById('decorator-meta-title');
-        const metaDescription = document.getElementById('decorator-meta-description');
-        const metaTitleCount = document.getElementById('decorator-meta-title-count');
-        const metaDescriptionCount = document.getElementById('decorator-meta-description-count');
-        
-        if (metaTitle && metaTitleCount) {
-            metaTitle.addEventListener('input', () => {
-                const count = metaTitle.value.length;
-                metaTitleCount.textContent = `${count} caracteres`;
-                metaTitleCount.style.color = count > 60 ? '#ef4444' : '#6b7280';
-            });
-        }
-        
-        if (metaDescription && metaDescriptionCount) {
-            metaDescription.addEventListener('input', () => {
-                const count = metaDescription.value.length;
-                metaDescriptionCount.textContent = `${count} caracteres`;
-                metaDescriptionCount.style.color = count > 160 ? '#ef4444' : '#6b7280';
-            });
-        }
-        
-        updateDecoratorCharCounters();
+        // Função mantida para compatibilidade, mas não há mais campos com contadores
     }
     
     function updateDecoratorCharCounters() {
-        const metaTitle = document.getElementById('decorator-meta-title');
-        const metaDescription = document.getElementById('decorator-meta-description');
-        const metaTitleCount = document.getElementById('decorator-meta-title-count');
-        const metaDescriptionCount = document.getElementById('decorator-meta-description-count');
-        
-        if (metaTitle && metaTitleCount) {
-            const count = metaTitle.value.length;
-            metaTitleCount.textContent = `${count} caracteres`;
-        }
-        
-        if (metaDescription && metaDescriptionCount) {
-            const count = metaDescription.value.length;
-            metaDescriptionCount.textContent = `${count} caracteres`;
-        }
+        // Função mantida para compatibilidade, mas não há mais campos com contadores
     }
     
 
