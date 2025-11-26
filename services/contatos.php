@@ -44,22 +44,28 @@ try {
         }
     }
     
+    // Verificar se a função getDatabaseConnection existe
+    if (!function_exists('getDatabaseConnection')) {
+        throw new Exception('Função getDatabaseConnection não encontrada. Verifique se config.php foi incluído corretamente.');
+    }
+    
     // Conectar ao banco de dados usando função centralizada
     $pdo = getDatabaseConnection($database_config);
 
     // Buscar dados de contato do primeiro decorador ativo (ou admin)
-    // Por padrão, buscar o primeiro decorador ativo ou admin
+    // Usar campos que sabemos que existem na tabela
     $stmt = $pdo->prepare("
         SELECT 
             email,
             email_comunicacao,
             whatsapp,
             instagram,
-            telefone
+            telefone,
+            perfil
         FROM usuarios 
-        WHERE (is_admin = 1 OR perfil = 'decorator') 
-        AND is_active = 1 
-        ORDER BY is_admin DESC, created_at ASC 
+        WHERE (perfil = 'admin' OR perfil = 'decorator') 
+        AND ativo = 1
+        ORDER BY CASE WHEN perfil = 'admin' THEN 0 ELSE 1 END, created_at ASC 
         LIMIT 1
     ");
     
@@ -118,18 +124,34 @@ try {
     
 } catch (PDOException $e) {
     error_log('Erro ao buscar contatos: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
     http_response_code(500);
+    
+    // Em desenvolvimento, retornar mais detalhes do erro
+    $errorMessage = 'Erro ao buscar informações de contato';
+    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+        $errorMessage .= ': ' . $e->getMessage();
+    }
+    
     echo json_encode([
         'success' => false,
-        'message' => 'Erro ao buscar informações de contato'
-    ]);
+        'message' => $errorMessage
+    ], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     error_log('Erro geral ao buscar contatos: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
     http_response_code(500);
+    
+    // Em desenvolvimento, retornar mais detalhes do erro
+    $errorMessage = 'Erro interno do servidor';
+    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
+        $errorMessage .= ': ' . $e->getMessage();
+    }
+    
     echo json_encode([
         'success' => false,
-        'message' => 'Erro interno do servidor'
-    ]);
+        'message' => $errorMessage
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 
