@@ -8194,20 +8194,51 @@ Qualquer dúvida, estou à disposição! 😊`;
             // Aguardar o iframe carregar completamente
             previewIframe.onload = function() {
                 console.log('Preview da página do decorador carregado com sucesso:', previewIframe.src);
-                showNotification('Preview carregado com sucesso!', 'success');
                 
-                // Pequeno delay para garantir que o conteúdo está renderizado
-                setTimeout(() => {
-                    // Se o modo de edição estiver ativo, reativar
-                    if (editModeActive) {
-                        enableEditMode();
+                // Verificar se o iframe carregou corretamente
+                try {
+                    // Tentar acessar o conteúdo do iframe para verificar se carregou
+                    if (previewIframe.contentDocument || previewIframe.contentWindow) {
+                        showNotification('Preview carregado com sucesso!', 'success');
+                        
+                        // Pequeno delay para garantir que o conteúdo está renderizado
+                        setTimeout(() => {
+                            // Se o modo de edição estiver ativo, reativar
+                            if (editModeActive) {
+                                enableEditMode();
+                            }
+                        }, 500);
+                    } else {
+                        console.warn('Iframe carregou mas não é possível acessar o conteúdo (possível problema de CORS ou X-Frame-Options)');
+                        showNotification('Preview carregado, mas pode haver restrições de segurança.', 'warning');
                     }
-                }, 500);
+                } catch (e) {
+                    console.warn('Erro ao acessar conteúdo do iframe (normal se houver restrições de segurança):', e);
+                    // Mesmo com erro de acesso, o iframe pode ter carregado visualmente
+                    showNotification('Preview carregado!', 'success');
+                }
             };
             
             previewIframe.onerror = function() {
                 console.error('Erro ao carregar preview da página do decorador');
+                console.error('URL tentada:', previewUrl);
                 showNotification('Erro ao carregar preview. Verifique se o slug está correto e se a página existe.', 'error');
+            };
+            
+            // Timeout para detectar se o iframe não carregou
+            let loadTimeout = setTimeout(() => {
+                if (!previewIframe.contentDocument && !previewIframe.contentWindow) {
+                    console.warn('Iframe não carregou após 10 segundos');
+                    console.warn('URL tentada:', previewUrl);
+                    showNotification('Preview está demorando para carregar. Verifique a URL: ' + previewUrl, 'warning');
+                }
+            }, 10000);
+            
+            // Limpar timeout quando o iframe carregar
+            const originalOnload = previewIframe.onload;
+            previewIframe.onload = function() {
+                clearTimeout(loadTimeout);
+                if (originalOnload) originalOnload.call(this);
             };
             
             // Timeout de segurança

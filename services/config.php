@@ -101,7 +101,23 @@ function ensureHttps($url) {
 }
 
 // URLs do sistema - Centralizadas
-$baseUrl = $_ENV['BASE_URL'] ?? 'http://localhost/Up.BaloesV3/';
+// Detectar automaticamente a URL base do projeto
+$baseUrl = $_ENV['BASE_URL'] ?? '';
+if (empty($baseUrl)) {
+    // Tentar detectar automaticamente
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    
+    // Extrair o caminho base do script (ex: /Up.Bal-es/services/pagina-decorador.php)
+    if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+        $projectName = $matches[1];
+        $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
+    } else {
+        // Fallback
+        $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
+    }
+}
 $baseUrl = ensureHttps($baseUrl);
 
 $urls = [
@@ -350,9 +366,11 @@ date_default_timezone_set('America/Sao_Paulo');
 
 // Configurar headers básicos (apenas se não for CLI)
 if (php_sapi_name() !== 'cli') {
-    header('Content-Type: application/json; charset=utf-8');
+    // Não definir Content-Type aqui, deixar cada arquivo definir conforme necessário
+    // header('Content-Type: application/json; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
+    // X-Frame-Options será definido por cada arquivo conforme necessário
+    // Páginas públicas podem usar SAMEORIGIN, APIs podem usar DENY
     header('X-XSS-Protection: 1; mode=block');
     
     // Configurar CORS

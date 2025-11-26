@@ -228,6 +228,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Processar requisição GET normal (página pública do decorador)
+// Permitir carregamento em iframe do mesmo domínio (para preview)
+header('X-Frame-Options: SAMEORIGIN');
+// Definir Content-Type como HTML (não JSON)
+header('Content-Type: text/html; charset=utf-8');
+
 // Obter slug da URL
 $slug = $_GET['slug'] ?? '';
 
