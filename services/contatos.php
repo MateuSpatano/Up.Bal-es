@@ -4,276 +4,244 @@
  * Endpoint para buscar informações de contato do decorador principal
  */
 
-// Habilitar exibição de erros em desenvolvimento
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Não exibir erros diretamente, mas logar
-ini_set('log_errors', 1);
-
-// Incluir configurações primeiro (antes de qualquer header)
-// Usar output buffering para evitar problemas com headers
+// Iniciar output buffering imediatamente
 ob_start();
 
-try {
-    require_once __DIR__ . '/config.php';
-} catch (Throwable $e) {
+// Desabilitar exibição de erros na saída (mas logar)
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Função para retornar resposta JSON de erro
+function sendErrorResponse($message, $code = 500, $details = null) {
     ob_end_clean();
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode([
+    if (!headers_sent()) {
+        http_response_code($code);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    
+    $response = [
         'success' => false,
-        'message' => 'Erro ao carregar configurações: ' . $e->getMessage()
+        'message' => $message
+    ];
+    
+    if ($details !== null && (defined('ENVIRONMENT') && ENVIRONMENT === 'development')) {
+        $response['details'] = $details;
+    }
+    
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// Função para retornar resposta JSON de sucesso
+function sendSuccessResponse($data) {
+    ob_end_clean();
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'data' => $data
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// Limpar qualquer saída do config.php
-ob_end_clean();
-
-// Configurações de segurança (após incluir config.php)
-// Definir headers apenas se ainda não foram enviados
-if (!headers_sent()) {
-    header('Content-Type: application/json; charset=utf-8');
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-    header('X-XSS-Protection: 1; mode=block');
-}
-
-// Verificar se é uma requisição GET
+// Verificar método HTTP
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Método não permitido']);
-    exit;
+    sendErrorResponse('Método não permitido', 405);
 }
 
+// Tentar incluir config.php
 try {
-    // Verificar se $database_config está disponível
-    if (!isset($database_config)) {
-        // Se não estiver disponível, tentar obter do escopo global ou recriar
-        if (isset($GLOBALS['database_config'])) {
-            $database_config = $GLOBALS['database_config'];
-        } else {
-            // Recriar configuração se necessário
-            $database_config = [
-                'host' => $_ENV['DB_HOST'] ?? 'localhost',
-                'dbname' => $_ENV['DB_NAME'] ?? 'up_baloes',
-                'username' => $_ENV['DB_USER'] ?? 'root',
-                'password' => $_ENV['DB_PASS'] ?? '',
-                'charset' => 'utf8mb4',
-                'port' => (int)($_ENV['DB_PORT'] ?? 3306),
-                'options' => [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ]
-            ];
-        }
+    $configPath = __DIR__ . '/config.php';
+    if (!file_exists($configPath)) {
+        sendErrorResponse('Arquivo de configuração não encontrado', 500, ['path' => $configPath]);
     }
     
-    // Verificar se a função getDatabaseConnection existe
-    if (!function_exists('getDatabaseConnection')) {
-        throw new Exception('Função getDatabaseConnection não encontrada. Verifique se config.php foi incluído corretamente.');
-    }
-    
-    // Conectar ao banco de dados usando função centralizada
-    try {
-        $pdo = getDatabaseConnection($database_config);
-    } catch (Exception $e) {
-        error_log('Erro de conexão com banco de dados: ' . $e->getMessage());
-        throw new Exception('Erro ao conectar ao banco de dados. Verifique as configurações.');
-    }
+    require_once $configPath;
+} catch (Throwable $e) {
+    sendErrorResponse(
+        'Erro ao carregar configurações',
+        500,
+        ['error' => $e->getMessage(), 'file' => basename($e->getFile()), 'line' => $e->getLine()]
+    );
+}
 
-    // Buscar dados de contato do primeiro decorador ativo (ou admin)
-    // Usar campos que sabemos que existem na tabela
-    // Query simplificada para evitar problemas com campos que podem não existir
-    try {
-        $stmt = $pdo->prepare("
+// Limpar qualquer output do config.php
+ob_clean();
+
+// Verificar se $database_config existe
+if (!isset($database_config)) {
+    // Tentar obter do escopo global
+    if (isset($GLOBALS['database_config'])) {
+        $database_config = $GLOBALS['database_config'];
+    } else {
+        // Criar configuração padrão
+        $database_config = [
+            'host' => $_ENV['DB_HOST'] ?? 'localhost',
+            'dbname' => $_ENV['DB_NAME'] ?? 'up_baloes',
+            'username' => $_ENV['DB_USER'] ?? 'root',
+            'password' => $_ENV['DB_PASS'] ?? '',
+            'charset' => 'utf8mb4',
+            'port' => (int)($_ENV['DB_PORT'] ?? 3306),
+            'options' => [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]
+        ];
+    }
+}
+
+// Verificar se função getDatabaseConnection existe
+if (!function_exists('getDatabaseConnection')) {
+    sendErrorResponse(
+        'Função getDatabaseConnection não encontrada',
+        500,
+        ['hint' => 'Verifique se config.php foi incluído corretamente']
+    );
+}
+
+// Conectar ao banco de dados
+try {
+    $pdo = getDatabaseConnection($database_config);
+} catch (Exception $e) {
+    error_log('Erro de conexão com banco de dados: ' . $e->getMessage());
+    sendErrorResponse(
+        'Erro ao conectar ao banco de dados',
+        500,
+        defined('ENVIRONMENT') && ENVIRONMENT === 'development' ? ['error' => $e->getMessage()] : null
+    );
+}
+
+// Buscar dados de contato
+try {
+    // Primeira tentativa: query completa
+    $query = "
+        SELECT 
+            email,
+            COALESCE(email_comunicacao, email) as email_comunicacao,
+            COALESCE(whatsapp, telefone, '') as whatsapp,
+            COALESCE(instagram, '') as instagram,
+            COALESCE(telefone, '') as telefone,
+            perfil
+        FROM usuarios 
+        WHERE (perfil = 'admin' OR perfil = 'decorator') 
+        AND ativo = 1
+        ORDER BY CASE WHEN perfil = 'admin' THEN 0 ELSE 1 END, created_at ASC 
+        LIMIT 1
+    ";
+    
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $contact = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Se não encontrou, tentar query alternativa mais simples
+    if (!$contact) {
+        $queryAlt = "
             SELECT 
                 email,
-                COALESCE(email_comunicacao, email) as email_comunicacao,
+                email as email_comunicacao,
                 COALESCE(whatsapp, telefone, '') as whatsapp,
                 COALESCE(instagram, '') as instagram,
-                COALESCE(telefone, '') as telefone,
-                perfil
+                COALESCE(telefone, '') as telefone
             FROM usuarios 
-            WHERE (perfil = 'admin' OR perfil = 'decorator') 
+            WHERE perfil IN ('admin', 'decorator') 
             AND ativo = 1
-            ORDER BY CASE WHEN perfil = 'admin' THEN 0 ELSE 1 END, created_at ASC 
             LIMIT 1
-        ");
+        ";
         
+        $stmt = $pdo->prepare($queryAlt);
         $stmt->execute();
-        $contact = $stmt->fetch();
-    } catch (PDOException $e) {
-        error_log('Erro na query SQL de contatos: ' . $e->getMessage());
-        // Tentar query mais simples sem campos opcionais
+        $contact = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+} catch (PDOException $e) {
+    error_log('Erro na query SQL: ' . $e->getMessage());
+    error_log('Query: ' . ($query ?? 'não definida'));
+    
+    // Se a primeira query falhou, tentar query alternativa
+    if (!isset($queryAlt)) {
         try {
-            $stmt = $pdo->prepare("
+            $queryAlt = "
                 SELECT 
                     email,
                     email as email_comunicacao,
                     COALESCE(whatsapp, telefone, '') as whatsapp,
                     COALESCE(instagram, '') as instagram,
-                    COALESCE(telefone, '') as telefone,
-                    perfil
+                    COALESCE(telefone, '') as telefone
                 FROM usuarios 
                 WHERE perfil IN ('admin', 'decorator') 
                 AND ativo = 1
-                ORDER BY perfil = 'admin' DESC, created_at ASC 
                 LIMIT 1
-            ");
+            ";
+            
+            $stmt = $pdo->prepare($queryAlt);
             $stmt->execute();
-            $contact = $stmt->fetch();
+            $contact = $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e2) {
-            error_log('Erro na query alternativa de contatos: ' . $e2->getMessage());
-            throw new Exception('Erro ao executar consulta no banco de dados: ' . $e2->getMessage());
+            error_log('Query alternativa também falhou: ' . $e2->getMessage());
+            sendErrorResponse(
+                'Erro ao buscar informações de contato',
+                500,
+                defined('ENVIRONMENT') && ENVIRONMENT === 'development' ? ['error' => $e2->getMessage()] : null
+            );
         }
+    } else {
+        sendErrorResponse(
+            'Erro ao buscar informações de contato',
+            500,
+            defined('ENVIRONMENT') && ENVIRONMENT === 'development' ? ['error' => $e->getMessage()] : null
+        );
     }
-    
-    if (!$contact) {
-        // Se não encontrar, retornar valores padrão vazios
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'email' => '',
-                'whatsapp' => '',
-                'instagram' => ''
-            ]
-        ]);
-        exit;
-    }
-    
-    // Preparar dados de resposta
-    $email = !empty($contact['email_comunicacao']) ? $contact['email_comunicacao'] : $contact['email'];
-    $whatsapp = $contact['whatsapp'] ?? $contact['telefone'] ?? '';
-    $instagram = $contact['instagram'] ?? '';
-    
-    // Formatar WhatsApp para link
-    $whatsappLink = '';
-    if (!empty($whatsapp)) {
-        $whatsappNumbers = preg_replace('/[^0-9]/', '', $whatsapp);
+}
+
+// Se não encontrou nenhum contato, retornar valores vazios
+if (!$contact) {
+    sendSuccessResponse([
+        'email' => '',
+        'email_link' => '',
+        'whatsapp' => '',
+        'whatsapp_link' => '',
+        'instagram' => '',
+        'instagram_link' => ''
+    ]);
+}
+
+// Preparar dados de resposta
+$email = !empty($contact['email_comunicacao']) ? $contact['email_comunicacao'] : ($contact['email'] ?? '');
+$whatsapp = $contact['whatsapp'] ?? $contact['telefone'] ?? '';
+$instagram = $contact['instagram'] ?? '';
+
+// Formatar WhatsApp para link
+$whatsappLink = '';
+if (!empty($whatsapp)) {
+    $whatsappNumbers = preg_replace('/[^0-9]/', '', $whatsapp);
+    if (!empty($whatsappNumbers)) {
         $whatsappLink = 'https://wa.me/' . $whatsappNumbers;
     }
-    
-    // Formatar Instagram para link
-    $instagramLink = '';
-    if (!empty($instagram)) {
-        // Se já começar com http, usar direto, senão adicionar https://instagram.com/
-        if (strpos($instagram, 'http') === 0) {
-            $instagramLink = $instagram;
-        } else {
-            // Remover @ se houver
-            $instagramHandle = ltrim($instagram, '@');
+}
+
+// Formatar Instagram para link
+$instagramLink = '';
+if (!empty($instagram)) {
+    if (strpos($instagram, 'http') === 0) {
+        $instagramLink = $instagram;
+    } else {
+        $instagramHandle = ltrim($instagram, '@');
+        if (!empty($instagramHandle)) {
             $instagramLink = 'https://instagram.com/' . $instagramHandle;
         }
     }
-    
-    echo json_encode([
-        'success' => true,
-        'data' => [
-            'email' => $email,
-            'email_link' => 'mailto:' . $email,
-            'whatsapp' => $whatsapp,
-            'whatsapp_link' => $whatsappLink,
-            'instagram' => $instagram,
-            'instagram_link' => $instagramLink
-        ]
-    ]);
-    
-} catch (PDOException $e) {
-    error_log('Erro ao buscar contatos (PDOException): ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
-    error_log('Código do erro: ' . $e->getCode());
-    
-    // Garantir que os headers estão corretos
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: application/json; charset=utf-8');
-    }
-    
-    // Em desenvolvimento, retornar mais detalhes do erro
-    $errorMessage = 'Erro ao buscar informações de contato';
-    $errorDetails = [];
-    
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        $errorMessage .= ': ' . $e->getMessage();
-        $errorDetails = [
-            'code' => $e->getCode(),
-            'file' => basename($e->getFile()),
-            'line' => $e->getLine()
-        ];
-    }
-    
-    $response = [
-        'success' => false,
-        'message' => $errorMessage
-    ];
-    
-    if (!empty($errorDetails)) {
-        $response['details'] = $errorDetails;
-    }
-    
-    echo json_encode($response, JSON_UNESCAPED_UNICODE);
-} catch (Exception $e) {
-    error_log('Erro geral ao buscar contatos (Exception): ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
-    
-    // Garantir que os headers estão corretos
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: application/json; charset=utf-8');
-    }
-    
-    // Em desenvolvimento, retornar mais detalhes do erro
-    $errorMessage = 'Erro interno do servidor';
-    $errorDetails = [];
-    
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        $errorMessage .= ': ' . $e->getMessage();
-        $errorDetails = [
-            'file' => basename($e->getFile()),
-            'line' => $e->getLine()
-        ];
-    }
-    
-    $response = [
-        'success' => false,
-        'message' => $errorMessage
-    ];
-    
-    if (!empty($errorDetails)) {
-        $response['details'] = $errorDetails;
-    }
-    
-    echo json_encode($response, JSON_UNESCAPED_UNICODE);
-} catch (Throwable $e) {
-    error_log('Erro fatal ao buscar contatos (Throwable): ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
-    
-    // Garantir que os headers estão corretos
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: application/json; charset=utf-8');
-    }
-    
-    $errorMessage = 'Erro fatal no servidor';
-    if (defined('ENVIRONMENT') && ENVIRONMENT === 'development') {
-        $errorMessage .= ': ' . $e->getMessage();
-    }
-    
-    echo json_encode([
-        'success' => false,
-        'message' => $errorMessage
-    ], JSON_UNESCAPED_UNICODE);
 }
 
-
-
-
-
-
-
-
-
-
-
-
+// Retornar resposta de sucesso
+sendSuccessResponse([
+    'email' => $email,
+    'email_link' => !empty($email) ? 'mailto:' . $email : '',
+    'whatsapp' => $whatsapp,
+    'whatsapp_link' => $whatsappLink,
+    'instagram' => $instagram,
+    'instagram_link' => $instagramLink
+]);
