@@ -20,7 +20,7 @@ function generateJWT($userData) {
     global $jwt_config;
     
     $issuedAt = time();
-    $expirationTime = $issuedAt + $jwt_config['expiration']; // 8 horas
+    $expirationTime = $issuedAt + $jwt_config['expiration']; // 1 hora
     
     $payload = [
         'iat' => $issuedAt,              // Issued at: tempo de emissão

@@ -27,8 +27,130 @@ if (empty($slug)) {
 }
 
 try {
-    $decoratorService = new DecoratorService($database_config);
-    $result = $decoratorService->getDecoratorBySlug($slug);
+    // Verificar se é uma requisição de preview (vem de iframe do painel)
+    $isPreview = isset($_GET['preview']) || 
+                 (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'painel-decorador') !== false) ||
+                 (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest');
+    
+    error_log("Acesso à página - Slug: $slug, IsPreview: " . ($isPreview ? 'sim' : 'não'));
+    
+    // Se for preview, buscar decorador sem filtros de aprovação
+    if ($isPreview) {
+        error_log("Modo PREVIEW ativado - buscando decorador sem filtros de aprovação");
+        $pdo = getDatabaseConnection($database_config);
+        
+        // Buscar decorador pelo slug (sem filtros de ativo/aprovado)
+        $stmt = $pdo->prepare("
+            SELECT 
+                id, nome as name, email, email_comunicacao as communication_email,
+                telefone, whatsapp, instagram, slug, bio, especialidades,
+                perfil, ativo, aprovado_por_admin, redes_sociais
+            FROM usuarios 
+            WHERE slug = ? AND perfil = 'decorator'
+        ");
+        $stmt->execute([$slug]);
+        $decorator = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($decorator) {
+            error_log("Decorador encontrado no modo preview - ID: {$decorator['id']}, Nome: {$decorator['name']}, Ativo: {$decorator['ativo']}, Aprovado: {$decorator['aprovado_por_admin']}");
+            
+            // Buscar customização (mesmo que não esteja ativa)
+            $stmt = $pdo->prepare("
+                SELECT 
+                    page_title, page_description, welcome_text, cover_image_url,
+                    primary_color, secondary_color, accent_color,
+                    services_config, social_media,
+                    meta_title, meta_description, meta_keywords,
+                    show_contact_section, show_services_section, show_portfolio_section
+                FROM decorator_page_customization
+                WHERE decorator_id = ?
+                ORDER BY is_active DESC, updated_at DESC
+                LIMIT 1
+            ");
+            $stmt->execute([$decorator['id']]);
+            $customization = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Se não houver customização, criar uma padrão
+            if (!$customization) {
+                $customization = [
+                    'page_title' => null,
+                    'page_description' => null,
+                    'welcome_text' => null,
+                    'cover_image_url' => null,
+                    'primary_color' => '#667eea',
+                    'secondary_color' => '#764ba2',
+                    'accent_color' => '#f59e0b',
+                    'services_config' => null,
+                    'social_media' => null,
+                    'meta_title' => null,
+                    'meta_description' => null,
+                    'meta_keywords' => null,
+                    'show_contact_section' => true,
+                    'show_services_section' => true,
+                    'show_portfolio_section' => true
+                ];
+            }
+            
+            // Processar JSON fields
+            if (!empty($customization['services_config'])) {
+                $servicesConfig = json_decode($customization['services_config'], true);
+                $customization['services'] = $servicesConfig ?: [];
+            } else {
+                $customization['services'] = [];
+            }
+            
+            if (!empty($customization['social_media'])) {
+                $socialMedia = json_decode($customization['social_media'], true);
+                $customization['social_media'] = $socialMedia ?: [];
+            } else {
+                $customization['social_media'] = [];
+            }
+            
+            // Buscar itens do portfólio (mesmo que não estejam ativos)
+            $stmt = $pdo->prepare("
+                SELECT 
+                    id, service_type, title, description, price,
+                    arc_size, image_path, display_order,
+                    is_featured, is_active
+                FROM decorator_portfolio_items
+                WHERE decorator_id = ?
+                ORDER BY display_order ASC, created_at DESC
+            ");
+            $stmt->execute([$decorator['id']]);
+            $portfolio = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Processar caminhos das imagens
+            global $urls;
+            $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+            foreach ($portfolio as &$item) {
+                if (!empty($item['image_path'])) {
+                    $item['image_url'] = $baseUrl . ltrim($item['image_path'], '/');
+                } else {
+                    $item['image_url'] = null;
+                }
+            }
+            unset($item);
+            
+            // Criar resultado compatível
+            $result = [
+                'success' => true,
+                'data' => [
+                    'decorator' => $decorator,
+                    'customization' => $customization,
+                    'services' => $customization['services'] ?? [],
+                    'portfolio' => $portfolio
+                ]
+            ];
+        } else {
+            error_log("Nenhum decorador encontrado com slug: $slug");
+            $result = ['success' => false, 'message' => 'Decorador não encontrado'];
+        }
+    } else {
+        // Busca normal (público) - requer aprovação e estar ativo
+        error_log("Modo PÚBLICO - buscando decorador com filtros de aprovação");
+        $decoratorService = new DecoratorService($database_config);
+        $result = $decoratorService->getDecoratorBySlug($slug);
+    }
     
     error_log("Resultado da busca: " . json_encode($result));
     

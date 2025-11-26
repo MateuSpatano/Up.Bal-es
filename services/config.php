@@ -53,7 +53,7 @@ if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
 // Configurações de segurança
 $security_config = [
     'session_name' => 'UPBALOES_SESSION',
-    'session_lifetime' => 28800, // 8 horas (8 * 60 * 60 = 28800 segundos)
+    'session_lifetime' => 3600, // 1 hora (1 * 60 * 60 = 3600 segundos)
     'remember_lifetime' => 2592000,
     'password_reset_lifetime' => 3600,
     'max_login_attempts' => 5,
@@ -130,7 +130,7 @@ $urls = [
 // Configurações JWT - Centralizadas
 $jwt_config = [
     'secret' => $_ENV['JWT_SECRET'] ?? 'your_jwt_secret_key_here',
-    'expiration' => (int)($_ENV['JWT_EXPIRATION'] ?? 28800)
+    'expiration' => (int)($_ENV['JWT_EXPIRATION'] ?? 3600) // 1 hora (1 * 60 * 60 = 3600 segundos)
 ];
 
 // Configurações Google OAuth - Centralizadas

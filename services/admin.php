@@ -126,7 +126,7 @@ try {
             if (isset($GLOBALS['security_config']['session_name'])) {
                 ini_set('session.name', $GLOBALS['security_config']['session_name']);
             }
-            // Configurar tempo de vida da sessão (8 horas)
+            // Configurar tempo de vida da sessão (1 hora)
             if (isset($GLOBALS['security_config']['session_lifetime'])) {
                 ini_set('session.cookie_lifetime', $GLOBALS['security_config']['session_lifetime']);
                 ini_set('session.gc_maxlifetime', $GLOBALS['security_config']['session_lifetime']);

@@ -8175,7 +8175,11 @@ Qualquer dúvida, estou à disposição! 😊`;
             }
             
             // Construir URL correta usando função global
-            const previewUrl = window.buildDecoratorUrl(userData.slug);
+            // Adicionar parâmetro ?preview=1 para indicar que é um preview
+            let previewUrl = window.buildDecoratorUrl(userData.slug);
+            
+            // Adicionar parâmetro preview para permitir visualização mesmo sem aprovação
+            previewUrl += (previewUrl.includes('?') ? '&' : '?') + 'preview=1';
             
             console.log('Carregando preview da URL:', previewUrl);
             console.log('Caminho atual:', window.location.pathname);
@@ -8550,7 +8554,9 @@ Qualquer dúvida, estou à disposição! 😊`;
         // Obter dados do usuário para recarregar com o slug correto
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
-            const previewUrl = window.buildDecoratorUrl(userData.slug);
+            let previewUrl = window.buildDecoratorUrl(userData.slug);
+            // Adicionar parâmetro preview
+            previewUrl += (previewUrl.includes('?') ? '&' : '?') + 'preview=1';
             
             console.log('Atualizando preview com URL:', previewUrl);
             
