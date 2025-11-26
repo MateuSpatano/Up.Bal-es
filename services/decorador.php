@@ -446,6 +446,10 @@ try {
         $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? '';
     }
     
+    // Debug: log dos dados de contato carregados
+    error_log("Dados de contato carregados - Email: " . ($contactEmail ?: 'vazio') . ", WhatsApp: " . ($contactWhatsapp ?: 'vazio') . ", Instagram: " . ($contactInstagram ?: 'vazio'));
+    error_log("Social Media JSON: " . json_encode($socialMedia));
+    
     // Base URL para assets
     $baseUrl = rtrim($urls['base'], '/') . '/';
     
@@ -668,17 +672,28 @@ try {
                         <span class="font-medium">E-mail</span>
                     </a>
                 <?php endif; ?>
+                
+                <?php if ($contactInstagram): ?>
+                    <?php
+                    // Formatar link do Instagram
+                    $instagramUrl = $contactInstagram;
+                    if (strpos($instagramUrl, 'http') !== 0) {
+                        // Se não começar com http, adicionar https://instagram.com/
+                        $instagramHandle = ltrim($instagramUrl, '@');
+                        $instagramUrl = 'https://instagram.com/' . $instagramHandle;
+                    }
+                    ?>
+                    <a href="<?php echo htmlspecialchars($instagramUrl); ?>" 
+                       target="_blank"
+                       class="flex items-center justify-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-lg hover:from-purple-600 hover:to-pink-600 transition">
+                        <i class="fab fa-instagram text-2xl"></i>
+                        <span class="font-medium">Instagram</span>
+                    </a>
+                <?php endif; ?>
             </div>
             
             <?php if (!empty($socialMedia)): ?>
                 <div class="flex justify-center gap-4">
-                    <?php if (!empty($socialMedia['instagram'])): ?>
-                        <a href="<?php echo htmlspecialchars($socialMedia['instagram']); ?>" 
-                           target="_blank"
-                           class="text-3xl text-gray-600 hover:text-pink-600 transition">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                    <?php endif; ?>
                     
                     <?php if (!empty($socialMedia['facebook'])): ?>
                         <a href="<?php echo htmlspecialchars($socialMedia['facebook']); ?>" 
