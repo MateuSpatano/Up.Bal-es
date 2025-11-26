@@ -108,31 +108,42 @@ if (empty($baseUrl)) {
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     
-    // Tentar detectar do REQUEST_URI primeiro (mais confiável para rewrite rules)
-    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    // Tentar detectar do SCRIPT_NAME primeiro (mais confiável)
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     
     $projectName = null;
+    $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
     
-    // Tentar do REQUEST_URI primeiro
-    if (preg_match('#^/([^/]+)#', $requestUri, $matches)) {
+    // 1. Tentar do SCRIPT_NAME primeiro (mais confiável)
+    // Exemplo: /Up.Bal-es/services/config.php
+    if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
         $firstSegment = $matches[1];
-        // Verificar se é um nome de projeto conhecido (não um slug)
-        $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
-        if (in_array($firstSegment, $knownProjects) || strpos($firstSegment, 'Baloes') !== false || strpos($firstSegment, 'Bal-es') !== false) {
+        // Verificar se é um projeto conhecido
+        if (in_array($firstSegment, $knownProjects)) {
             $projectName = $firstSegment;
+        } elseif (stripos($firstSegment, 'bal') !== false) {
+            // Se contém "bal", pode ser válido mas verificar se não é um slug
+            // Slugs geralmente não começam com "Up."
+            if (strpos($firstSegment, 'Up.') === 0 || strpos($firstSegment, 'up.') === 0) {
+                $projectName = $firstSegment;
+            }
         }
     }
     
-    // Se não encontrou no REQUEST_URI, tentar do SCRIPT_NAME
-    if (!$projectName && preg_match('#^/([^/]+)#', $scriptName, $matches)) {
-        $projectName = $matches[1];
+    // 2. Se não encontrou no SCRIPT_NAME, tentar do REQUEST_URI
+    // Mas só se for um projeto conhecido (não um slug)
+    if (!$projectName && preg_match('#^/([^/]+)#', $requestUri, $matches)) {
+        $firstSegment = $matches[1];
+        if (in_array($firstSegment, $knownProjects)) {
+            $projectName = $firstSegment;
+        }
     }
     
     if ($projectName) {
         $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
     } else {
-        // Fallback padrão
+        // Fallback padrão - sempre usar Up.Bal-es
         $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
     }
     

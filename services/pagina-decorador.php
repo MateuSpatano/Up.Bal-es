@@ -16,45 +16,83 @@ require_once __DIR__ . '/decorador-service.php';
 function getCorrectBaseUrl() {
     global $urls;
     
-    // Se já temos a URL base configurada, usar ela
-    if (isset($urls) && !empty($urls['base'])) {
-        $base = rtrim($urls['base'], '/') . '/';
-        // Garantir que não há duplicação
-        $base = preg_replace('#([^:])//+#', '$1/', $base);
-        return $base;
-    }
-    
-    // Detectar do REQUEST_URI (mais confiável para rewrite rules)
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
     
-    // Tentar detectar o nome do projeto do REQUEST_URI
+    // Lista de projetos conhecidos (priorizar Up.Bal-es)
+    $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
+    
+    // 1. Tentar detectar do REQUEST_URI primeiro
     // Exemplo: /Up.Bal-es/mateus-rian-da-silva-teixeira
     if (preg_match('#^/([^/]+)#', $requestUri, $matches)) {
         $firstSegment = $matches[1];
         // Verificar se é um nome de projeto conhecido
-        $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
-        if (in_array($firstSegment, $knownProjects) || strpos($firstSegment, 'Baloes') !== false || strpos($firstSegment, 'Bal-es') !== false) {
+        if (in_array($firstSegment, $knownProjects)) {
             $base = $protocol . '://' . $host . '/' . $firstSegment . '/';
             $base = preg_replace('#([^:])//+#', '$1/', $base);
-            error_log("Base URL detectada do REQUEST_URI: $base");
+            error_log("Base URL detectada do REQUEST_URI (projeto conhecido): $base");
             return $base;
         }
     }
     
-    // Fallback: tentar do SCRIPT_NAME
-    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    // 2. Tentar do SCRIPT_NAME (mais confiável quando acessado via rewrite)
+    // Exemplo: /Up.Bal-es/services/pagina-decorador.php
     if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
-        $base = $protocol . '://' . $host . '/' . $matches[1] . '/';
-        $base = preg_replace('#([^:])//+#', '$1/', $base);
-        error_log("Base URL detectada do SCRIPT_NAME: $base");
-        return $base;
+        $projectName = $matches[1];
+        
+        // PRIMEIRO: Se detectou Up.BaloesV3, substituir por Up.Bal-es
+        if ($projectName === 'Up.BaloesV3') {
+            $base = $protocol . '://' . $host . '/Up.Bal-es/';
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            error_log("Base URL corrigida de Up.BaloesV3 para Up.Bal-es (SCRIPT_NAME): $base");
+            return $base;
+        }
+        
+        // Se for um projeto conhecido, usar ele (priorizar Up.Bal-es)
+        if (in_array($projectName, $knownProjects)) {
+            // Se for Up.Bal-es, usar diretamente
+            if ($projectName === 'Up.Bal-es') {
+                $base = $protocol . '://' . $host . '/Up.Bal-es/';
+                $base = preg_replace('#([^:])//+#', '$1/', $base);
+                error_log("Base URL detectada do SCRIPT_NAME (Up.Bal-es): $base");
+                return $base;
+            }
+            // Se for outro projeto conhecido, também usar
+            $base = $protocol . '://' . $host . '/' . $projectName . '/';
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            error_log("Base URL detectada do SCRIPT_NAME (projeto conhecido): $base");
+            return $base;
+        }
     }
     
-    // Último fallback
+    // 3. Verificar se $urls está configurado e usar ele (mas validar e corrigir)
+    if (isset($urls) && !empty($urls['base'])) {
+        $base = rtrim($urls['base'], '/') . '/';
+        
+        // Se contém Up.BaloesV3, substituir por Up.Bal-es
+        if (strpos($base, 'Up.BaloesV3') !== false) {
+            $base = str_replace('Up.BaloesV3', 'Up.Bal-es', $base);
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            error_log("Base URL corrigida de \$urls['base'] (Up.BaloesV3 -> Up.Bal-es): $base");
+            return $base;
+        }
+        
+        // Verificar se contém um projeto conhecido
+        foreach ($knownProjects as $project) {
+            if (strpos($base, $project) !== false) {
+                $base = preg_replace('#([^:])//+#', '$1/', $base);
+                error_log("Base URL usando \$urls['base']: $base");
+                return $base;
+            }
+        }
+        // Se não contém projeto conhecido, pode estar errado - usar fallback
+    }
+    
+    // 4. Último fallback - sempre usar Up.Bal-es
     $base = $protocol . '://' . $host . '/Up.Bal-es/';
-    error_log("Base URL usando fallback padrão: $base");
+    error_log("Base URL usando fallback padrão (Up.Bal-es): $base");
     return $base;
 }
 
@@ -64,6 +102,7 @@ $slug = $_GET['slug'] ?? '';
 // Log detalhado para debug
 error_log("=== PÁGINA DECORADOR ===");
 error_log("REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+error_log("SCRIPT_NAME: " . ($_SERVER['SCRIPT_NAME'] ?? 'N/A'));
 error_log("QUERY_STRING: " . ($_SERVER['QUERY_STRING'] ?? 'N/A'));
 error_log("GET params: " . json_encode($_GET));
 error_log("Slug recebido: " . $slug);
@@ -314,6 +353,7 @@ try {
     
     // Base URL para assets - usar função auxiliar para garantir correção
     $baseUrl = getCorrectBaseUrl();
+    error_log("Base URL final usada na página do decorador: $baseUrl");
     
 } catch (Exception $e) {
     error_log("Erro ao carregar página do decorador: " . $e->getMessage());
@@ -796,26 +836,21 @@ try {
 
                 <!-- Form -->
                 <form id="account-form" class="p-6 space-y-6">
-                    <!-- Foto de Perfil -->
+                    <!-- Foto de Perfil (Sempre Logo System.jpeg - Não editável) -->
                     <div class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700">
-                            <i class="fas fa-camera mr-2 text-blue-600"></i>Foto de Perfil
+                            <i class="fas fa-image mr-2 text-blue-600"></i>Logo do Sistema
                         </label>
                         <div class="flex items-center space-x-4">
                             <div class="relative">
-                                <img id="account-profile-photo" src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Foto de Perfil" 
+                                <img id="account-profile-photo" src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Logo Up.Baloes" 
                                      class="w-20 h-20 rounded-full object-cover border-4 border-blue-200 shadow-md">
-                                <button type="button" id="remove-profile-photo" class="absolute -bottom-1 -right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow transition-all hover:bg-red-600" title="Remover foto">
-                                    <i class="fas fa-times text-xs"></i>
-                                </button>
                             </div>
                             <div class="flex-1">
-                                <input type="file" id="account-photo-input" accept="image/*" 
-                                       class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100">
-                                <p class="mt-1 text-xs text-gray-500">Formatos aceitos: JPG, PNG, GIF, WebP (até 5MB)</p>
+                                <p class="text-sm text-gray-600">Logo padrão do sistema Up.Baloes</p>
+                                <p class="mt-1 text-xs text-gray-500">Esta imagem não pode ser alterada</p>
                             </div>
                         </div>
-                        <div id="account-photo-feedback" class="text-xs text-gray-500 hidden"></div>
                     </div>
 
                     <!-- Nome -->
@@ -1116,6 +1151,45 @@ try {
         
         // Tornar função globalmente acessível
         window.addPortfolioItemToCart = addPortfolioItemToCart;
+        
+        // Garantir que a foto de perfil sempre seja a Logo System.jpeg (não editável)
+        document.addEventListener('DOMContentLoaded', function() {
+            const profilePhoto = document.getElementById('account-profile-photo');
+            if (profilePhoto) {
+                // Sempre usar a logo padrão, ignorando localStorage
+                const baseUrl = '<?php echo $baseUrl; ?>';
+                const defaultLogo = baseUrl + 'Images/Logo System.jpeg';
+                
+                // Remover qualquer foto salva no localStorage para esta página
+                localStorage.removeItem('userProfilePhoto');
+                
+                // Garantir que a imagem sempre seja a logo padrão
+                profilePhoto.src = defaultLogo;
+                
+                // Observar mudanças na imagem e forçar logo padrão
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                            if (profilePhoto.src !== defaultLogo && !profilePhoto.src.endsWith('Logo System.jpeg')) {
+                                profilePhoto.src = defaultLogo;
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(profilePhoto, {
+                    attributes: true,
+                    attributeFilter: ['src']
+                });
+                
+                // Verificar periodicamente se a imagem foi alterada
+                setInterval(function() {
+                    if (profilePhoto.src !== defaultLogo && !profilePhoto.src.endsWith('Logo System.jpeg')) {
+                        profilePhoto.src = defaultLogo;
+                    }
+                }, 1000);
+            }
+        });
         
         // Menu mobile toggle
         document.addEventListener('DOMContentLoaded', function() {
