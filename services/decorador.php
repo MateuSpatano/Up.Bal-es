@@ -85,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         primary_color, secondary_color, accent_color,
                         services_config, social_media,
                         meta_title, meta_description, meta_keywords,
-                        contact_email, contact_whatsapp, contact_instagram,
                         show_contact_section, show_services_section, show_portfolio_section
                     FROM decorator_page_customization
                     WHERE decorator_id = ? AND is_active = 1
@@ -108,16 +107,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'social_media' => '{}',
                         'meta_title' => '',
                         'meta_description' => '',
-                        'meta_keywords' => '',
-                        'contact_email' => '',
-                        'contact_whatsapp' => '',
-                        'contact_instagram' => ''
+                        'meta_keywords' => ''
                     ];
                 } else {
                     // Processar campos JSON
                     if (is_string($customization['social_media'])) {
                         $customization['social_media'] = json_decode($customization['social_media'], true) ?: [];
                     }
+                    // Adicionar campos de contato vazios se não existirem
+                    $customization['contact_email'] = $customization['contact_email'] ?? '';
+                    $customization['contact_whatsapp'] = $customization['contact_whatsapp'] ?? '';
+                    $customization['contact_instagram'] = $customization['contact_instagram'] ?? '';
                 }
                 
                 echo json_encode([
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existing = $stmt->fetch();
                 
                 if ($existing) {
-                    // Atualizar existente
+                    // Atualizar existente (sem campos contact_* que não existem na tabela)
                     $stmt = $pdo->prepare("
                         UPDATE decorator_page_customization SET
                             page_title = ?,
@@ -164,9 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             meta_title = ?,
                             meta_description = ?,
                             meta_keywords = ?,
-                            contact_email = ?,
-                            contact_whatsapp = ?,
-                            contact_instagram = ?,
                             updated_at = NOW()
                         WHERE decorator_id = ? AND is_active = 1
                     ");
@@ -183,21 +180,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
                         $input['meta_keywords'] ?? '',
-                        $input['contact_email'] ?? '',
-                        $input['contact_whatsapp'] ?? '',
-                        $input['contact_instagram'] ?? '',
                         $userId
                     ]);
                 } else {
-                    // Criar nova customização
+                    // Criar nova customização (sem campos contact_* que não existem na tabela)
                     $stmt = $pdo->prepare("
                         INSERT INTO decorator_page_customization (
                             decorator_id, page_title, page_description, welcome_text,
                             cover_image_url, primary_color, secondary_color, accent_color,
                             social_media, meta_title, meta_description, meta_keywords,
-                            contact_email, contact_whatsapp, contact_instagram,
                             is_active, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                     ");
                     
                     $stmt->execute([
@@ -212,10 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         json_encode($socialMedia),
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
-                        $input['meta_keywords'] ?? '',
-                        $input['contact_email'] ?? '',
-                        $input['contact_whatsapp'] ?? '',
-                        $input['contact_instagram'] ?? ''
+                        $input['meta_keywords'] ?? ''
                     ]);
                 }
                 
