@@ -111,11 +111,22 @@ class DecoratorService {
             }
             
             if (!empty($customization['social_media'])) {
-                $socialMedia = json_decode($customization['social_media'], true);
-                $customization['social_media'] = $socialMedia ?: [];
+                // Se for string, decodificar JSON
+                if (is_string($customization['social_media'])) {
+                    $socialMedia = json_decode($customization['social_media'], true);
+                    $customization['social_media'] = $socialMedia ?: [];
+                } elseif (is_array($customization['social_media'])) {
+                    // Já é array, usar diretamente
+                    $customization['social_media'] = $customization['social_media'];
+                } else {
+                    $customization['social_media'] = [];
+                }
             } else {
                 $customization['social_media'] = [];
             }
+            
+            // Debug: log do social_media após processamento
+            error_log("DecoratorService - Social Media após processamento: " . json_encode($customization['social_media']));
             
             // Buscar itens do portfólio
             $stmt = $this->pdo->prepare("
@@ -145,6 +156,7 @@ class DecoratorService {
             unset($item); // Limpar referência
             
             // Processar redes sociais do decorador se não houver na customização
+            // Mas não sobrescrever se já existirem dados de contato na customização
             if (empty($customization['social_media']) && !empty($decorator['redes_sociais'])) {
                 $redesSociais = json_decode($decorator['redes_sociais'], true);
                 if ($redesSociais) {

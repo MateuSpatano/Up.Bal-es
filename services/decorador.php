@@ -419,6 +419,14 @@ try {
         $socialMedia = json_decode($socialMedia, true) ?: [];
     }
     
+    // Debug: verificar estrutura do social_media
+    error_log("=== DEBUG SOCIAL MEDIA ===");
+    error_log("Social Media (tipo): " . gettype($socialMedia));
+    error_log("Social Media (conteúdo): " . json_encode($socialMedia));
+    error_log("Contact Email no social_media: " . ($socialMedia['contact_email'] ?? 'não encontrado'));
+    error_log("Contact WhatsApp no social_media: " . ($socialMedia['contact_whatsapp'] ?? 'não encontrado'));
+    error_log("Contact Instagram no social_media: " . ($socialMedia['contact_instagram'] ?? 'não encontrado'));
+    
     // Email: priorizar da customização, senão usar communication_email ou email do decorador
     $contactEmail = $socialMedia['contact_email'] ?? '';
     if (empty($contactEmail)) {
@@ -672,14 +680,27 @@ try {
             
             <div class="flex flex-col sm:flex-row justify-center gap-6 mb-8">
                 <?php 
-                // Debug: verificar valores
-                $hasWhatsapp = !empty(trim($contactWhatsapp));
-                $hasEmail = !empty(trim($contactEmail));
-                $hasInstagram = !empty(trim($contactInstagram));
+                // Normalizar valores - garantir que são strings e remover espaços
+                $contactWhatsapp = isset($contactWhatsapp) ? trim((string)$contactWhatsapp) : '';
+                $contactEmail = isset($contactEmail) ? trim((string)$contactEmail) : '';
+                $contactInstagram = isset($contactInstagram) ? trim((string)$contactInstagram) : '';
                 
-                error_log("Verificação de contatos - WhatsApp: " . ($hasWhatsapp ? 'SIM' : 'NÃO') . " (" . $contactWhatsapp . ")");
-                error_log("Verificação de contatos - Email: " . ($hasEmail ? 'SIM' : 'NÃO') . " (" . $contactEmail . ")");
-                error_log("Verificação de contatos - Instagram: " . ($hasInstagram ? 'SIM' : 'NÃO') . " (" . $contactInstagram . ")");
+                // Verificar se têm conteúdo válido
+                $hasWhatsapp = !empty($contactWhatsapp) && strlen($contactWhatsapp) > 0;
+                $hasEmail = !empty($contactEmail) && strlen($contactEmail) > 0;
+                $hasInstagram = !empty($contactInstagram) && strlen($contactInstagram) > 0;
+                
+                // Debug detalhado
+                error_log("=== VERIFICAÇÃO FINAL DE CONTATOS ===");
+                error_log("contactWhatsapp (valor): '" . $contactWhatsapp . "'");
+                error_log("contactWhatsapp (tipo): " . gettype($contactWhatsapp));
+                error_log("contactWhatsapp (vazio?): " . (empty($contactWhatsapp) ? 'SIM' : 'NÃO'));
+                error_log("hasWhatsapp: " . ($hasWhatsapp ? 'SIM' : 'NÃO'));
+                error_log("contactInstagram (valor): '" . $contactInstagram . "'");
+                error_log("contactInstagram (tipo): " . gettype($contactInstagram));
+                error_log("contactInstagram (vazio?): " . (empty($contactInstagram) ? 'SIM' : 'NÃO'));
+                error_log("hasInstagram: " . ($hasInstagram ? 'SIM' : 'NÃO'));
+                error_log("====================================");
                 ?>
                 
                 <?php if ($hasWhatsapp): ?>
@@ -689,6 +710,9 @@ try {
                         <i class="fab fa-whatsapp text-2xl"></i>
                         <span class="font-medium">WhatsApp</span>
                     </a>
+                <?php else: ?>
+                    <!-- Debug: mostrar por que não apareceu -->
+                    <!-- WhatsApp não exibido: valor="<?php echo htmlspecialchars($contactWhatsapp); ?>" -->
                 <?php endif; ?>
                 
                 <?php if ($hasEmail): ?>
@@ -715,6 +739,9 @@ try {
                         <i class="fab fa-instagram text-2xl"></i>
                         <span class="font-medium">Instagram</span>
                     </a>
+                <?php else: ?>
+                    <!-- Debug: mostrar por que não apareceu -->
+                    <!-- Instagram não exibido: valor="<?php echo htmlspecialchars($contactInstagram); ?>" -->
                 <?php endif; ?>
             </div>
             
