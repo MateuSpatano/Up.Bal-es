@@ -8179,7 +8179,9 @@ Qualquer dúvida, estou à disposição! 😊`;
             let previewUrl = window.buildDecoratorUrl(userData.slug);
             
             // Adicionar parâmetro preview para permitir visualização mesmo sem aprovação
-            previewUrl += (previewUrl.includes('?') ? '&' : '?') + 'preview=1';
+            // Adicionar timestamp para evitar cache
+            const separator = previewUrl.includes('?') ? '&' : '?';
+            previewUrl += separator + 'preview=1&_t=' + Date.now();
             
             console.log('Carregando preview da URL:', previewUrl);
             console.log('Caminho atual:', window.location.pathname);
@@ -8307,10 +8309,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                 if (pageDescEl) pageDescEl.value = config.page_description || '';
                 if (welcomeTextEl) welcomeTextEl.value = config.welcome_text || '';
                 
-                // Preencher campos visuais
-                const coverImageEl = document.getElementById('decorator-cover-image-url');
-                if (coverImageEl) coverImageEl.value = config.cover_image_url || '';
-                
+                // Preencher campos visuais (cover_image_url removido - sempre usar padrão)
                 const primaryColor = config.primary_color || '#667eea';
                 const secondaryColor = config.secondary_color || '#764ba2';
                 const accentColor = config.accent_color || '#f59e0b';
@@ -8398,6 +8397,38 @@ Qualquer dúvida, estou à disposição! 😊`;
             const originalText = saveBtn.innerHTML;
             
             try {
+                // Coletar cores diretamente dos inputs ANTES de criar FormData
+                const primaryColorEl = document.getElementById('decorator-primary-color');
+                const secondaryColorEl = document.getElementById('decorator-secondary-color');
+                const accentColorEl = document.getElementById('decorator-accent-color');
+                
+                console.log('Elementos de cor encontrados:', {
+                    primary: !!primaryColorEl,
+                    secondary: !!secondaryColorEl,
+                    accent: !!accentColorEl
+                });
+                
+                if (!primaryColorEl || !secondaryColorEl || !accentColorEl) {
+                    console.error('Alguns elementos de cor não foram encontrados!');
+                    showNotification('Erro: Campos de cor não encontrados. Recarregue a página.', 'error');
+                    return;
+                }
+                
+                const primaryColor = primaryColorEl.value || '#667eea';
+                const secondaryColor = secondaryColorEl.value || '#764ba2';
+                const accentColor = accentColorEl.value || '#f59e0b';
+                
+                console.log('Cores coletadas:', { primaryColor, secondaryColor, accentColor });
+                
+                // Validar que as cores são válidas
+                if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor) || 
+                    !/^#[0-9A-Fa-f]{6}$/.test(secondaryColor) || 
+                    !/^#[0-9A-Fa-f]{6}$/.test(accentColor)) {
+                    console.error('Cores inválidas detectadas:', { primaryColor, secondaryColor, accentColor });
+                    showNotification('Erro: Cores inválidas. Por favor, selecione cores válidas.', 'error');
+                    return;
+                }
+                
                 const formData = new FormData(form);
                 
                 // Coletar dados do formulário
@@ -8406,10 +8437,10 @@ Qualquer dúvida, estou à disposição! 😊`;
                     page_title: formData.get('page_title'),
                     page_description: formData.get('page_description'),
                     welcome_text: formData.get('welcome_text'),
-                    cover_image_url: formData.get('cover_image_url'),
-                    primary_color: formData.get('primary_color'),
-                    secondary_color: formData.get('secondary_color'),
-                    accent_color: formData.get('accent_color'),
+                    cover_image_url: '', // Sempre vazio - usar padrão
+                    primary_color: primaryColor,
+                    secondary_color: secondaryColor,
+                    accent_color: accentColor,
                     meta_title: formData.get('meta_title'),
                     meta_description: formData.get('meta_description'),
                     meta_keywords: formData.get('meta_keywords'),
@@ -8472,8 +8503,26 @@ Qualquer dúvida, estou à disposição! 😊`;
                 
                 if (result.success) {
                     showNotification('Personalização salva com sucesso!', 'success');
-                    // Recarregar preview
-                    updatePreview();
+                    
+                    // Log dos dados salvos
+                    if (result.data) {
+                        console.log('Dados salvos confirmados:', result.data);
+                    }
+                    
+                    // Recarregar dados do formulário para garantir sincronização
+                    setTimeout(async () => {
+                        try {
+                            await loadPersonalizarTelaData();
+                        } catch (error) {
+                            console.error('Erro ao recarregar dados:', error);
+                        }
+                    }, 500);
+                    
+                    // Recarregar preview com cache busting
+                    setTimeout(() => {
+                        updatePreview();
+                    }, 1000);
+                    
                     // Atualizar link de visualização (caso o slug tenha mudado)
                     updateViewPageLink();
                 } else {
@@ -8549,15 +8598,17 @@ Qualquer dúvida, estou à disposição! 😊`;
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
             let previewUrl = window.buildDecoratorUrl(userData.slug);
-            // Adicionar parâmetro preview
-            previewUrl += (previewUrl.includes('?') ? '&' : '?') + 'preview=1';
+            // Adicionar parâmetro preview e cache busting para forçar reload
+            const separator = previewUrl.includes('?') ? '&' : '?';
+            previewUrl += separator + 'preview=1&_t=' + Date.now();
             
             console.log('Atualizando preview com URL:', previewUrl);
             
-            // Recarregar iframe para aplicar mudanças
+            // Recarregar iframe para aplicar mudanças (forçar reload completo)
             previewIframe.src = '';
             setTimeout(() => {
                 previewIframe.src = previewUrl;
+                console.log('Preview recarregado com cache busting:', previewUrl);
             }, 300);
         } else {
             console.warn('Slug não encontrado para atualizar preview');
@@ -8686,17 +8737,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                         e.stopPropagation();
                         e.preventDefault();
                         let value = '';
-                        if (field === 'cover_image_url') {
-                            try {
-                                const iframeWindow = previewIframe.contentWindow || previewIframe.contentDocument.defaultView;
-                                const bgImage = iframeWindow.getComputedStyle(el).backgroundImage;
-                                value = bgImage.replace(/url\(['"]?(.*?)['"]?\)/, '$1');
-                            } catch (err) {
-                                value = el.style.backgroundImage || '';
-                            }
-                        } else {
-                            value = el.textContent || el.innerText || '';
-                        }
+                        // cover_image_url removido - sempre usar padrão
+                        value = el.textContent || el.innerText || '';
                         openEditModal(field, value);
                     });
                 }
@@ -8735,11 +8777,9 @@ Qualquer dúvida, estou à disposição! 😊`;
                     let heroEl = iframeDoc.querySelector('section.decorator-hero') ||
                                  iframeDoc.querySelector('section#inicio.decorator-hero') ||
                                  iframeDoc.querySelector('#inicio.decorator-hero');
-                    if (heroEl) {
-                        makeElementEditable(heroEl, 'cover_image_url', iframeDoc);
-                    }
+                    // Imagem de capa removida - sempre usar padrão (não editável)
                 } catch (err) {
-                    console.error('Erro ao adicionar edição para imagem de capa:', err);
+                    // Ignorar erro - imagem de capa não é mais editável
                 }
             } catch (e) {
                 console.error('Erro ao habilitar modo de edição:', e);
@@ -8780,9 +8820,10 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     function openEditModal(field, currentValue) {
-        // Limpar valor se for URL de imagem
-        if (field === 'cover_image_url' && currentValue) {
-            currentValue = currentValue.replace(/url\(['"]?/g, '').replace(/['"]?\)/g, '');
+        // Não permitir edição de cover_image_url (sempre usar padrão)
+        if (field === 'cover_image_url') {
+            showNotification('A imagem de capa é padrão do sistema e não pode ser alterada.', 'info');
+            return;
         }
         
         // Criar modal simples para editar
@@ -8795,10 +8836,7 @@ Qualquer dúvida, estou à disposição! 😊`;
                     <i class="fas fa-edit mr-2 text-indigo-600"></i>
                     Editar ${getFieldLabel(field)}
                 </h3>
-                ${field === 'cover_image_url' ? 
-                    `<input type="url" id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" value="${currentValue}" placeholder="https://exemplo.com/imagem.jpg">` :
-                    `<textarea id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" rows="4" placeholder="Digite o conteúdo">${currentValue || ''}</textarea>`
-                }
+                <textarea id="edit-field-value" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" rows="4" placeholder="Digite o conteúdo">${currentValue || ''}</textarea>
                 <div class="flex gap-2">
                     <button id="cancel-edit" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
                         <i class="fas fa-times mr-2"></i>Cancelar
@@ -8850,18 +8888,21 @@ Qualquer dúvida, estou à disposição! 😊`;
         const labels = {
             'page_title': 'Título',
             'page_description': 'Descrição',
-            'welcome_text': 'Texto de Boas-vindas',
-            'cover_image_url': 'URL da Imagem'
+            'welcome_text': 'Texto de Boas-vindas'
         };
         return labels[field] || field;
     }
     
     function updateField(field, value) {
+        // Não permitir atualização de cover_image_url
+        if (field === 'cover_image_url') {
+            return;
+        }
+        
         const fieldMap = {
             'page_title': 'decorator-page-title',
             'page_description': 'decorator-page-description',
-            'welcome_text': 'decorator-welcome-text',
-            'cover_image_url': 'decorator-cover-image-url'
+            'welcome_text': 'decorator-welcome-text'
         };
         
         const inputId = fieldMap[field];

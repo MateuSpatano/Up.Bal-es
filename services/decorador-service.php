@@ -64,7 +64,7 @@ class DecoratorService {
             
             error_log("Decorador encontrado com sucesso - ID: {$decorator['id']}, Nome: {$decorator['name']}");
             
-            // Buscar customização da página
+            // Buscar customização da página (buscar a mais recente ativa, ou a mais recente se não houver ativa)
             $stmt = $this->pdo->prepare("
                 SELECT 
                     page_title, page_description, welcome_text, cover_image_url,
@@ -73,7 +73,9 @@ class DecoratorService {
                     meta_title, meta_description, meta_keywords,
                     show_contact_section, show_services_section, show_portfolio_section
                 FROM decorator_page_customization
-                WHERE decorator_id = ? AND is_active = 1
+                WHERE decorator_id = ?
+                ORDER BY is_active DESC, updated_at DESC
+                LIMIT 1
             ");
             
             $stmt->execute([$decorator['id']]);

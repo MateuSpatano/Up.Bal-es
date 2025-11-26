@@ -133,19 +133,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit();
                 }
                 
+                // Validar e sanitizar cores
+                $primaryColor = $input['primary_color'] ?? '#667eea';
+                $secondaryColor = $input['secondary_color'] ?? '#764ba2';
+                $accentColor = $input['accent_color'] ?? '#f59e0b';
+                
+                // Validar formato hexadecimal
+                if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $primaryColor)) {
+                    $primaryColor = '#667eea';
+                }
+                if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $secondaryColor)) {
+                    $secondaryColor = '#764ba2';
+                }
+                if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $accentColor)) {
+                    $accentColor = '#f59e0b';
+                }
+                
+                error_log("Salvando personalização - User ID: $userId");
+                error_log("Cores recebidas - Primária: {$primaryColor}, Secundária: {$secondaryColor}, Destaque: {$accentColor}");
+                error_log("Título: " . ($input['page_title'] ?? 'vazio'));
+                error_log("Descrição: " . ($input['page_description'] ?? 'vazio'));
+                
                 // Preparar dados de customização (redes sociais removidas da interface)
                 $socialMedia = [];
                 
-                // Verificar se já existe customização
+                // Verificar se já existe customização (buscar qualquer, não apenas ativa)
                 $stmt = $pdo->prepare("
-                    SELECT id FROM decorator_page_customization 
-                    WHERE decorator_id = ? AND is_active = 1
+                    SELECT id, is_active FROM decorator_page_customization 
+                    WHERE decorator_id = ?
+                    ORDER BY updated_at DESC
+                    LIMIT 1
                 ");
                 $stmt->execute([$userId]);
                 $existing = $stmt->fetch();
                 
                 if ($existing) {
-                    // Atualizar existente (sem campos contact_* que não existem na tabela)
+                    // Desativar todas as customizações anteriores
+                    $stmt = $pdo->prepare("
+                        UPDATE decorator_page_customization 
+                        SET is_active = 0 
+                        WHERE decorator_id = ?
+                    ");
+                    $stmt->execute([$userId]);
+                    
+                    // Atualizar a existente e ativar
                     $stmt = $pdo->prepare("
                         UPDATE decorator_page_customization SET
                             page_title = ?,
@@ -159,26 +190,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             meta_title = ?,
                             meta_description = ?,
                             meta_keywords = ?,
+                            is_active = 1,
                             updated_at = NOW()
-                        WHERE decorator_id = ? AND is_active = 1
+                        WHERE id = ?
                     ");
                     
                     $stmt->execute([
                         $input['page_title'] ?? '',
                         $input['page_description'] ?? '',
                         $input['welcome_text'] ?? '',
-                        $input['cover_image_url'] ?? '',
-                        $input['primary_color'] ?? '#667eea',
-                        $input['secondary_color'] ?? '#764ba2',
-                        $input['accent_color'] ?? '#f59e0b',
+                        '', // Sempre vazio - usar padrão
+                        $primaryColor,
+                        $secondaryColor,
+                        $accentColor,
                         json_encode($socialMedia),
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
                         $input['meta_keywords'] ?? '',
-                        $userId
+                        $existing['id']
                     ]);
+                    
+                    error_log("Customização atualizada - ID: {$existing['id']}");
                 } else {
-                    // Criar nova customização (sem campos contact_* que não existem na tabela)
+                    // Criar nova customização
                     $stmt = $pdo->prepare("
                         INSERT INTO decorator_page_customization (
                             decorator_id, page_title, page_description, welcome_text,
@@ -193,20 +227,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $input['page_title'] ?? '',
                         $input['page_description'] ?? '',
                         $input['welcome_text'] ?? '',
-                        $input['cover_image_url'] ?? '',
-                        $input['primary_color'] ?? '#667eea',
-                        $input['secondary_color'] ?? '#764ba2',
-                        $input['accent_color'] ?? '#f59e0b',
+                        '', // Sempre vazio - usar padrão
+                        $primaryColor,
+                        $secondaryColor,
+                        $accentColor,
                         json_encode($socialMedia),
                         $input['meta_title'] ?? '',
                         $input['meta_description'] ?? '',
                         $input['meta_keywords'] ?? ''
                     ]);
+                    
+                    error_log("Nova customização criada - User ID: $userId");
+                }
+                
+                // Verificar se foi salvo corretamente
+                $stmt = $pdo->prepare("
+                    SELECT page_title, primary_color, secondary_color, accent_color 
+                    FROM decorator_page_customization 
+                    WHERE decorator_id = ? AND is_active = 1
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                ");
+                $stmt->execute([$userId]);
+                $saved = $stmt->fetch();
+                
+                if ($saved) {
+                    error_log("Customização verificada após salvar - Título: {$saved['page_title']}, Cores: {$saved['primary_color']}, {$saved['secondary_color']}, {$saved['accent_color']}");
+                } else {
+                    error_log("AVISO: Customização não encontrada após salvar!");
                 }
                 
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Personalização salva com sucesso!'
+                    'message' => 'Personalização salva com sucesso!',
+                    'data' => $saved ?: null
                 ]);
                 exit();
                 

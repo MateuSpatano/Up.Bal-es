@@ -56,7 +56,7 @@ try {
         if ($decorator) {
             error_log("Decorador encontrado no modo preview - ID: {$decorator['id']}, Nome: {$decorator['name']}, Ativo: {$decorator['ativo']}, Aprovado: {$decorator['aprovado_por_admin']}");
             
-            // Buscar customização (mesmo que não esteja ativa)
+            // Buscar customização (buscar a mais recente, independente de is_active para preview)
             $stmt = $pdo->prepare("
                 SELECT 
                     page_title, page_description, welcome_text, cover_image_url,
@@ -66,14 +66,17 @@ try {
                     show_contact_section, show_services_section, show_portfolio_section
                 FROM decorator_page_customization
                 WHERE decorator_id = ?
-                ORDER BY is_active DESC, updated_at DESC
+                ORDER BY updated_at DESC, created_at DESC
                 LIMIT 1
             ");
             $stmt->execute([$decorator['id']]);
             $customization = $stmt->fetch(PDO::FETCH_ASSOC);
             
+            error_log("Customização encontrada no preview - Decorator ID: {$decorator['id']}, Customização: " . json_encode($customization));
+            
             // Se não houver customização, criar uma padrão
             if (!$customization) {
+                error_log("Nenhuma customização encontrada para decorator ID {$decorator['id']}, usando valores padrão");
                 $customization = [
                     'page_title' => null,
                     'page_description' => null,
@@ -91,6 +94,8 @@ try {
                     'show_services_section' => true,
                     'show_portfolio_section' => true
                 ];
+            } else {
+                error_log("Customização encontrada - Título: {$customization['page_title']}, Cor Primária: {$customization['primary_color']}, Cor Secundária: {$customization['secondary_color']}, Cor Destaque: {$customization['accent_color']}");
             }
             
             // Processar JSON fields
@@ -213,15 +218,22 @@ try {
     error_log("Decorador carregado com sucesso: " . $decoratorName);
     
     // Configurações da página
-    $pageTitle = htmlspecialchars($customization['page_title'] ?? 'Bem-vindo à ' . $decoratorName);
-    $pageDesc = htmlspecialchars($customization['page_description'] ?? 'Decoração profissional com balões');
-    $welcomeText = $customization['welcome_text'] ?? '';
-    $coverImage = $customization['cover_image_url'] ?? '';
+    // Garantir que os valores sejam aplicados corretamente
+    $pageTitle = !empty($customization['page_title']) ? htmlspecialchars($customization['page_title']) : ('Bem-vindo à ' . htmlspecialchars($decoratorName));
+    $pageDesc = !empty($customization['page_description']) ? htmlspecialchars($customization['page_description']) : 'Decoração profissional com balões';
+    $welcomeText = !empty($customization['welcome_text']) ? $customization['welcome_text'] : '';
+    // Sempre usar imagem de capa padrão (não usar cover_image_url personalizada)
+    $coverImage = '';
     
-    // Cores personalizadas
-    $primaryColor = $customization['primary_color'] ?? '#667eea';
-    $secondaryColor = $customization['secondary_color'] ?? '#764ba2';
-    $accentColor = $customization['accent_color'] ?? '#f59e0b';
+    // Cores personalizadas - garantir que sejam válidas
+    $primaryColor = !empty($customization['primary_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['primary_color']) 
+        ? $customization['primary_color'] : '#667eea';
+    $secondaryColor = !empty($customization['secondary_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['secondary_color']) 
+        ? $customization['secondary_color'] : '#764ba2';
+    $accentColor = !empty($customization['accent_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['accent_color']) 
+        ? $customization['accent_color'] : '#f59e0b';
+    
+    error_log("Personalizações aplicadas - Título: $pageTitle, Cor Primária: $primaryColor, Cor Secundária: $secondaryColor, Cor Destaque: $accentColor");
     
     // Redes sociais
     $socialMedia = [];

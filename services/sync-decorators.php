@@ -4,7 +4,7 @@
  * 
  * INSTRUÇÕES DE USO:
  * 1. Salve este arquivo como: services/sync-decorators.php
- * 2. Execute UMA VEZ via navegador: http://seudominio.com/Up.BaloesV3/services/sync-decorators.php
+ * 2. Execute UMA VEZ via navegador: http://seudominio.com/Up.Bal-es/services/sync-decorators.php
  * 3. Ou via terminal: php services/sync-decorators.php
  * 4. APÓS executar, DELETE este arquivo por segurança
  */
