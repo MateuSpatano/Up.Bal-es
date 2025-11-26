@@ -4,12 +4,12 @@
  * Endpoint para buscar informações de contato do decorador principal
  */
 
-// Desabilitar exibição de erros para evitar HTML na resposta JSON
+// Desabilitar exibição de erros
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Configurar cabeçalhos para JSON ANTES de qualquer saída (como outros serviços fazem)
+// Definir headers PRIMEIRO, antes de qualquer coisa
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -29,10 +29,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit();
 }
 
+// Incluir config.php DEPOIS dos headers principais
 try {
-    // Incluir configuração do banco de dados
     require_once __DIR__ . '/config.php';
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erro ao carregar configurações: ' . $e->getMessage(),
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine()
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
+try {
     // Verificar se $database_config está disponível
     if (!isset($database_config)) {
         if (isset($GLOBALS['database_config'])) {
@@ -55,10 +66,15 @@ try {
         }
     }
 
+    // Verificar se função existe
+    if (!function_exists('getDatabaseConnection')) {
+        throw new Exception('Função getDatabaseConnection não encontrada');
+    }
+
     // Conectar ao banco de dados
     $pdo = getDatabaseConnection($database_config);
 
-    // Buscar dados de contato - query simplificada
+    // Buscar dados de contato
     $stmt = $pdo->prepare("
         SELECT 
             email,
@@ -133,8 +149,10 @@ try {
     ], JSON_UNESCAPED_UNICODE);
     
 } catch (PDOException $e) {
-    error_log('Erro ao buscar contatos (PDOException): ' . $e->getMessage());
+    error_log('Erro PDO em contatos.php: ' . $e->getMessage());
     error_log('Código: ' . $e->getCode());
+    error_log('Arquivo: ' . $e->getFile());
+    error_log('Linha: ' . $e->getLine());
     
     http_response_code(500);
     $message = 'Erro ao buscar informações de contato';
@@ -148,7 +166,9 @@ try {
     ], JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
-    error_log('Erro geral ao buscar contatos (Exception): ' . $e->getMessage());
+    error_log('Erro Exception em contatos.php: ' . $e->getMessage());
+    error_log('Arquivo: ' . $e->getFile());
+    error_log('Linha: ' . $e->getLine());
     
     http_response_code(500);
     $message = 'Erro interno do servidor';
@@ -162,7 +182,7 @@ try {
     ], JSON_UNESCAPED_UNICODE);
     
 } catch (Throwable $e) {
-    error_log('Erro fatal ao buscar contatos (Throwable): ' . $e->getMessage());
+    error_log('Erro Throwable em contatos.php: ' . $e->getMessage());
     
     http_response_code(500);
     echo json_encode([
