@@ -1,5 +1,59 @@
 // JavaScript para o Dashboard do Decorador - Up.Baloes
 
+// Função global para construir URLs corretas do projeto
+window.getProjectBasePath = function() {
+    const path = window.location.pathname;
+    
+    // Procurar por /Up.BaloesV3 no caminho (case sensitive)
+    if (path.includes('/Up.BaloesV3')) {
+        const index = path.indexOf('/Up.BaloesV3');
+        return path.substring(0, index + '/Up.BaloesV3'.length);
+    }
+    
+    // Tentar encontrar o nome do projeto no caminho
+    const pathParts = path.split('/').filter(p => p && p !== 'localhost' && p !== '');
+    
+    for (let part of pathParts) {
+        // Verificar se parece ser o nome do projeto
+        if (part.includes('Baloes') || (part.includes('Up') && part.includes('Baloes'))) {
+            return '/' + part;
+        }
+    }
+    
+    // Fallback: usar o caminho padrão
+    return '/Up.BaloesV3';
+};
+
+// Função global para obter origin limpo (sem duplicações)
+window.getCleanOrigin = function() {
+    let origin = window.location.origin;
+    
+    // Garantir que origin não contenha caminhos duplicados
+    if (origin.includes('localhost/localhost')) {
+        origin = origin.replace(/\/localhost/g, '');
+    }
+    
+    // Garantir que origin seja apenas protocolo + hostname + porta (se houver)
+    const originMatch = origin.match(/^(https?:\/\/[^\/]+)/);
+    if (originMatch) {
+        origin = originMatch[1];
+    }
+    
+    return origin;
+};
+
+// Função global para construir URL completa de decorador
+window.buildDecoratorUrl = function(slug) {
+    if (!slug) return '';
+    
+    const origin = window.getCleanOrigin();
+    const basePath = window.getProjectBasePath();
+    const url = origin + basePath + '/' + slug;
+    
+    // Limpar duplicações e barras duplas
+    return url.replace(/\/+/g, '/').replace(/localhost\/localhost/g, 'localhost');
+};
+
 // Função global simples de notificação (será substituída pela versão completa após DOMContentLoaded)
 window.showNotification = function(message, type = 'info') {
     // Versão simples usando alert até que a versão completa esteja disponível
@@ -8069,23 +8123,8 @@ Qualquer dúvida, estou à disposição! 😊`;
             // Configurar link de visualização da página
             const viewPageLink = document.getElementById('decorator-view-page-link');
             if (viewPageLink) {
-                // Construir URL da página pública do decorador
-                const origin = window.location.origin;
-                const currentPath = window.location.pathname;
-                let basePath = '/Up.BaloesV3';
-                
-                // Detectar caminho base
-                if (currentPath.includes('/Up.BaloesV3')) {
-                    const index = currentPath.indexOf('/Up.BaloesV3');
-                    basePath = currentPath.substring(0, index + '/Up.BaloesV3'.length);
-                } else {
-                    const pathParts = currentPath.split('/').filter(p => p);
-                    if (pathParts.length > 0) {
-                        basePath = '/' + pathParts[0];
-                    }
-                }
-                
-                const pageUrl = (origin + basePath + '/' + userData.slug).replace(/\/+/g, '/');
+                // Construir URL da página pública do decorador usando função global
+                const pageUrl = window.buildDecoratorUrl(userData.slug);
                 viewPageLink.href = pageUrl;
                 console.log('Link de visualização configurado:', pageUrl);
             }
@@ -8104,38 +8143,13 @@ Qualquer dúvida, estou à disposição! 😊`;
                 console.error('Container de preview não encontrado!');
             }
             
-            // Construir URL correta baseada no RewriteBase do .htaccess
-            // O .htaccess redireciona slugs para services/pagina-decorador.php?slug=xxx
-            // Mas a URL pública deve ser apenas /Up.BaloesV3/slug
-            let previewUrl;
-            const origin = window.location.origin; // ex: http://localhost
-            const currentPath = window.location.pathname; // ex: /Up.BaloesV3/pages/painel-decorador.html
-            
-            // Extrair o caminho base do projeto (ex: /Up.BaloesV3)
-            let basePath = '/Up.BaloesV3';
-            
-            // Tentar detectar o caminho base do projeto do pathname
-            if (currentPath.includes('/Up.BaloesV3')) {
-                // Encontrar a posição de /Up.BaloesV3 e pegar até lá
-                const index = currentPath.indexOf('/Up.BaloesV3');
-                basePath = currentPath.substring(0, index + '/Up.BaloesV3'.length);
-            } else {
-                // Se não encontrar, tentar extrair do primeiro segmento do path
-                const pathParts = currentPath.split('/').filter(p => p);
-                if (pathParts.length > 0) {
-                    basePath = '/' + pathParts[0];
-                }
-            }
-            
-            // Construir URL do preview: origin + basePath + /slug
-            // Exemplo: http://localhost/Up.BaloesV3/mateus-rian-da-silva-teixeira
-            previewUrl = origin + basePath + '/' + userData.slug;
-            
-            // Garantir que a URL não tenha barras duplas
-            previewUrl = previewUrl.replace(/\/+/g, '/');
+            // Construir URL correta usando função global
+            const previewUrl = window.buildDecoratorUrl(userData.slug);
             
             console.log('Carregando preview da URL:', previewUrl);
-            console.log('Caminho atual:', currentPath);
+            console.log('Caminho atual:', window.location.pathname);
+            console.log('Base path detectado:', window.getProjectBasePath());
+            console.log('Origin:', window.getCleanOrigin());
             
             // Limpar src anterior e definir novo
             previewIframe.src = '';
@@ -8459,22 +8473,7 @@ Qualquer dúvida, estou à disposição! 😊`;
         
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
-            const origin = window.location.origin;
-            const currentPath = window.location.pathname;
-            let basePath = '/Up.BaloesV3';
-            
-            // Detectar caminho base
-            if (currentPath.includes('/Up.BaloesV3')) {
-                const index = currentPath.indexOf('/Up.BaloesV3');
-                basePath = currentPath.substring(0, index + '/Up.BaloesV3'.length);
-            } else {
-                const pathParts = currentPath.split('/').filter(p => p);
-                if (pathParts.length > 0) {
-                    basePath = '/' + pathParts[0];
-                }
-            }
-            
-            const pageUrl = (origin + basePath + '/' + userData.slug).replace(/\/+/g, '/');
+            const pageUrl = window.buildDecoratorUrl(userData.slug);
             viewPageLink.href = pageUrl;
         }
     }
@@ -8489,22 +8488,7 @@ Qualquer dúvida, estou à disposição! 😊`;
         // Obter dados do usuário para recarregar com o slug correto
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         if (userData.slug) {
-            const origin = window.location.origin;
-            const currentPath = window.location.pathname;
-            let basePath = '/Up.BaloesV3';
-            
-            // Detectar caminho base
-            if (currentPath.includes('/Up.BaloesV3')) {
-                const index = currentPath.indexOf('/Up.BaloesV3');
-                basePath = currentPath.substring(0, index + '/Up.BaloesV3'.length);
-            } else {
-                const pathParts = currentPath.split('/').filter(p => p);
-                if (pathParts.length > 0) {
-                    basePath = '/' + pathParts[0];
-                }
-            }
-            
-            const previewUrl = (origin + basePath + '/' + userData.slug).replace(/\/+/g, '/');
+            const previewUrl = window.buildDecoratorUrl(userData.slug);
             
             console.log('Atualizando preview com URL:', previewUrl);
             

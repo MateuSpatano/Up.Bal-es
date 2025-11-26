@@ -6,6 +6,7 @@ RewriteEngine On
 # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Configuração da pasta raiz do projeto
+# Para XAMPP, o RewriteBase deve ser relativo ao DocumentRoot
 RewriteBase /Up.BaloesV3/
 
 # Se o arquivo ou pasta existir, não faz nada (carrega o arquivo real)
@@ -18,6 +19,7 @@ RewriteCond %{REQUEST_URI} !^/Up\.BaloesV3/.*\.(html|php|css|js|jpg|jpeg|png|gif
 
 # Redireciona slugs de decoradores para 'pagina-decorador.php'
 # Aceita apenas letras, números e hífens (slug válido)
+# IMPORTANTE: Esta regra só funciona se a URL for /Up.BaloesV3/slug
 RewriteRule ^([a-zA-Z0-9-]+)/?$ services/pagina-decorador.php?slug=$1 [L,QSA]
 
 # Segurança
