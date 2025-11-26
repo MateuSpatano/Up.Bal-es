@@ -2,11 +2,232 @@
 /**
  * Handler de URL para Página Pública do Decorador
  * Processa requisições diretas via slug (ex: /nome-decorador)
+ * Também processa ações POST para gerenciamento de personalização
  */
+
+// Desabilitar exibição de erros para evitar HTML na resposta JSON
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/decorador-service.php';
 
+// Verificar se é uma requisição POST para ações de API
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Configurar cabeçalhos para JSON
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    
+    // Verificar método OPTIONS (CORS preflight)
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit();
+    }
+    
+    try {
+        // Obter dados da requisição
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input || !isset($input['action'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Ação não especificada']);
+            exit();
+        }
+        
+        $action = $input['action'];
+        
+        // Inicializar sessão para autenticação
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Obter conexão com banco de dados
+        $pdo = getDatabaseConnection($database_config);
+        
+        // Obter ID do usuário da sessão (método principal)
+        $userId = $_SESSION['user_id'] ?? null;
+        
+        // Se não houver na sessão, tentar obter do input (fallback)
+        if (!$userId && isset($input['user_id'])) {
+            $userId = intval($input['user_id']);
+        }
+        
+        switch ($action) {
+            case 'get_my_page_customization':
+                if (!$userId) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
+                    exit();
+                }
+                        
+                        // Buscar customização do decorador
+                        $stmt = $pdo->prepare("
+                    SELECT 
+                        page_title, page_description, welcome_text, cover_image_url,
+                        primary_color, secondary_color, accent_color,
+                        services_config, social_media,
+                        meta_title, meta_description, meta_keywords,
+                        contact_email, contact_whatsapp, contact_instagram,
+                        show_contact_section, show_services_section, show_portfolio_section
+                    FROM decorator_page_customization
+                    WHERE decorator_id = ? AND is_active = 1
+                ");
+                
+                $stmt->execute([$userId]);
+                $customization = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$customization) {
+                    // Retornar valores padrão se não houver customização
+                    $customization = [
+                        'page_title' => '',
+                        'page_description' => '',
+                        'welcome_text' => '',
+                        'cover_image_url' => '',
+                        'primary_color' => '#667eea',
+                        'secondary_color' => '#764ba2',
+                        'accent_color' => '#f59e0b',
+                        'services_config' => null,
+                        'social_media' => '{}',
+                        'meta_title' => '',
+                        'meta_description' => '',
+                        'meta_keywords' => '',
+                        'contact_email' => '',
+                        'contact_whatsapp' => '',
+                        'contact_instagram' => ''
+                    ];
+                } else {
+                    // Processar campos JSON
+                    if (is_string($customization['social_media'])) {
+                        $customization['social_media'] = json_decode($customization['social_media'], true) ?: [];
+                    }
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $customization
+                ]);
+                exit();
+                
+            case 'save_my_page_customization':
+                if (!$userId) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
+                    exit();
+                }
+                
+                // Preparar dados de customização
+                $socialMedia = [
+                    'facebook' => $input['social_facebook'] ?? '',
+                    'instagram' => $input['social_instagram'] ?? '',
+                    'whatsapp' => $input['social_whatsapp'] ?? '',
+                    'youtube' => $input['social_youtube'] ?? ''
+                ];
+                
+                // Verificar se já existe customização
+                $stmt = $pdo->prepare("
+                    SELECT id FROM decorator_page_customization 
+                    WHERE decorator_id = ? AND is_active = 1
+                ");
+                $stmt->execute([$userId]);
+                $existing = $stmt->fetch();
+                
+                if ($existing) {
+                    // Atualizar existente
+                    $stmt = $pdo->prepare("
+                        UPDATE decorator_page_customization SET
+                            page_title = ?,
+                            page_description = ?,
+                            welcome_text = ?,
+                            cover_image_url = ?,
+                            primary_color = ?,
+                            secondary_color = ?,
+                            accent_color = ?,
+                            social_media = ?,
+                            meta_title = ?,
+                            meta_description = ?,
+                            meta_keywords = ?,
+                            contact_email = ?,
+                            contact_whatsapp = ?,
+                            contact_instagram = ?,
+                            updated_at = NOW()
+                        WHERE decorator_id = ? AND is_active = 1
+                    ");
+                    
+                    $stmt->execute([
+                        $input['page_title'] ?? '',
+                        $input['page_description'] ?? '',
+                        $input['welcome_text'] ?? '',
+                        $input['cover_image_url'] ?? '',
+                        $input['primary_color'] ?? '#667eea',
+                        $input['secondary_color'] ?? '#764ba2',
+                        $input['accent_color'] ?? '#f59e0b',
+                        json_encode($socialMedia),
+                        $input['meta_title'] ?? '',
+                        $input['meta_description'] ?? '',
+                        $input['meta_keywords'] ?? '',
+                        $input['contact_email'] ?? '',
+                        $input['contact_whatsapp'] ?? '',
+                        $input['contact_instagram'] ?? '',
+                        $userId
+                    ]);
+                } else {
+                    // Criar nova customização
+                    $stmt = $pdo->prepare("
+                        INSERT INTO decorator_page_customization (
+                            decorator_id, page_title, page_description, welcome_text,
+                            cover_image_url, primary_color, secondary_color, accent_color,
+                            social_media, meta_title, meta_description, meta_keywords,
+                            contact_email, contact_whatsapp, contact_instagram,
+                            is_active, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                    ");
+                    
+                    $stmt->execute([
+                        $userId,
+                        $input['page_title'] ?? '',
+                        $input['page_description'] ?? '',
+                        $input['welcome_text'] ?? '',
+                        $input['cover_image_url'] ?? '',
+                        $input['primary_color'] ?? '#667eea',
+                        $input['secondary_color'] ?? '#764ba2',
+                        $input['accent_color'] ?? '#f59e0b',
+                        json_encode($socialMedia),
+                        $input['meta_title'] ?? '',
+                        $input['meta_description'] ?? '',
+                        $input['meta_keywords'] ?? '',
+                        $input['contact_email'] ?? '',
+                        $input['contact_whatsapp'] ?? '',
+                        $input['contact_instagram'] ?? ''
+                    ]);
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Personalização salva com sucesso!'
+                ]);
+                exit();
+                
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Ação não reconhecida']);
+                exit();
+        }
+        
+    } catch (Exception $e) {
+        error_log("Erro ao processar ação POST: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Erro ao processar requisição: ' . $e->getMessage()
+        ]);
+        exit();
+    }
+}
+
+// Processar requisição GET normal (página pública do decorador)
 // Obter slug da URL
 $slug = $_GET['slug'] ?? '';
 
