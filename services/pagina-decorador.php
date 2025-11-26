@@ -192,16 +192,26 @@ try {
     }
     
     // Decorador encontrado e ativo
+    if (!isset($result['data']) || empty($result['data'])) {
+        throw new Exception('Dados do decorador não encontrados no resultado');
+    }
+    
     $data = $result['data'];
+    
+    if (!isset($data['decorator']) || empty($data['decorator'])) {
+        throw new Exception('Informações do decorador não encontradas');
+    }
+    
     $decorator = $data['decorator'];
-    $customization = $data['customization'];
+    $customization = $data['customization'] ?? [];
     $services = $data['services'] ?? [];
     $portfolio = $data['portfolio'] ?? [];
     
-    error_log("Decorador carregado com sucesso: " . $decorator['name']);
+    $decoratorName = $decorator['name'] ?? $decorator['nome'] ?? 'Decorador';
+    error_log("Decorador carregado com sucesso: " . $decoratorName);
     
     // Configurações da página
-    $pageTitle = htmlspecialchars($customization['page_title'] ?? 'Bem-vindo à ' . $decorator['name']);
+    $pageTitle = htmlspecialchars($customization['page_title'] ?? 'Bem-vindo à ' . $decoratorName);
     $pageDesc = htmlspecialchars($customization['page_description'] ?? 'Decoração profissional com balões');
     $welcomeText = $customization['welcome_text'] ?? '';
     $coverImage = $customization['cover_image_url'] ?? '';
@@ -212,21 +222,63 @@ try {
     $accentColor = $customization['accent_color'] ?? '#f59e0b';
     
     // Redes sociais
-    $socialMedia = is_string($customization['social_media']) ? json_decode($customization['social_media'], true) : ($customization['social_media'] ?? []);
+    $socialMedia = [];
+    if (isset($customization['social_media'])) {
+        if (is_string($customization['social_media'])) {
+            $socialMedia = json_decode($customization['social_media'], true) ?: [];
+        } elseif (is_array($customization['social_media'])) {
+            $socialMedia = $customization['social_media'];
+        }
+    }
     
     // Contato
-    $contactEmail = $decorator['communication_email'] ?? $decorator['email'];
+    $contactEmail = $decorator['communication_email'] ?? $decorator['email'] ?? '';
     $contactWhatsapp = $decorator['whatsapp'] ?? '';
     $contactInstagram = $decorator['instagram'] ?? ($socialMedia['instagram'] ?? '');
     
     // Base URL para assets (usar a configuração do config.php)
-    $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+    global $urls;
+    if (!isset($urls) || empty($urls['base'])) {
+        // Fallback se $urls não estiver disponível
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+            $projectName = $matches[1];
+            $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
+        } else {
+            $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
+        }
+    } else {
+        $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+    }
     
 } catch (Exception $e) {
     error_log("Erro ao carregar página do decorador: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
+    error_log("File: " . $e->getFile() . " Line: " . $e->getLine());
+    
     http_response_code(500);
-    $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+    
+    // Garantir que $urls está disponível
+    global $urls;
+    if (!isset($urls) || empty($urls['base'])) {
+        // Fallback se $urls não estiver disponível
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+            $projectName = $matches[1];
+            $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
+        } else {
+            $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
+        }
+    } else {
+        $baseUrl = rtrim($urls['base'] ?? '', '/') . '/';
+    }
+    
+    // Em desenvolvimento, mostrar mais detalhes do erro
+    $showDetails = (defined('ENVIRONMENT') && ENVIRONMENT === 'development');
     ?>
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -241,6 +293,13 @@ try {
             <div class="max-w-md w-full text-center">
                 <h1 class="text-3xl font-bold text-gray-900 mb-4">Erro ao carregar página</h1>
                 <p class="text-gray-600 mb-8">Ocorreu um erro ao carregar a página. Tente novamente mais tarde.</p>
+                <?php if ($showDetails): ?>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-left">
+                        <p class="text-sm text-red-800"><strong>Erro:</strong> <?php echo htmlspecialchars($e->getMessage()); ?></p>
+                        <p class="text-xs text-red-600 mt-2"><strong>Arquivo:</strong> <?php echo htmlspecialchars($e->getFile()); ?></p>
+                        <p class="text-xs text-red-600"><strong>Linha:</strong> <?php echo $e->getLine(); ?></p>
+                    </div>
+                <?php endif; ?>
                 <a href="<?php echo $baseUrl; ?>index.html" 
                    class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
                     Voltar para o Início
