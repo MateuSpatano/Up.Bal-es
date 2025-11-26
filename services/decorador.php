@@ -436,19 +436,34 @@ try {
     }
     
     // Tentar obter WhatsApp e Instagram de várias fontes (prioridade: customização > decorador)
-    $contactWhatsapp = $socialMedia['contact_whatsapp'] ?? '';
+    // Primeiro tentar da customização (social_media JSON)
+    $contactWhatsapp = '';
+    if (!empty($socialMedia['contact_whatsapp'])) {
+        $contactWhatsapp = trim($socialMedia['contact_whatsapp']);
+    }
+    // Se não encontrou na customização, buscar do decorador
     if (empty($contactWhatsapp)) {
-        $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? '';
+        $contactWhatsapp = trim($decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? '');
     }
     
-    $contactInstagram = $socialMedia['contact_instagram'] ?? '';
+    $contactInstagram = '';
+    if (!empty($socialMedia['contact_instagram'])) {
+        $contactInstagram = trim($socialMedia['contact_instagram']);
+    }
+    // Se não encontrou na customização, buscar do decorador
     if (empty($contactInstagram)) {
-        $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? '';
+        $contactInstagram = trim($decorator['instagram'] ?? $redesSociais['instagram'] ?? '');
     }
     
     // Debug: log dos dados de contato carregados
-    error_log("Dados de contato carregados - Email: " . ($contactEmail ?: 'vazio') . ", WhatsApp: " . ($contactWhatsapp ?: 'vazio') . ", Instagram: " . ($contactInstagram ?: 'vazio'));
-    error_log("Social Media JSON: " . json_encode($socialMedia));
+    error_log("=== DEBUG CONTATOS ===");
+    error_log("Social Media (raw): " . json_encode($customization['social_media'] ?? 'não encontrado'));
+    error_log("Social Media (processado): " . json_encode($socialMedia));
+    error_log("Contact Email: " . ($contactEmail ?: 'vazio'));
+    error_log("Contact WhatsApp: " . ($contactWhatsapp ?: 'vazio'));
+    error_log("Contact Instagram: " . ($contactInstagram ?: 'vazio'));
+    error_log("Redes Sociais Decorador: " . json_encode($redesSociais));
+    error_log("=====================");
     
     // Base URL para assets
     $baseUrl = rtrim($urls['base'], '/') . '/';
@@ -656,7 +671,18 @@ try {
             <h2 class="text-3xl font-bold mb-8">Entre em Contato</h2>
             
             <div class="flex flex-col sm:flex-row justify-center gap-6 mb-8">
-                <?php if ($contactWhatsapp): ?>
+                <?php 
+                // Debug: verificar valores
+                $hasWhatsapp = !empty(trim($contactWhatsapp));
+                $hasEmail = !empty(trim($contactEmail));
+                $hasInstagram = !empty(trim($contactInstagram));
+                
+                error_log("Verificação de contatos - WhatsApp: " . ($hasWhatsapp ? 'SIM' : 'NÃO') . " (" . $contactWhatsapp . ")");
+                error_log("Verificação de contatos - Email: " . ($hasEmail ? 'SIM' : 'NÃO') . " (" . $contactEmail . ")");
+                error_log("Verificação de contatos - Instagram: " . ($hasInstagram ? 'SIM' : 'NÃO') . " (" . $contactInstagram . ")");
+                ?>
+                
+                <?php if ($hasWhatsapp): ?>
                     <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
                        target="_blank"
                        class="flex items-center justify-center gap-3 bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 transition">
@@ -665,7 +691,7 @@ try {
                     </a>
                 <?php endif; ?>
                 
-                <?php if ($contactEmail): ?>
+                <?php if ($hasEmail): ?>
                     <a href="mailto:<?php echo htmlspecialchars($contactEmail); ?>" 
                        class="flex items-center justify-center gap-3 bg-blue-500 text-white px-8 py-4 rounded-lg hover:bg-blue-600 transition">
                         <i class="fas fa-envelope text-2xl"></i>
@@ -673,10 +699,10 @@ try {
                     </a>
                 <?php endif; ?>
                 
-                <?php if ($contactInstagram): ?>
+                <?php if ($hasInstagram): ?>
                     <?php
                     // Formatar link do Instagram
-                    $instagramUrl = $contactInstagram;
+                    $instagramUrl = trim($contactInstagram);
                     if (strpos($instagramUrl, 'http') !== 0) {
                         // Se não começar com http, adicionar https://instagram.com/
                         $instagramHandle = ltrim($instagramUrl, '@');
