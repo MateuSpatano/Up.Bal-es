@@ -678,55 +678,90 @@ try {
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 class="text-3xl font-bold mb-8">Entre em Contato</h2>
             
+            <?php 
+            // Re-processar dados de contato diretamente aqui para garantir que estão corretos
+            // Buscar novamente do social_media para garantir que temos os dados mais recentes
+            $socialMediaForContact = $customization['social_media'] ?? [];
+            if (is_string($socialMediaForContact)) {
+                $socialMediaForContact = json_decode($socialMediaForContact, true) ?: [];
+            }
+            
+            // Buscar dados de contato com prioridade: customização > decorador
+            $finalContactEmail = '';
+            $finalContactWhatsapp = '';
+            $finalContactInstagram = '';
+            
+            // Email
+            if (!empty($socialMediaForContact['contact_email'])) {
+                $finalContactEmail = trim($socialMediaForContact['contact_email']);
+            } elseif (!empty($decorator['communication_email'])) {
+                $finalContactEmail = trim($decorator['communication_email']);
+            } elseif (!empty($decorator['email'])) {
+                $finalContactEmail = trim($decorator['email']);
+            }
+            
+            // WhatsApp
+            if (!empty($socialMediaForContact['contact_whatsapp'])) {
+                $finalContactWhatsapp = trim($socialMediaForContact['contact_whatsapp']);
+            } else {
+                // Buscar do decorador
+                $redesSociaisDecorador = [];
+                if (!empty($decorator['redes_sociais'])) {
+                    if (is_string($decorator['redes_sociais'])) {
+                        $redesSociaisDecorador = json_decode($decorator['redes_sociais'], true) ?: [];
+                    } elseif (is_array($decorator['redes_sociais'])) {
+                        $redesSociaisDecorador = $decorator['redes_sociais'];
+                    }
+                }
+                $finalContactWhatsapp = trim($decorator['whatsapp'] ?? $redesSociaisDecorador['whatsapp'] ?? '');
+            }
+            
+            // Instagram
+            if (!empty($socialMediaForContact['contact_instagram'])) {
+                $finalContactInstagram = trim($socialMediaForContact['contact_instagram']);
+            } else {
+                // Buscar do decorador
+                $redesSociaisDecorador = [];
+                if (!empty($decorator['redes_sociais'])) {
+                    if (is_string($decorator['redes_sociais'])) {
+                        $redesSociaisDecorador = json_decode($decorator['redes_sociais'], true) ?: [];
+                    } elseif (is_array($decorator['redes_sociais'])) {
+                        $redesSociaisDecorador = $decorator['redes_sociais'];
+                    }
+                }
+                $finalContactInstagram = trim($decorator['instagram'] ?? $redesSociaisDecorador['instagram'] ?? '');
+            }
+            
+            // Debug final
+            error_log("=== DADOS FINAIS DE CONTATO ===");
+            error_log("Social Media JSON: " . json_encode($socialMediaForContact));
+            error_log("Final Email: '" . $finalContactEmail . "'");
+            error_log("Final WhatsApp: '" . $finalContactWhatsapp . "'");
+            error_log("Final Instagram: '" . $finalContactInstagram . "'");
+            ?>
+            
             <div class="flex flex-col sm:flex-row justify-center gap-6 mb-8">
-                <?php 
-                // Normalizar valores - garantir que são strings e remover espaços
-                $contactWhatsapp = isset($contactWhatsapp) ? trim((string)$contactWhatsapp) : '';
-                $contactEmail = isset($contactEmail) ? trim((string)$contactEmail) : '';
-                $contactInstagram = isset($contactInstagram) ? trim((string)$contactInstagram) : '';
-                
-                // Verificar se têm conteúdo válido
-                $hasWhatsapp = !empty($contactWhatsapp) && strlen($contactWhatsapp) > 0;
-                $hasEmail = !empty($contactEmail) && strlen($contactEmail) > 0;
-                $hasInstagram = !empty($contactInstagram) && strlen($contactInstagram) > 0;
-                
-                // Debug detalhado
-                error_log("=== VERIFICAÇÃO FINAL DE CONTATOS ===");
-                error_log("contactWhatsapp (valor): '" . $contactWhatsapp . "'");
-                error_log("contactWhatsapp (tipo): " . gettype($contactWhatsapp));
-                error_log("contactWhatsapp (vazio?): " . (empty($contactWhatsapp) ? 'SIM' : 'NÃO'));
-                error_log("hasWhatsapp: " . ($hasWhatsapp ? 'SIM' : 'NÃO'));
-                error_log("contactInstagram (valor): '" . $contactInstagram . "'");
-                error_log("contactInstagram (tipo): " . gettype($contactInstagram));
-                error_log("contactInstagram (vazio?): " . (empty($contactInstagram) ? 'SIM' : 'NÃO'));
-                error_log("hasInstagram: " . ($hasInstagram ? 'SIM' : 'NÃO'));
-                error_log("====================================");
-                ?>
-                
-                <?php if ($hasWhatsapp): ?>
-                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
+                <?php if (!empty($finalContactWhatsapp)): ?>
+                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $finalContactWhatsapp); ?>" 
                        target="_blank"
                        class="flex items-center justify-center gap-3 bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 transition">
                         <i class="fab fa-whatsapp text-2xl"></i>
                         <span class="font-medium">WhatsApp</span>
                     </a>
-                <?php else: ?>
-                    <!-- Debug: mostrar por que não apareceu -->
-                    <!-- WhatsApp não exibido: valor="<?php echo htmlspecialchars($contactWhatsapp); ?>" -->
                 <?php endif; ?>
                 
-                <?php if ($hasEmail): ?>
-                    <a href="mailto:<?php echo htmlspecialchars($contactEmail); ?>" 
+                <?php if (!empty($finalContactEmail)): ?>
+                    <a href="mailto:<?php echo htmlspecialchars($finalContactEmail); ?>" 
                        class="flex items-center justify-center gap-3 bg-blue-500 text-white px-8 py-4 rounded-lg hover:bg-blue-600 transition">
                         <i class="fas fa-envelope text-2xl"></i>
                         <span class="font-medium">E-mail</span>
                     </a>
                 <?php endif; ?>
                 
-                <?php if ($hasInstagram): ?>
+                <?php if (!empty($finalContactInstagram)): ?>
                     <?php
                     // Formatar link do Instagram
-                    $instagramUrl = trim($contactInstagram);
+                    $instagramUrl = trim($finalContactInstagram);
                     if (strpos($instagramUrl, 'http') !== 0) {
                         // Se não começar com http, adicionar https://instagram.com/
                         $instagramHandle = ltrim($instagramUrl, '@');
@@ -739,9 +774,6 @@ try {
                         <i class="fab fa-instagram text-2xl"></i>
                         <span class="font-medium">Instagram</span>
                     </a>
-                <?php else: ?>
-                    <!-- Debug: mostrar por que não apareceu -->
-                    <!-- Instagram não exibido: valor="<?php echo htmlspecialchars($contactInstagram); ?>" -->
                 <?php endif; ?>
             </div>
             
