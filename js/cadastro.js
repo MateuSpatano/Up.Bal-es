@@ -245,9 +245,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 showMessage('Conta criada com sucesso! Redirecionando para a página inicial...', 'success');
                 
+                // Verificar se há parâmetro de retorno na URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnUrl = urlParams.get('return');
+                
                 // Redirecionamento após 3 segundos
                 setTimeout(() => {
-                    window.location.href = '../index.html';
+                    // Se houver URL de retorno, redirecionar para ela
+                    if (returnUrl) {
+                        window.location.href = decodeURIComponent(returnUrl);
+                    } else {
+                        window.location.href = '../index.html';
+                    }
                 }, 3000);
                 
             } else {

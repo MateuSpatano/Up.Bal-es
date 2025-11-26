@@ -8316,18 +8316,12 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const accentColor = config.accent_color || '#f59e0b';
                 
                 const primaryColorEl = document.getElementById('decorator-primary-color');
-                const primaryColorHexEl = document.getElementById('decorator-primary-color-hex');
                 const secondaryColorEl = document.getElementById('decorator-secondary-color');
-                const secondaryColorHexEl = document.getElementById('decorator-secondary-color-hex');
                 const accentColorEl = document.getElementById('decorator-accent-color');
-                const accentColorHexEl = document.getElementById('decorator-accent-color-hex');
                 
                 if (primaryColorEl) primaryColorEl.value = primaryColor;
-                if (primaryColorHexEl) primaryColorHexEl.value = primaryColor;
                 if (secondaryColorEl) secondaryColorEl.value = secondaryColor;
-                if (secondaryColorHexEl) secondaryColorHexEl.value = secondaryColor;
                 if (accentColorEl) accentColorEl.value = accentColor;
-                if (accentColorHexEl) accentColorHexEl.value = accentColor;
                 
                 // Campos de redes sociais removidos - não são mais necessários
                 
@@ -8938,24 +8932,20 @@ Qualquer dúvida, estou à disposição! 😊`;
     }
     
     function setupDecoratorColorInputs() {
+        // Os seletores de cor já funcionam diretamente, não precisa de sincronização
+        // Esta função pode ser usada para adicionar eventos adicionais se necessário no futuro
         const colorInputs = ['primary', 'secondary', 'accent'];
         
         colorInputs.forEach(color => {
             const colorPicker = document.getElementById(`decorator-${color}-color`);
-            const colorHex = document.getElementById(`decorator-${color}-color-hex`);
             
-            if (colorPicker && colorHex) {
-                // Sincronizar color picker com input de texto
+            if (colorPicker) {
+                // Adicionar evento para atualizar preview quando a cor mudar
                 colorPicker.addEventListener('input', (e) => {
-                    colorHex.value = e.target.value;
-                });
-                
-                // Sincronizar input de texto com color picker
-                colorHex.addEventListener('input', (e) => {
-                    const value = e.target.value;
-                    if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
-                        colorPicker.value = value;
-                    }
+                    // Disparar evento customizado para atualizar preview se necessário
+                    window.dispatchEvent(new CustomEvent('decorator-color-changed', {
+                        detail: { color: color, value: e.target.value }
+                    }));
                 });
             }
         });

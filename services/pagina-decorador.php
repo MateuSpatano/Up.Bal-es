@@ -397,7 +397,7 @@ try {
                     <div class="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg logo-container">
                         <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full logo-image">
                     </div>
-                    <a href="<?php echo $baseUrl; ?>index.html" class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 hidden sm:block">Up.Baloes</a>
+                    <span class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 hidden sm:block">Up.Baloes</span>
                 </div>
 
                 <!-- Menu de Navegação -->
@@ -405,18 +405,17 @@ try {
                     <a href="#inicio" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
-                    <?php if (!empty($services)): ?>
-                    <a href="#servicos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
-                        <i class="fas fa-briefcase mr-2"></i>Serviços
-                    </a>
-                    <?php endif; ?>
                     <?php if (!empty($portfolio)): ?>
                     <a href="#portfolio" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
-                        <i class="fas fa-images mr-2"></i>Portfólio
+                        <i class="fas fa-briefcase mr-2"></i>Portfólio
                     </a>
                     <?php endif; ?>
                     <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-phone mr-2"></i>Contatos
+                    </a>
+                    <a href="<?php echo $baseUrl; ?>pages/carrinho-cliente.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
+                        <i class="fas fa-shopping-cart mr-2"></i>Carrinho
+                        <span class="cart-badge absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                     </a>
                 </div>
 
@@ -427,21 +426,41 @@ try {
                     </button>
                 </div>
 
-                <!-- Botão de Solicitar Orçamento -->
-                <div class="flex items-center gap-4">
-                    <?php if ($contactWhatsapp): ?>
-                        <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
-                           target="_blank"
-                           class="hidden sm:flex items-center gap-2 text-gray-700 hover:text-green-600 transition">
-                            <i class="fab fa-whatsapp text-xl"></i>
-                            <span><?php echo htmlspecialchars($contactWhatsapp); ?></span>
-                        </a>
-                    <?php endif; ?>
-                    
-                    <a href="<?php echo $baseUrl; ?>pages/solicitacao-cliente.html?decorador=<?php echo urlencode($slug); ?>" 
-                       class="btn-primary text-white px-6 py-2.5 rounded-lg font-medium hover:shadow-lg transition">
-                        <i class="fas fa-gift mr-2"></i>Solicitar Orçamento
-                    </a>
+                <!-- Menu do Usuário -->
+                <div class="relative">
+                    <button id="user-menu-btn" class="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200 bg-gray-100 hover:bg-gray-200 rounded-full p-2">
+                        <i class="fas fa-user text-lg"></i>
+                        <span class="hidden sm:block font-medium">Usuário</span>
+                        <i class="fas fa-chevron-down text-sm"></i>
+                    </button>
+
+                    <!-- Dropdown do Usuário -->
+                    <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2">
+                        <div class="py-2">
+                            <a href="<?php echo $baseUrl; ?>pages/login.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                                <i class="fas fa-sign-in-alt mr-3"></i>Login
+                            </a>
+                            <a href="<?php echo $baseUrl; ?>pages/minhas-compras.html" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                                <i class="fas fa-shopping-bag mr-3"></i>Minhas Compras
+                            </a>
+                            <a href="#" id="painel-admin-link" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                                <i class="fas fa-tachometer-alt mr-3"></i>Painel Admin
+                            </a>
+                            <a href="#" id="painel-decorador-link" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                                <i class="fas fa-palette mr-3"></i>Painel Decorador
+                            </a>
+                            <a href="#" id="account-management-link" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                                <i class="fas fa-user-cog mr-3"></i>Gestão de Conta
+                            </a>
+                            <a href="<?php echo $baseUrl; ?>pages/admin-login.html" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                                <i class="fas fa-crown mr-3"></i>Área Administrativa
+                            </a>
+                            <hr class="my-1 border-gray-200">
+                            <a href="#" id="logout-link" class="dropdown-item flex items-center px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200 hidden">
+                                <i class="fas fa-sign-out-alt mr-3"></i>Logout
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -452,18 +471,16 @@ try {
                 <a href="#inicio" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-home mr-3"></i>Início
                 </a>
-                <?php if (!empty($services)): ?>
-                <a href="#servicos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
-                    <i class="fas fa-briefcase mr-3"></i>Serviços
-                </a>
-                <?php endif; ?>
                 <?php if (!empty($portfolio)): ?>
                 <a href="#portfolio" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
-                    <i class="fas fa-images mr-3"></i>Portfólio
+                    <i class="fas fa-briefcase mr-3"></i>Portfólio
                 </a>
                 <?php endif; ?>
                 <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-phone mr-3"></i>Contatos
+                </a>
+                <a href="<?php echo $baseUrl; ?>pages/carrinho-cliente.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                    <i class="fas fa-shopping-cart mr-3"></i>Carrinho
                 </a>
             </div>
         </div>
@@ -491,13 +508,14 @@ try {
                            class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                         </a>
-                        <?php if ($contactWhatsapp): ?>
-                        <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contactWhatsapp); ?>" 
-                           target="_blank"
+                        <a href="<?php echo $baseUrl; ?>pages/cadastro.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" 
                            class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
-                            <i class="fab fa-whatsapp mr-2"></i>Falar no WhatsApp
+                            <i class="fas fa-user-plus mr-2"></i>Criar Conta
                         </a>
-                        <?php endif; ?>
+                        <a href="<?php echo $baseUrl; ?>pages/login.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" 
+                           class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-block text-center">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Fazer Login
+                        </a>
                     </div>
                 </div>
             </div>
@@ -716,14 +734,228 @@ try {
         </section>
     </main>
 
+    <!-- Modal de Gerenciamento de Conta -->
+    <div id="account-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" id="account-modal-overlay"></div>
+
+            <!-- Modal Content -->
+            <div class="inline-block w-full max-w-2xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user-cog text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white">Gerenciar Conta</h3>
+                                <p class="text-blue-100 text-sm">Atualize suas informações pessoais</p>
+                            </div>
+                        </div>
+                        <button id="close-account-modal" class="text-white hover:text-gray-200 transition-colors duration-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="account-form" class="p-6 space-y-6">
+                    <!-- Foto de Perfil -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-camera mr-2 text-blue-600"></i>Foto de Perfil
+                        </label>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <img id="account-profile-photo" src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Foto de Perfil" 
+                                     class="w-20 h-20 rounded-full object-cover border-4 border-blue-200 shadow-md">
+                                <button type="button" id="remove-profile-photo" class="absolute -bottom-1 -right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow transition-all hover:bg-red-600" title="Remover foto">
+                                    <i class="fas fa-times text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" id="account-photo-input" accept="image/*" 
+                                       class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100">
+                                <p class="mt-1 text-xs text-gray-500">Formatos aceitos: JPG, PNG, GIF, WebP (até 5MB)</p>
+                            </div>
+                        </div>
+                        <div id="account-photo-feedback" class="text-xs text-gray-500 hidden"></div>
+                    </div>
+
+                    <!-- Nome -->
+                    <div class="space-y-2">
+                        <label for="account-name" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-user mr-2 text-blue-600"></i>Nome Completo
+                        </label>
+                        <input type="text" id="account-name" name="name" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Digite seu nome completo">
+                    </div>
+
+                    <!-- Email -->
+                    <div class="space-y-2">
+                        <label for="account-email" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-envelope mr-2 text-blue-600"></i>Email
+                        </label>
+                        <input type="email" id="account-email" name="email" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="Digite seu email">
+                    </div>
+
+                    <!-- Telefone -->
+                    <div class="space-y-2">
+                        <label for="account-phone" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-phone mr-2 text-blue-600"></i>Telefone
+                        </label>
+                        <input type="tel" id="account-phone" name="phone"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="(11) 99999-9999">
+                    </div>
+
+                    <!-- Endereço -->
+                    <div class="space-y-2">
+                        <label for="account-address" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-map-marker-alt mr-2 text-blue-600"></i>Endereço
+                        </label>
+                        <textarea id="account-address" name="address" rows="3"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                                  placeholder="Digite seu endereço completo"></textarea>
+                    </div>
+
+                    <!-- Cidade e Estado -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label for="account-city" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-city mr-2 text-blue-600"></i>Cidade
+                            </label>
+                            <input type="text" id="account-city" name="city"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Sua cidade">
+                        </div>
+                        <div class="space-y-2">
+                            <label for="account-state" class="block text-sm font-medium text-gray-700">
+                                <i class="fas fa-map mr-2 text-blue-600"></i>Estado
+                            </label>
+                            <select id="account-state" name="state"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                <option value="">Selecione o estado</option>
+                                <option value="AC">Acre</option>
+                                <option value="AL">Alagoas</option>
+                                <option value="AP">Amapá</option>
+                                <option value="AM">Amazonas</option>
+                                <option value="BA">Bahia</option>
+                                <option value="CE">Ceará</option>
+                                <option value="DF">Distrito Federal</option>
+                                <option value="ES">Espírito Santo</option>
+                                <option value="GO">Goiás</option>
+                                <option value="MA">Maranhão</option>
+                                <option value="MT">Mato Grosso</option>
+                                <option value="MS">Mato Grosso do Sul</option>
+                                <option value="MG">Minas Gerais</option>
+                                <option value="PA">Pará</option>
+                                <option value="PB">Paraíba</option>
+                                <option value="PR">Paraná</option>
+                                <option value="PE">Pernambuco</option>
+                                <option value="PI">Piauí</option>
+                                <option value="RJ">Rio de Janeiro</option>
+                                <option value="RN">Rio Grande do Norte</option>
+                                <option value="RS">Rio Grande do Sul</option>
+                                <option value="RO">Rondônia</option>
+                                <option value="RR">Roraima</option>
+                                <option value="SC">Santa Catarina</option>
+                                <option value="SP">São Paulo</option>
+                                <option value="SE">Sergipe</option>
+                                <option value="TO">Tocantins</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- CEP -->
+                    <div class="space-y-2">
+                        <label for="account-zipcode" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-mail-bulk mr-2 text-blue-600"></i>CEP
+                        </label>
+                        <input type="text" id="account-zipcode" name="zipcode"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                               placeholder="00000-000" maxlength="9">
+                    </div>
+
+                    <!-- Senha Atual -->
+                    <div class="space-y-2">
+                        <label for="account-current-password" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-lock mr-2 text-blue-600"></i>Senha Atual
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="account-current-password" name="current_password"
+                                   class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Digite sua senha atual">
+                            <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nova Senha -->
+                    <div class="space-y-2">
+                        <label for="account-new-password" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-key mr-2 text-blue-600"></i>Nova Senha
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="account-new-password" name="new_password"
+                                   class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Digite sua nova senha">
+                            <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Mínimo de 8 caracteres, com letras e números
+                        </div>
+                    </div>
+
+                    <!-- Confirmar Nova Senha -->
+                    <div class="space-y-2">
+                        <label for="account-confirm-password" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-check-circle mr-2 text-blue-600"></i>Confirmar Nova Senha
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="account-confirm-password" name="confirm_password"
+                                   class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                   placeholder="Confirme sua nova senha">
+                            <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" id="cancel-account-changes" 
+                                class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="submit" id="save-account-changes"
+                                class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-save mr-2"></i>Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p>&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($decorator['name']); ?>. Todos os direitos reservados.</p>
-            <p class="text-sm text-gray-400 mt-2">Desenvolvido com <i class="fas fa-heart text-red-500"></i> por Up.Baloes</p>
+            <p>&copy; 2025 Up.Baloes. Todos os direitos reservados.</p>
         </div>
     </footer>
     
+    <!-- JavaScript -->
+    <script src="<?php echo $baseUrl; ?>js/json-utils.js"></script>
     <script src="<?php echo $baseUrl; ?>js/principal.js"></script>
     <script>
         // Função para adicionar item do portfólio ao carrinho

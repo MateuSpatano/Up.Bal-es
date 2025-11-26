@@ -185,17 +185,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.removeItem('rememberedPassword');
                 }
                 
-                // Redirecionamento baseado no role do usuário
+                // Verificar se há parâmetro de retorno na URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnUrl = urlParams.get('return');
+                
+                // Redirecionamento baseado no role do usuário ou URL de retorno
                 setTimeout(() => {
-                    const userRole = (response.user && response.user.role) || (response.data && response.data.role);
-                    
-                    if (userRole === 'admin') {
-                        window.location.href = 'admin.html';
-                    } else if (userRole === 'decorator') {
-                        window.location.href = 'painel-decorador.html';
+                    // Se houver URL de retorno, redirecionar para ela
+                    if (returnUrl) {
+                        window.location.href = decodeURIComponent(returnUrl);
                     } else {
-                        // Cliente ou qualquer outro perfil vai para a página inicial
-                        window.location.href = '../index.html';
+                        const userRole = (response.user && response.user.role) || (response.data && response.data.role);
+                        
+                        if (userRole === 'admin') {
+                            window.location.href = 'admin.html';
+                        } else if (userRole === 'decorator') {
+                            window.location.href = 'painel-decorador.html';
+                        } else {
+                            // Cliente ou qualquer outro perfil vai para a página inicial
+                            window.location.href = '../index.html';
+                        }
                     }
                 }, 2000);
                 
