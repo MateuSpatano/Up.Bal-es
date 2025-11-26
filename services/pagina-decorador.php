@@ -1153,7 +1153,7 @@ try {
         window.addPortfolioItemToCart = addPortfolioItemToCart;
         
         // Garantir que a foto de perfil sempre seja a Logo System.jpeg (não editável)
-        document.addEventListener('DOMContentLoaded', function() {
+        (function() {
             const profilePhoto = document.getElementById('account-profile-photo');
             if (profilePhoto) {
                 // Sempre usar a logo padrão, ignorando localStorage
@@ -1161,35 +1161,16 @@ try {
                 const defaultLogo = baseUrl + 'Images/Logo System.jpeg';
                 
                 // Remover qualquer foto salva no localStorage para esta página
-                localStorage.removeItem('userProfilePhoto');
+                try {
+                    localStorage.removeItem('userProfilePhoto');
+                } catch(e) {
+                    // Ignorar erros de localStorage
+                }
                 
                 // Garantir que a imagem sempre seja a logo padrão
                 profilePhoto.src = defaultLogo;
-                
-                // Observar mudanças na imagem e forçar logo padrão
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-                            if (profilePhoto.src !== defaultLogo && !profilePhoto.src.endsWith('Logo System.jpeg')) {
-                                profilePhoto.src = defaultLogo;
-                            }
-                        }
-                    });
-                });
-                
-                observer.observe(profilePhoto, {
-                    attributes: true,
-                    attributeFilter: ['src']
-                });
-                
-                // Verificar periodicamente se a imagem foi alterada
-                setInterval(function() {
-                    if (profilePhoto.src !== defaultLogo && !profilePhoto.src.endsWith('Logo System.jpeg')) {
-                        profilePhoto.src = defaultLogo;
-                    }
-                }, 1000);
             }
-        });
+        })();
         
         // Menu mobile toggle
         document.addEventListener('DOMContentLoaded', function() {
