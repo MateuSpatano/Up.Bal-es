@@ -477,12 +477,15 @@ function handlePasswordReset($input) {
             <p>Atenciosamente,<br>Equipe Up.Baloes</p>
         ";
         
-        $textBody = "Olá {$userName},\n\nRecebemos uma solicitação para redefinir sua senha no Up.Baloes.\n\nAcesse o link abaixo para criar uma nova senha (válido por " . ($GLOBALS['security_config']['password_reset_lifetime'] / 60) . " minutos):\n{$resetLink}\n\nSe você não solicitou a alteração, ignore este email.\n\nEquipe Up.Baloes";
+        // Usar EmailService para enviar o email
+        require_once __DIR__ . '/EmailService.php';
+        $emailService = new EmailService();
         
-        $emailSent = sendEmail($email, $subject, $htmlBody, $textBody);
+        $expirationMinutes = (int)($GLOBALS['security_config']['password_reset_lifetime'] / 60);
+        $result = $emailService->sendPasswordResetEmail($email, $userName, $resetLink, $expirationMinutes);
         
-        if (!$emailSent) {
-            error_log("Falha ao enviar email de recuperação para {$email}");
+        if (!$result['success']) {
+            error_log("Falha ao enviar email de recuperação para {$email}: " . ($result['error'] ?? 'Erro desconhecido'));
         }
         
         successResponse(null, 'Se o email estiver cadastrado, você receberá instruções de recuperação.');

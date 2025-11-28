@@ -1349,8 +1349,8 @@ class BudgetService {
             $budgetData = $budget['budget'];
             
             // Buscar email de comunicação do decorador
-            $decoratorEmail = 'contato@upbaloes.com'; // Email padrão
-            $decoratorName = 'Up.Baloes'; // Nome padrão
+            $decoratorEmail = null;
+            $decoratorName = 'Up.Baloes';
             
             if (!empty($budgetData['decorador_id'])) {
                 try {
@@ -1379,52 +1379,38 @@ class BudgetService {
                     }
                 } catch (Exception $e) {
                     error_log('Erro ao buscar dados do decorador para email: ' . $e->getMessage());
-                    // Continuar com valores padrão
+                    // Continuar sem Reply-To personalizado
                 }
             }
             
             // Gerar link para visualização do orçamento
             $budgetUrl = $this->generateBudgetUrl($budgetId);
             
-            // Preparar dados do e-mail
-            $to = $budgetData['email'];
-            $subject = "Seu Orçamento de Decoração com Balões - Up.Baloes";
+            // Usar EmailService para enviar o email
+            require_once __DIR__ . '/EmailService.php';
+            $emailService = new EmailService();
             
-            // Template do e-mail
-            $message = $this->generateEmailTemplate($budgetData, $budgetUrl, $customMessage);
+            $result = $emailService->sendBudgetEmail(
+                $budgetData['email'],
+                $budgetData,
+                $budgetUrl,
+                $customMessage,
+                $decoratorEmail,
+                $decoratorName
+            );
             
-            // Headers do e-mail - usar email de comunicação do decorador no Reply-To
-            $headers = [
-                'MIME-Version: 1.0',
-                'Content-type: text/html; charset=UTF-8',
-                'From: Up.Baloes <noreply@upbaloes.com>',
-                'Reply-To: ' . $decoratorName . ' <' . $decoratorEmail . '>',
-                'X-Mailer: PHP/' . phpversion()
-            ];
-            
-            // Enviar e-mail
-            $mailSent = mail($to, $subject, $message, implode("\r\n", $headers));
-            
-            if ($mailSent) {
+            if ($result['success']) {
                 // Log da ação
                 $this->logAction('send_email', $budgetId);
-                
-                return [
-                    'success' => true,
-                    'message' => 'E-mail enviado com sucesso!'
-                ];
-            } else {
-                return [
-                    'success' => false,
-                    'message' => 'Erro ao enviar e-mail. Tente novamente.'
-                ];
             }
+            
+            return $result;
             
         } catch (Exception $e) {
             error_log('Erro ao enviar e-mail: ' . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'Erro interno do servidor.'
+                'message' => 'Erro interno do servidor: ' . $e->getMessage()
             ];
         }
     }
