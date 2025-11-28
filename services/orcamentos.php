@@ -1364,7 +1364,7 @@ class BudgetService {
                     
                     if ($decorator) {
                         $decoratorName = $decorator['nome'] ?? 'Up.Baloes';
-                        
+            
                         // Tentar obter email de comunicação das redes sociais
                         if (!empty($decorator['redes_sociais'])) {
                             $redesSociais = json_decode($decorator['redes_sociais'], true);

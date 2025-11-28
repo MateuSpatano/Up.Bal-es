@@ -64,10 +64,10 @@ $security_config = [
 $email_config = [
     'smtp_host' => $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com',
     'smtp_port' => (int)($_ENV['SMTP_PORT'] ?? 587),
-    'smtp_username' => $_ENV['SMTP_USERNAME'] ?? 'your-email@gmail.com',
-    'smtp_password' => $_ENV['SMTP_PASSWORD'] ?? 'your-app-password',
-    'from_email' => $_ENV['SMTP_FROM_EMAIL'] ?? 'noreply@upbaloes.com',
-    'from_name' => $_ENV['SMTP_FROM_NAME'] ?? 'Up.Baloes System'
+    'smtp_username' => trim($_ENV['SMTP_USERNAME'] ?? 'your-email@gmail.com'),
+    'smtp_password' => trim($_ENV['SMTP_PASSWORD'] ?? 'your-app-password'), // Remove espaços extras
+    'from_email' => trim($_ENV['SMTP_FROM_EMAIL'] ?? 'noreply@upbaloes.com'),
+    'from_name' => trim($_ENV['SMTP_FROM_NAME'] ?? 'Up.Baloes System', '"') // Remove aspas se houver
 ];
 
 // Configurações de upload

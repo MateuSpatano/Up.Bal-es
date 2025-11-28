@@ -35,8 +35,13 @@ class EmailService {
         $this->mail->isSMTP();
         $this->mail->Host = $this->config['smtp_host'] ?? 'smtp.gmail.com';
         $this->mail->SMTPAuth = true;
-        $this->mail->Username = $this->config['smtp_username'] ?? '';
-        $this->mail->Password = $this->config['smtp_password'] ?? '';
+        $this->mail->Username = trim($this->config['smtp_username'] ?? '');
+        
+        // Remover espaços da senha de app (Gmail gera senhas com espaços: "xxxx xxxx xxxx xxxx")
+        $password = $this->config['smtp_password'] ?? '';
+        $password = str_replace(' ', '', trim($password)); // Remove todos os espaços
+        $this->mail->Password = $password;
+        
         $this->mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $this->mail->Port = $this->config['smtp_port'] ?? 587;
         $this->mail->CharSet = 'UTF-8';
@@ -96,6 +101,14 @@ class EmailService {
                 $this->mail->AltBody = $textBody;
             }
             
+            // Habilitar debug detalhado em desenvolvimento
+            if (ENVIRONMENT === 'development') {
+                $this->mail->SMTPDebug = 2; // Mostrar mensagens de debug
+                $this->mail->Debugoutput = function($str, $level) {
+                    error_log("PHPMailer Debug (Level $level): $str");
+                };
+            }
+            
             // Enviar
             $this->mail->send();
             
@@ -106,12 +119,31 @@ class EmailService {
             ];
             
         } catch (\PHPMailer\PHPMailer\Exception $e) {
-            $errorMsg = "Erro ao enviar email para {$to}: {$this->mail->ErrorInfo}";
+            $errorInfo = $this->mail->ErrorInfo;
+            $errorMsg = "Erro ao enviar email para {$to}: {$errorInfo}";
             error_log($errorMsg);
+            error_log("Detalhes do erro PHPMailer: " . $e->getMessage());
+            
+            // Log adicional das configurações (sem senha)
+            error_log("SMTP Config - Host: " . ($this->config['smtp_host'] ?? 'não configurado'));
+            error_log("SMTP Config - Port: " . ($this->config['smtp_port'] ?? 'não configurado'));
+            error_log("SMTP Config - Username: " . ($this->config['smtp_username'] ?? 'não configurado'));
+            error_log("SMTP Config - Password: " . (isset($this->config['smtp_password']) && !empty($this->config['smtp_password']) ? 'configurado' : 'não configurado'));
+            
             return [
                 'success' => false,
-                'message' => 'Erro ao enviar email. Tente novamente.',
-                'error' => $this->mail->ErrorInfo
+                'message' => 'Erro ao enviar email. Verifique os logs para mais detalhes.',
+                'error' => $errorInfo
+            ];
+        } catch (Exception $e) {
+            $errorMsg = "Exceção ao enviar email para {$to}: " . $e->getMessage();
+            error_log($errorMsg);
+            error_log("Stack trace: " . $e->getTraceAsString());
+            
+            return [
+                'success' => false,
+                'message' => 'Erro ao enviar email: ' . $e->getMessage(),
+                'error' => $e->getMessage()
             ];
         }
     }
