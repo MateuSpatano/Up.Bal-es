@@ -1348,14 +1348,15 @@ class BudgetService {
             
             $budgetData = $budget['budget'];
             
-            // Buscar email de comunicação do decorador
+            // Buscar informações do decorador para incluir no corpo do email
             $decoratorEmail = null;
-            $decoratorName = 'Up.Baloes';
+            $decoratorName = null;
+            $decoratorPhone = null;
             
             if (!empty($budgetData['decorador_id'])) {
                 try {
                     $stmt = $this->pdo->prepare("
-                        SELECT nome, email, redes_sociais 
+                        SELECT nome, email, telefone, redes_sociais 
                         FROM usuarios 
                         WHERE id = ?
                     ");
@@ -1363,9 +1364,10 @@ class BudgetService {
                     $decorator = $stmt->fetch();
                     
                     if ($decorator) {
-                        $decoratorName = $decorator['nome'] ?? 'Up.Baloes';
-            
-                        // Tentar obter email de comunicação das redes sociais
+                        $decoratorName = $decorator['nome'] ?? null;
+                        $decoratorPhone = $decorator['telefone'] ?? null;
+                        
+                        // Tentar obter email de comunicação das redes sociais (para Reply-To)
                         if (!empty($decorator['redes_sociais'])) {
                             $redesSociais = json_decode($decorator['redes_sociais'], true);
                             if (is_array($redesSociais) && !empty($redesSociais['communication_email'])) {
@@ -1379,7 +1381,7 @@ class BudgetService {
                     }
                 } catch (Exception $e) {
                     error_log('Erro ao buscar dados do decorador para email: ' . $e->getMessage());
-                    // Continuar sem Reply-To personalizado
+                    // Continuar sem informações do decorador
                 }
             }
             
@@ -1387,6 +1389,8 @@ class BudgetService {
             $budgetUrl = $this->generateBudgetUrl($budgetId);
             
             // Usar EmailService para enviar o email
+            // SEMPRE será enviado pelo email do Up.Baloes (configurado no .env)
+            // Mas o Reply-To será o email do decorador (se disponível)
             require_once __DIR__ . '/EmailService.php';
             $emailService = new EmailService();
             
@@ -1395,8 +1399,9 @@ class BudgetService {
                 $budgetData,
                 $budgetUrl,
                 $customMessage,
-                $decoratorEmail,
-                $decoratorName
+                $decoratorEmail,  // Reply-To: email do decorador
+                $decoratorName,   // Nome do decorador para Reply-To e corpo do email
+                $decoratorPhone   // Telefone do decorador para corpo do email
             );
             
             if ($result['success']) {

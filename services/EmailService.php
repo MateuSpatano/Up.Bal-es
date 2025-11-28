@@ -196,14 +196,17 @@ class EmailService {
      * @param string|null $customMessage Mensagem personalizada do decorador
      * @param string|null $decoratorEmail Email do decorador para Reply-To
      * @param string|null $decoratorName Nome do decorador
+     * @param string|null $decoratorPhone Telefone do decorador (opcional)
      * @return array ['success' => bool, 'message' => string]
      */
-    public function sendBudgetEmail($to, $budgetData, $budgetUrl, $customMessage = null, $decoratorEmail = null, $decoratorName = null) {
+    public function sendBudgetEmail($to, $budgetData, $budgetUrl, $customMessage = null, $decoratorEmail = null, $decoratorName = null, $decoratorPhone = null) {
         $subject = 'Seu Orçamento de Decoração com Balões - Up.Baloes';
         
-        $htmlBody = $this->getBudgetEmailTemplate($budgetData, $budgetUrl, $customMessage);
-        $textBody = $this->getBudgetEmailTextTemplate($budgetData, $budgetUrl, $customMessage);
+        // Sempre usar email do Up.Baloes como remetente, mas incluir info do decorador no corpo
+        $htmlBody = $this->getBudgetEmailTemplate($budgetData, $budgetUrl, $customMessage, $decoratorName, $decoratorEmail, $decoratorPhone);
+        $textBody = $this->getBudgetEmailTextTemplate($budgetData, $budgetUrl, $customMessage, $decoratorName, $decoratorEmail, $decoratorPhone);
         
+        // Sempre usar email do Up.Baloes como From, mas Reply-To será o email do decorador (se fornecido)
         return $this->sendEmail($to, $subject, $htmlBody, $textBody, $decoratorEmail, $decoratorName);
     }
     
@@ -247,7 +250,7 @@ class EmailService {
     /**
      * Template HTML para email de orçamento
      */
-    private function getBudgetEmailTemplate($budgetData, $budgetUrl, $customMessage = null) {
+    private function getBudgetEmailTemplate($budgetData, $budgetUrl, $customMessage = null, $decoratorName = null, $decoratorEmail = null, $decoratorPhone = null) {
         $serviceTypeLabels = [
             'arco-tradicional' => 'Arco Tradicional',
             'arco-desconstruido' => 'Arco Desconstruído',
@@ -275,6 +278,30 @@ class EmailService {
                 <p style=\"margin: 10px 0 0 0; color: #856404;\">" . nl2br(htmlspecialchars($customMessage)) . "</p>
             </div>
             ";
+        }
+        
+        // Informações do decorador no corpo do email
+        $decoratorInfoHtml = '';
+        if ($decoratorName) {
+            $decoratorInfoHtml = "
+                    <div style=\"background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0; border-radius: 5px;\">
+                        <p style=\"margin: 0; font-weight: bold; color: #2e7d32;\">📞 Informações de Contato:</p>
+                        <p style=\"margin: 10px 0 0 0; color: #2e7d32;\">
+                            <strong>Decorador:</strong> " . htmlspecialchars($decoratorName) . "<br>";
+            
+            if ($decoratorEmail) {
+                $decoratorInfoHtml .= "                            <strong>Email:</strong> <a href=\"mailto:" . htmlspecialchars($decoratorEmail) . "\" style=\"color: #2e7d32;\">" . htmlspecialchars($decoratorEmail) . "</a><br>";
+            }
+            
+            if ($decoratorPhone) {
+                $decoratorInfoHtml .= "                            <strong>Telefone:</strong> " . htmlspecialchars($decoratorPhone) . "<br>";
+            }
+            
+            $decoratorInfoHtml .= "                        </p>
+                        <p style=\"margin: 10px 0 0 0; color: #2e7d32; font-size: 14px;\">
+                            💡 Você pode responder este email diretamente para entrar em contato com o decorador.
+                        </p>
+                    </div>";
         }
         
         return "
@@ -322,6 +349,7 @@ class EmailService {
                     <p style=\"margin: 24px 0; text-align: center;\">
                         <a href=\"{$budgetUrl}\" style=\"display:inline-block;padding:12px 24px;background-color:#667eea;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;\">Visualizar Orçamento Completo</a>
                     </p>
+                    {$decoratorInfoHtml}
                     <p style=\"margin-top: 30px;\">Qualquer dúvida, estamos à disposição!</p>
                     <p>Atenciosamente,<br><strong>Equipe Up.Baloes</strong></p>
                 </div>
@@ -334,7 +362,7 @@ class EmailService {
     /**
      * Template texto plano para email de orçamento
      */
-    private function getBudgetEmailTextTemplate($budgetData, $budgetUrl, $customMessage = null) {
+    private function getBudgetEmailTextTemplate($budgetData, $budgetUrl, $customMessage = null, $decoratorName = null, $decoratorEmail = null, $decoratorPhone = null) {
         $serviceTypeLabels = [
             'arco-tradicional' => 'Arco Tradicional',
             'arco-desconstruido' => 'Arco Desconstruído',
@@ -367,6 +395,20 @@ class EmailService {
         $text .= "• Local: {$eventLocation}\n";
         $text .= "• Valor Estimado: R$ {$formattedValue}\n\n";
         $text .= "Visualizar orçamento completo: {$budgetUrl}\n\n";
+        
+        // Adicionar informações do decorador se disponíveis
+        if ($decoratorName) {
+            $text .= "Informações de Contato:\n";
+            $text .= "Decorador: {$decoratorName}\n";
+            if ($decoratorEmail) {
+                $text .= "Email: {$decoratorEmail}\n";
+            }
+            if ($decoratorPhone) {
+                $text .= "Telefone: {$decoratorPhone}\n";
+            }
+            $text .= "\nVocê pode responder este email diretamente para entrar em contato com o decorador.\n\n";
+        }
+        
         $text .= "Qualquer dúvida, estamos à disposição!\n\n";
         $text .= "Atenciosamente,\nEquipe Up.Baloes";
         
