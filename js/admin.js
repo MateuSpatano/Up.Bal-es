@@ -580,7 +580,29 @@ class AdminSystem {
         const cancelDecoratorBtn = document.getElementById('cancel-decorator-creation');
         if (cancelDecoratorBtn) {
             cancelDecoratorBtn.addEventListener('click', () => {
-                document.getElementById('create-decorator-form').reset();
+                // Verificar se há dados preenchidos no formulário
+                const form = document.getElementById('create-decorator-form');
+                const formData = new FormData(form);
+                let hasData = false;
+                
+                // Verificar se algum campo obrigatório foi preenchido
+                for (let [key, value] of formData.entries()) {
+                    if (value && value.trim() !== '') {
+                        hasData = true;
+                        break;
+                    }
+                }
+                
+                // Se houver dados preenchidos, pedir confirmação
+                if (hasData) {
+                    const confirmCancel = confirm('Tem certeza que deseja cancelar a criação do decorador? Todos os dados preenchidos serão perdidos.');
+                    if (!confirmCancel) {
+                        return; // Usuário cancelou, não fazer nada
+                    }
+                }
+                
+                // Limpar formulário e voltar ao dashboard
+                form.reset();
                 this.showPage('dashboard');
             });
         }
