@@ -35,16 +35,37 @@ class EmailService {
         $this->mail->isSMTP();
         $this->mail->Host = $this->config['smtp_host'] ?? 'smtp.gmail.com';
         $this->mail->SMTPAuth = true;
-        $this->mail->Username = trim($this->config['smtp_username'] ?? '');
+        
+        // Limpar e validar username
+        $username = trim($this->config['smtp_username'] ?? '');
+        if (empty($username)) {
+            throw new Exception('SMTP_USERNAME não configurado no .env');
+        }
+        $this->mail->Username = $username;
         
         // Remover espaços da senha de app (Gmail gera senhas com espaços: "xxxx xxxx xxxx xxxx")
         $password = $this->config['smtp_password'] ?? '';
         $password = str_replace(' ', '', trim($password)); // Remove todos os espaços
+        
+        if (empty($password)) {
+            throw new Exception('SMTP_PASSWORD não configurado no .env');
+        }
+        
+        // Log para debug (sem mostrar a senha completa)
+        if (ENVIRONMENT === 'development') {
+            error_log("SMTP Config - Username: {$username}");
+            error_log("SMTP Config - Password length: " . strlen($password) . " caracteres");
+            error_log("SMTP Config - Password starts with: " . substr($password, 0, 4) . "...");
+        }
+        
         $this->mail->Password = $password;
         
         $this->mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $this->mail->Port = $this->config['smtp_port'] ?? 587;
         $this->mail->CharSet = 'UTF-8';
+        
+        // Timeout aumentado para conexões mais lentas
+        $this->mail->Timeout = 30;
         
         // Remover validação de certificado SSL em desenvolvimento
         if (ENVIRONMENT === 'development') {
