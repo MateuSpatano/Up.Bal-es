@@ -334,8 +334,9 @@ try {
         }
     }
     
-    // Contato
-    $contactEmail = $decorator['communication_email'] ?? $decorator['email'] ?? '';
+    // Contato - Priorizar dados da customização (social_media), depois dados do decorador
+    // Email: primeiro tenta contact_email da customização, depois communication_email, depois email do decorador
+    $contactEmail = $socialMedia['contact_email'] ?? $decorator['communication_email'] ?? $decorator['email'] ?? '';
     
     // WhatsApp e Instagram podem estar em redes_sociais (JSON) ou não existir como colunas separadas
     $redesSociais = [];
@@ -348,8 +349,15 @@ try {
     }
     
     // Tentar obter WhatsApp e Instagram de várias fontes
-    $contactWhatsapp = $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? $socialMedia['whatsapp'] ?? '';
-    $contactInstagram = $decorator['instagram'] ?? $redesSociais['instagram'] ?? $socialMedia['instagram'] ?? '';
+    // Prioridade: 1) social_media da customização (contact_whatsapp/contact_instagram)
+    //             2) coluna whatsapp/instagram do decorador (se existir)
+    //             3) redes_sociais JSON do decorador
+    $contactWhatsapp = $socialMedia['contact_whatsapp'] ?? $decorator['whatsapp'] ?? $redesSociais['whatsapp'] ?? '';
+    $contactInstagram = $socialMedia['contact_instagram'] ?? $decorator['instagram'] ?? $redesSociais['instagram'] ?? '';
+    
+    // Log para debug
+    error_log("Dados de contato - Email: " . ($contactEmail ?: 'vazio') . ", WhatsApp: " . ($contactWhatsapp ?: 'vazio') . ", Instagram: " . ($contactInstagram ?: 'vazio'));
+    error_log("Social Media da customização: " . json_encode($socialMedia));
     
     // Base URL para assets - usar função auxiliar para garantir correção
     $baseUrl = getCorrectBaseUrl();
@@ -512,7 +520,7 @@ try {
                     <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-phone mr-2"></i>Contatos
                     </a>
-                    <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/carrinho" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
                         <i class="fas fa-shopping-cart mr-2"></i>Carrinho
                         <span class="cart-badge absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                     </a>
@@ -536,10 +544,10 @@ try {
                     <!-- Dropdown do Usuário -->
                     <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2">
                         <div class="py-2">
-                            <a href="/<?php echo htmlspecialchars($slug); ?>/login" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                            <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/login" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
                                 <i class="fas fa-sign-in-alt mr-3"></i>Login
                             </a>
-                            <a href="/<?php echo htmlspecialchars($slug); ?>/minhas-compras" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                            <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/minhas-compras" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
                                 <i class="fas fa-shopping-bag mr-3"></i>Minhas Compras
                             </a>
                             <a href="#" id="painel-admin-link" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
@@ -578,7 +586,7 @@ try {
                 <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-phone mr-3"></i>Contatos
                 </a>
-                <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/carrinho" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-shopping-cart mr-3"></i>Carrinho
                 </a>
             </div>
@@ -603,15 +611,15 @@ try {
                         </p>
                     <?php endif; ?>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
-                        <a href="/<?php echo htmlspecialchars($slug); ?>/solicitar" 
+                        <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/solicitar" 
                            class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                         </a>
-                        <a href="/<?php echo htmlspecialchars($slug); ?>/cadastro" 
+                        <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/cadastro" 
                            class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-user-plus mr-2"></i>Criar Conta
                         </a>
-                        <a href="/<?php echo htmlspecialchars($slug); ?>/login" 
+                        <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/login" 
                            class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-block text-center">
                             <i class="fas fa-sign-in-alt mr-2"></i>Fazer Login
                         </a>
@@ -800,7 +808,7 @@ try {
                     <?php endif; ?>
                     
                     <!-- Instagram -->
-                    <?php if ($contactInstagram || !empty($socialMedia['instagram'])): ?>
+                    <?php if ($contactInstagram): ?>
                     <div class="group relative">
                         <div class="absolute -inset-0.5 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
                         <div class="relative bg-white rounded-2xl p-8 shadow-2xl hover:shadow-pink-500/20 transition-all duration-300 transform hover:-translate-y-2 border border-gray-200">
@@ -813,17 +821,12 @@ try {
                                 </div>
                                 <h3 class="text-xl font-bold text-gray-800 mb-2">Instagram</h3>
                                 <p class="text-sm text-gray-500 mb-4">Siga-nos</p>
-                                <?php 
-                                $instagramUrl = $contactInstagram ?: ($socialMedia['instagram'] ?? '');
-                                if ($instagramUrl): 
-                                ?>
-                                <a href="<?php echo htmlspecialchars($instagramUrl); ?>" 
+                                <a href="<?php echo htmlspecialchars($contactInstagram); ?>" 
                                    target="_blank"
                                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-pink-50 via-purple-50 to-pink-50 hover:from-pink-100 hover:via-purple-100 hover:to-pink-100 rounded-lg text-pink-700 hover:text-pink-900 font-medium transition-all duration-300 transform hover:scale-105 w-full">
                                     <i class="fab fa-instagram mr-2 text-lg"></i>
-                                    <span class="text-sm">@<?php echo htmlspecialchars(str_replace(['https://instagram.com/', 'https://www.instagram.com/', '@'], '', $instagramUrl)); ?></span>
+                                    <span class="text-sm">@<?php echo htmlspecialchars(str_replace(['https://instagram.com/', 'https://www.instagram.com/', 'http://instagram.com/', 'http://www.instagram.com/', '@'], '', $contactInstagram)); ?></span>
                                 </a>
-                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

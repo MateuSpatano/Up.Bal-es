@@ -215,7 +215,7 @@ try {
                     <a href="/<?php echo htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
-                    <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/carrinho" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-shopping-cart mr-2"></i>Carrinho
                     </a>
                 </div>

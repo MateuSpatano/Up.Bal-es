@@ -234,7 +234,7 @@ $baseUrl = getCorrectBaseUrl();
                 <div>
                     <?php if (!empty($slug)): ?>
                         <a 
-                            href="/<?php echo htmlspecialchars($slug); ?>/cadastro"
+                            href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/cadastro"
                             class="group relative w-full flex justify-center py-2 sm:py-3 px-4 border border-transparent text-sm sm:text-base font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 transform hover:scale-105 shadow-lg"
                         >
                     <?php else: ?>
