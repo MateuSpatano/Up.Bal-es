@@ -256,7 +256,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.location.href = decodeURIComponent(returnUrl);
                     } else if (typeof contextSlug !== 'undefined' && contextSlug && contextSlug !== '') {
                         // Se houver contextSlug (vindo de uma página do decorador), redirecionar para lá
-                        window.location.href = '/' + contextSlug + '/';
+                        const baseUrl = (typeof window.BASE_URL !== 'undefined' && window.BASE_URL) ? window.BASE_URL : '/Up.Bal-es/';
+                        window.location.href = baseUrl + contextSlug + '/';
                     } else {
                         window.location.href = '../index.html';
                     }

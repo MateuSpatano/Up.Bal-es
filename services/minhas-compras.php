@@ -202,7 +202,7 @@ try {
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
                 <div class="flex items-center space-x-3">
-                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                             <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
                         </div>
@@ -212,7 +212,7 @@ try {
                 
                 <!-- Menu -->
                 <div class="flex items-center space-x-4">
-                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
                     <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>/carrinho" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
@@ -264,7 +264,7 @@ try {
                     <i class="fas fa-inbox text-4xl sm:text-6xl text-gray-300 mb-3 sm:mb-4"></i>
                     <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Nenhuma solicitação encontrada</h3>
                     <p class="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Você ainda não fez nenhuma solicitação de serviço.</p>
-                    <a href="/<?php echo htmlspecialchars($slug); ?>#portfolio" class="inline-block px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>#portfolio" class="inline-block px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         <i class="fas fa-briefcase mr-2"></i>Ver Portfólio
                     </a>
                 </div>

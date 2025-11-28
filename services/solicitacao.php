@@ -189,7 +189,7 @@ try {
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
                 <div class="flex items-center space-x-3">
-                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                             <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
                         </div>

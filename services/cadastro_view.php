@@ -435,6 +435,10 @@ $baseUrl = getCorrectBaseUrl();
     <!-- JavaScript -->
     <script src="<?php echo $baseUrl; ?>js/json-utils.js"></script>
     <script src="<?php echo $baseUrl; ?>js/principal.js"></script>
+    <script>
+        // Definir BASE_URL para uso nos scripts JavaScript
+        window.BASE_URL = <?php echo json_encode($baseUrl); ?>;
+    </script>
     <script src="<?php echo $baseUrl; ?>js/cadastro.js"></script>
 </body>
 </html>

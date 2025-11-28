@@ -267,7 +267,7 @@ $baseUrl = getCorrectBaseUrl();
                 <div>
                     <?php if (!empty($slug)): ?>
                         <a 
-                            href="/<?php echo htmlspecialchars($slug); ?>"
+                            href="<?php echo $baseUrl . htmlspecialchars($slug); ?>"
                             class="group relative w-full flex justify-center py-2 sm:py-3 px-4 border border-gray-300 text-sm sm:text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105 shadow-md"
                         >
                     <?php else: ?>
@@ -345,6 +345,10 @@ $baseUrl = getCorrectBaseUrl();
     <!-- JavaScript -->
     <script src="<?php echo $baseUrl; ?>js/json-utils.js"></script>
     <script src="<?php echo $baseUrl; ?>js/principal.js"></script>
+    <script>
+        // Definir BASE_URL para uso nos scripts JavaScript
+        window.BASE_URL = <?php echo json_encode($baseUrl); ?>;
+    </script>
     <script src="<?php echo $baseUrl; ?>js/login.js"></script>
 </body>
 </html>

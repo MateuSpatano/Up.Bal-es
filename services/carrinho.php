@@ -189,7 +189,7 @@ try {
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
                 <div class="flex items-center space-x-3">
-                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                             <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
                         </div>
@@ -199,10 +199,10 @@ try {
                 
                 <!-- Menu -->
                 <div class="flex items-center space-x-4">
-                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-home mr-2"></i>Início
                     </a>
-                    <a href="/<?php echo htmlspecialchars($slug); ?>#portfolio" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>#portfolio" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-briefcase mr-2"></i>Portfólio
                     </a>
                 </div>
@@ -239,7 +239,7 @@ try {
                         <div id="empty-portfolio-items" class="text-center py-8 sm:py-12 hidden">
                             <i class="fas fa-shopping-bag text-4xl sm:text-6xl text-gray-300 mb-3 sm:mb-4"></i>
                             <p class="text-gray-500 text-base sm:text-lg mb-3 sm:mb-4">Nenhum item do portfólio selecionado</p>
-                            <a href="/<?php echo htmlspecialchars($slug); ?>#portfolio" class="inline-block text-sm sm:text-base text-blue-600 hover:text-blue-800">
+                            <a href="<?php echo $baseUrl . htmlspecialchars($slug); ?>#portfolio" class="inline-block text-sm sm:text-base text-blue-600 hover:text-blue-800">
                                 <i class="fas fa-arrow-left mr-2"></i>Voltar ao Portfólio
                             </a>
                         </div>
