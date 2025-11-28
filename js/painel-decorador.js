@@ -346,7 +346,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.authProtection.protectBrowserNavigation('decorator');
             }
             
-            // Carregar dados do usuário
+            // Carregar dados do usuário do servidor (inclui whatsapp e communication_email)
+            await loadAccountData();
+            
+            // Carregar dados do localStorage como fallback
             loadUserData();
             
             // Configurar event listeners
@@ -1878,8 +1881,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             
             if (result.success && result.data) {
+                // Salvar dados no localStorage para uso em outras funções (como sendBudgetByWhatsApp)
+                const userDataToStore = {
+                    ...result.data,
+                    role: 'decorator' // Garantir que o role está definido
+                };
+                localStorage.setItem('userData', JSON.stringify(userDataToStore));
+                
+                // Atualizar interface
                 populateAccountForm(result.data);
                 updateAccountProfileDisplay(result.data);
+                updateUserInterface(result.data);
             }
         } catch (error) {
             console.error('Erro ao carregar dados da conta:', error);
@@ -4220,20 +4232,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function sendBudgetByWhatsApp() {
-        // Obter dados do decorador
+        // Verificar se o cliente tem número de telefone
+        if (!currentSendBudget.phone || !currentSendBudget.phone.trim()) {
+            showNotification('O cliente não possui número de telefone cadastrado. Não é possível enviar por WhatsApp.', 'error');
+            return;
+        }
+        
+        // Obter dados do decorador para incluir na mensagem (opcional)
         let userData = null;
+        let decoratorName = 'Up.Baloes';
         try {
             const storedData = localStorage.getItem('userData');
             if (storedData) {
                 userData = JSON.parse(storedData);
+                if (userData.name) {
+                    decoratorName = userData.name;
+                }
             }
         } catch (e) {
             console.warn('Erro ao carregar dados do usuário:', e);
-        }
-        
-        if (!userData || !userData.whatsapp) {
-            showNotification('Dados do WhatsApp do decorador não encontrados. Verifique o perfil.', 'error');
-            return;
         }
         
         // Gerar link para visualização do orçamento
@@ -4252,10 +4269,13 @@ Seu orçamento de decoração com balões está pronto! 🎈
 
 🔗 *Visualizar orçamento completo:* ${budgetUrl}
 
-Qualquer dúvida, estou à disposição! 😊`;
+Qualquer dúvida, estou à disposição! 😊
 
-        // Abrir WhatsApp Web/App usando o número do decorador
-        const whatsappUrl = `https://wa.me/${userData.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+_${decoratorName}_`;
+
+        // Abrir WhatsApp Web/App usando o número do CLIENTE (não do decorador)
+        const clientPhone = currentSendBudget.phone.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
         
         showNotification('WhatsApp aberto com a mensagem do orçamento!', 'success');

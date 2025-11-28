@@ -1348,6 +1348,41 @@ class BudgetService {
             
             $budgetData = $budget['budget'];
             
+            // Buscar email de comunicação do decorador
+            $decoratorEmail = 'contato@upbaloes.com'; // Email padrão
+            $decoratorName = 'Up.Baloes'; // Nome padrão
+            
+            if (!empty($budgetData['decorador_id'])) {
+                try {
+                    $stmt = $this->pdo->prepare("
+                        SELECT nome, email, redes_sociais 
+                        FROM usuarios 
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$budgetData['decorador_id']]);
+                    $decorator = $stmt->fetch();
+                    
+                    if ($decorator) {
+                        $decoratorName = $decorator['nome'] ?? 'Up.Baloes';
+                        
+                        // Tentar obter email de comunicação das redes sociais
+                        if (!empty($decorator['redes_sociais'])) {
+                            $redesSociais = json_decode($decorator['redes_sociais'], true);
+                            if (is_array($redesSociais) && !empty($redesSociais['communication_email'])) {
+                                $decoratorEmail = $redesSociais['communication_email'];
+                            } elseif (!empty($decorator['email'])) {
+                                $decoratorEmail = $decorator['email'];
+                            }
+                        } elseif (!empty($decorator['email'])) {
+                            $decoratorEmail = $decorator['email'];
+                        }
+                    }
+                } catch (Exception $e) {
+                    error_log('Erro ao buscar dados do decorador para email: ' . $e->getMessage());
+                    // Continuar com valores padrão
+                }
+            }
+            
             // Gerar link para visualização do orçamento
             $budgetUrl = $this->generateBudgetUrl($budgetId);
             
@@ -1358,12 +1393,12 @@ class BudgetService {
             // Template do e-mail
             $message = $this->generateEmailTemplate($budgetData, $budgetUrl, $customMessage);
             
-            // Headers do e-mail
+            // Headers do e-mail - usar email de comunicação do decorador no Reply-To
             $headers = [
                 'MIME-Version: 1.0',
                 'Content-type: text/html; charset=UTF-8',
                 'From: Up.Baloes <noreply@upbaloes.com>',
-                'Reply-To: Up.Baloes <contato@upbaloes.com>',
+                'Reply-To: ' . $decoratorName . ' <' . $decoratorEmail . '>',
                 'X-Mailer: PHP/' . phpversion()
             ];
             
