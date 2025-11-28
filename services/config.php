@@ -140,11 +140,10 @@ if (empty($baseUrl)) {
         }
     }
     
+    // SEMPRE usar Up.Bal-es como padrão, mesmo se detectar Up.BaloesV3
     if ($projectName) {
-        // Se detectou Up.BaloesV3, substituir por Up.Bal-es
-        if ($projectName === 'Up.BaloesV3') {
-            $projectName = 'Up.Bal-es';
-        }
+        // Se detectou Up.BaloesV3 ou qualquer outro nome, sempre usar Up.Bal-es
+        $projectName = 'Up.Bal-es';
         $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
     } else {
         // Fallback padrão - sempre usar Up.Bal-es
