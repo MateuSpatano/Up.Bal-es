@@ -12,6 +12,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const imagePreview = document.getElementById('image-preview');
     const previewImg = document.getElementById('preview-img');
     const removeImageBtn = document.getElementById('remove-image');
+    
+    // Função para obter o slug do decorador da URL
+    function getDecoratorSlug() {
+        const urlParams = new URLSearchParams(window.location.search);
+        // Tentar obter do parâmetro 'decorador' ou 'slug'
+        let slug = urlParams.get('decorador') || urlParams.get('slug');
+        
+        // Se não encontrou na query string, tentar obter do pathname
+        // Exemplo: /vinicius-de-almeida-de-souza/solicitacao-cliente.html
+        if (!slug) {
+            const pathParts = window.location.pathname.split('/').filter(p => p);
+            // Procurar por um slug (não é 'pages', 'solicitacao-cliente.html', etc)
+            const excludedPaths = ['pages', 'solicitacao-cliente.html', 'solicitacao.php', 'Up.Bal-es', 'Up.BaloesV3'];
+            slug = pathParts.find(part => !excludedPaths.includes(part) && !part.includes('.html') && !part.includes('.php'));
+        }
+        
+        return slug || null;
+    }
+    
+    // Função para redirecionar para o carrinho com o slug do decorador
+    function redirectToCart() {
+        const slug = getDecoratorSlug();
+        if (slug) {
+            // Obter o caminho base da URL atual
+            const currentPath = window.location.pathname;
+            let basePath = '';
+            
+            // Extrair o caminho base (ex: /Up.Bal-es/)
+            if (currentPath.includes('/Up.Bal-es/')) {
+                basePath = '/Up.Bal-es';
+            } else if (currentPath.includes('/Up.BaloesV3/')) {
+                basePath = '/Up.Bal-es'; // Sempre usar Up.Bal-es
+            } else {
+                // Tentar detectar do pathname
+                const pathParts = currentPath.split('/').filter(p => p);
+                const projectIndex = pathParts.findIndex(p => p.includes('Up.'));
+                if (projectIndex >= 0) {
+                    basePath = '/' + pathParts[projectIndex];
+                    // Se for Up.BaloesV3, substituir por Up.Bal-es
+                    if (basePath === '/Up.BaloesV3') {
+                        basePath = '/Up.Bal-es';
+                    }
+                }
+            }
+            
+            // URL correta: /Up.Bal-es/{slug}/carrinho
+            window.location.href = basePath + '/' + slug + '/carrinho';
+        } else {
+            // Fallback: usar URL padrão sem slug
+            window.location.href = '../pages/carrinho-cliente.html';
+        }
+    }
 
     // ========== FUNCIONALIDADES DO CAMPO TAMANHO DO ARCO ==========
     
@@ -404,7 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             // Redirecionar para o carrinho após um breve delay
                             setTimeout(() => {
-                                window.location.href = 'carrinho-cliente.html';
+                                redirectToCart();
                             }, 1000);
                         };
                         reader.onerror = function() {
@@ -412,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             addQuoteToCart(quoteData);
                             showNotification('Orçamento adicionado ao carrinho! (Imagem não pôde ser processada)', 'success');
                             setTimeout(() => {
-                                window.location.href = 'carrinho-cliente.html';
+                                redirectToCart();
                             }, 1000);
                         };
                         reader.readAsDataURL(imageFile);
@@ -425,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // Redirecionar para o carrinho após um breve delay
                         setTimeout(() => {
-                            window.location.href = 'carrinho-cliente.html';
+                            redirectToCart();
                         }, 1000);
                     }
                     
