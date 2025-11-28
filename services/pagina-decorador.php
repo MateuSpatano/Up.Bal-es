@@ -536,7 +536,7 @@ try {
                     <!-- Dropdown do Usuário -->
                     <div id="user-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible transition-all duration-200 transform translate-y-2">
                         <div class="py-2">
-                            <a href="<?php echo $baseUrl; ?>pages/login.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
+                            <a href="/<?php echo htmlspecialchars($slug); ?>/login" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
                                 <i class="fas fa-sign-in-alt mr-3"></i>Login
                             </a>
                             <a href="/<?php echo htmlspecialchars($slug); ?>/minhas-compras" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
@@ -607,11 +607,11 @@ try {
                            class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                         </a>
-                        <a href="<?php echo $baseUrl; ?>pages/cadastro.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" 
+                        <a href="/<?php echo htmlspecialchars($slug); ?>/cadastro" 
                            class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-user-plus mr-2"></i>Criar Conta
                         </a>
-                        <a href="<?php echo $baseUrl; ?>pages/login.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" 
+                        <a href="/<?php echo htmlspecialchars($slug); ?>/login" 
                            class="border-2 border-white hover:bg-white hover:text-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 inline-block text-center">
                             <i class="fas fa-sign-in-alt mr-2"></i>Fazer Login
                         </a>

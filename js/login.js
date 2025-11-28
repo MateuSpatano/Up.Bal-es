@@ -189,11 +189,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const returnUrl = urlParams.get('return');
                 
-                // Redirecionamento baseado no role do usuário ou URL de retorno
+                // Redirecionamento baseado no role do usuário, URL de retorno ou contextSlug
                 setTimeout(() => {
                     // Se houver URL de retorno, redirecionar para ela
                     if (returnUrl) {
                         window.location.href = decodeURIComponent(returnUrl);
+                    } else if (typeof contextSlug !== 'undefined' && contextSlug && contextSlug !== '') {
+                        // Se houver contextSlug (vindo de uma página do decorador), redirecionar para lá
+                        window.location.href = '/' + contextSlug + '/';
                     } else {
                         const userRole = (response.user && response.user.role) || (response.data && response.data.role);
                         

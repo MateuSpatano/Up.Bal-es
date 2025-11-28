@@ -205,10 +205,10 @@ try {
                     <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-shopping-cart mr-2"></i>Carrinho
                     </a>
-                    <a href="<?php echo $baseUrl; ?>pages/login.html" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="/<?php echo htmlspecialchars($slug); ?>/login" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-user-cog mr-2"></i>Minha Conta
                     </a>
-                    <a href="<?php echo $baseUrl; ?>pages/login.html" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                    <a href="/<?php echo htmlspecialchars($slug); ?>/login" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
                     </a>
                 </div>

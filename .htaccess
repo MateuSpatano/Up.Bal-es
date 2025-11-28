@@ -23,6 +23,12 @@ RewriteCond %{REQUEST_URI} !^/Up\.Bal-es/.*\.(html|php|css|js|jpg|jpeg|png|gif|i
 # IMPORTANTE: Estas regras funcionam para URLs como /Up.Bal-es/slug/rota
 
 # Rotas específicas do decorador (devem vir antes da regra geral do slug)
+# /{slug}/login -> services/login_view.php?slug={slug}
+RewriteRule ^([a-zA-Z0-9-]+)/login/?$ services/login_view.php?slug=$1 [L,QSA]
+
+# /{slug}/cadastro -> services/cadastro_view.php?slug={slug}
+RewriteRule ^([a-zA-Z0-9-]+)/cadastro/?$ services/cadastro_view.php?slug=$1 [L,QSA]
+
 # /{slug}/carrinho -> services/carrinho.php?slug={slug}
 RewriteRule ^([a-zA-Z0-9-]+)/carrinho/?$ services/carrinho.php?slug=$1 [L,QSA]
 

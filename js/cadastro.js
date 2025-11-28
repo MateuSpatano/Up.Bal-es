@@ -254,6 +254,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Se houver URL de retorno, redirecionar para ela
                     if (returnUrl) {
                         window.location.href = decodeURIComponent(returnUrl);
+                    } else if (typeof contextSlug !== 'undefined' && contextSlug && contextSlug !== '') {
+                        // Se houver contextSlug (vindo de uma página do decorador), redirecionar para lá
+                        window.location.href = '/' + contextSlug + '/';
                     } else {
                         window.location.href = '../index.html';
                     }
