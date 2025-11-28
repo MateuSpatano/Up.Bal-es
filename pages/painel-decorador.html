@@ -561,6 +561,64 @@
                                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                                                       placeholder="Mensagem de boas-vindas personalizada"></textarea>
                                         </div>
+
+                                        <!-- Imagem de Fundo da Seção Hero -->
+                                        <div class="space-y-2 border-t pt-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-image mr-2 text-indigo-600"></i>Imagem de Fundo da Seção Inicial
+                                            </label>
+                                            
+                                            <!-- Opção: Usar Imagem ou Cor -->
+                                            <div class="mb-4">
+                                                <label class="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="radio" name="hero_background_type" id="hero-background-color" value="color" checked
+                                                           class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                                                    <span class="text-sm text-gray-700">Usar cor de fundo (gradiente)</span>
+                                                </label>
+                                                <label class="flex items-center space-x-2 cursor-pointer mt-2">
+                                                    <input type="radio" name="hero_background_type" id="hero-background-image" value="image"
+                                                           class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                                                    <span class="text-sm text-gray-700">Usar imagem de fundo</span>
+                                                </label>
+                                            </div>
+
+                                            <!-- Campo de URL da Imagem (oculto por padrão) -->
+                                            <div id="hero-image-url-container" class="hidden">
+                                                <label for="decorator-hero-image-url" class="block text-sm font-medium text-gray-700 mb-2">
+                                                    URL da Imagem
+                                                </label>
+                                                <input type="url" id="decorator-hero-image-url" name="hero_image_url"
+                                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                       placeholder="https://exemplo.com/imagem.jpg">
+                                                <p class="text-xs text-gray-500 mt-1">
+                                                    <i class="fas fa-info-circle mr-1"></i>
+                                                    Cole a URL completa da imagem ou faça upload abaixo
+                                                </p>
+                                                
+                                                <!-- Upload de Imagem -->
+                                                <div class="mt-3">
+                                                    <label for="decorator-hero-image-upload" class="block text-sm font-medium text-gray-700 mb-2">
+                                                        Ou faça upload de uma imagem
+                                                    </label>
+                                                    <input type="file" id="decorator-hero-image-upload" name="hero_image_upload" accept="image/*"
+                                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                                    <p class="text-xs text-gray-500 mt-1">
+                                                        Formatos aceitos: JPG, PNG, GIF, WebP (máx. 5MB)
+                                                    </p>
+                                                </div>
+
+                                                <!-- Preview da Imagem -->
+                                                <div id="hero-image-preview-container" class="mt-4 hidden">
+                                                    <label class="block text-sm font-medium text-gray-700 mb-2">Preview:</label>
+                                                    <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+                                                        <img id="hero-image-preview" src="" alt="Preview" class="w-full h-48 object-cover">
+                                                        <button type="button" id="remove-hero-image" class="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition-colors">
+                                                            <i class="fas fa-times mr-1"></i>Remover
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

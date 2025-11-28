@@ -244,11 +244,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         WHERE id = ?
                     ");
                     
+                    // Obter cover_image_url do input (pode ser vazio para usar cor)
+                    $coverImageUrl = !empty($input['cover_image_url']) ? trim($input['cover_image_url']) : '';
+                    
                     $stmt->execute([
                         $input['page_title'] ?? '',
                         $input['page_description'] ?? '',
                         $input['welcome_text'] ?? '',
-                        '', // Sempre vazio - usar padrão
+                        $coverImageUrl, // URL da imagem ou vazio para usar cor
                         $primaryColor,
                         $secondaryColor,
                         $accentColor,
@@ -271,12 +274,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                     ");
                     
+                    // Obter cover_image_url do input (pode ser vazio para usar cor)
+                    $coverImageUrl = !empty($input['cover_image_url']) ? trim($input['cover_image_url']) : '';
+                    
                     $stmt->execute([
                         $userId,
                         $input['page_title'] ?? '',
                         $input['page_description'] ?? '',
                         $input['welcome_text'] ?? '',
-                        '', // Sempre vazio - usar padrão
+                        $coverImageUrl, // URL da imagem ou vazio para usar cor
                         $primaryColor,
                         $secondaryColor,
                         $accentColor,

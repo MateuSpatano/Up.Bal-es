@@ -311,8 +311,8 @@ try {
     $pageTitle = !empty($customization['page_title']) ? htmlspecialchars($customization['page_title']) : ('Bem-vindo à ' . htmlspecialchars($decoratorName));
     $pageDesc = !empty($customization['page_description']) ? htmlspecialchars($customization['page_description']) : 'Decoração profissional com balões';
     $welcomeText = !empty($customization['welcome_text']) ? $customization['welcome_text'] : '';
-    // Sempre usar imagem de capa padrão (não usar cover_image_url personalizada)
-    $coverImage = '';
+    // Usar imagem de fundo personalizada se disponível
+    $coverImage = !empty($customization['cover_image_url']) ? htmlspecialchars($customization['cover_image_url']) : '';
     
     // Cores personalizadas - garantir que sejam válidas
     $primaryColor = !empty($customization['primary_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['primary_color']) 
@@ -439,8 +439,33 @@ try {
         }
         
         .decorator-hero {
+            <?php if (!empty($coverImage)): ?>
+            background-image: url('<?php echo $coverImage; ?>');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            <?php else: ?>
             background: linear-gradient(135deg, <?php echo $primaryColor; ?> 0%, <?php echo $secondaryColor; ?> 100%);
+            <?php endif; ?>
         }
+        
+        <?php if (!empty($coverImage)): ?>
+        .decorator-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 100%);
+            z-index: 1;
+        }
+        .decorator-hero > * {
+            position: relative;
+            z-index: 2;
+        }
+        <?php endif; ?>
         
         .btn-primary {
             background: var(--primary-color);
@@ -487,7 +512,7 @@ try {
                     <a href="#contatos" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
                         <i class="fas fa-phone mr-2"></i>Contatos
                     </a>
-                    <a href="<?php echo $baseUrl; ?>pages/carrinho-cliente.html" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
+                    <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="nav-link text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium relative">
                         <i class="fas fa-shopping-cart mr-2"></i>Carrinho
                         <span class="cart-badge absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                     </a>
@@ -514,7 +539,7 @@ try {
                             <a href="<?php echo $baseUrl; ?>pages/login.html?return=<?php echo urlencode($_SERVER['REQUEST_URI']); ?>" id="login-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200">
                                 <i class="fas fa-sign-in-alt mr-3"></i>Login
                             </a>
-                            <a href="<?php echo $baseUrl; ?>pages/minhas-compras.html" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
+                            <a href="/<?php echo htmlspecialchars($slug); ?>/minhas-compras" id="minhas-compras-menu-item" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
                                 <i class="fas fa-shopping-bag mr-3"></i>Minhas Compras
                             </a>
                             <a href="#" id="painel-admin-link" class="dropdown-item flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 hidden">
@@ -553,7 +578,7 @@ try {
                 <a href="#contatos" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-phone mr-3"></i>Contatos
                 </a>
-                <a href="<?php echo $baseUrl; ?>pages/carrinho-cliente.html" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
+                <a href="/<?php echo htmlspecialchars($slug); ?>/carrinho" class="mobile-nav-link block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 rounded-lg">
                     <i class="fas fa-shopping-cart mr-3"></i>Carrinho
                 </a>
             </div>
@@ -578,7 +603,7 @@ try {
                         </p>
                     <?php endif; ?>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
-                        <a href="<?php echo $baseUrl; ?>pages/solicitacao-cliente.html?decorador=<?php echo urlencode($slug); ?>" 
+                        <a href="/<?php echo htmlspecialchars($slug); ?>/solicitar" 
                            class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg inline-block text-center">
                             <i class="fas fa-gift mr-2"></i>Solicitar Serviço
                         </a>

@@ -141,14 +141,21 @@ if (empty($baseUrl)) {
     }
     
     if ($projectName) {
+        // Se detectou Up.BaloesV3, substituir por Up.Bal-es
+        if ($projectName === 'Up.BaloesV3') {
+            $projectName = 'Up.Bal-es';
+        }
         $baseUrl = $protocol . '://' . $host . '/' . $projectName . '/';
     } else {
         // Fallback padrão - sempre usar Up.Bal-es
         $baseUrl = $protocol . '://' . $host . '/Up.Bal-es/';
     }
     
-    // Garantir que não há duplicação de caminho
+    // Garantir que não há duplicação de caminho ou localhost
     $baseUrl = preg_replace('#([^:])//+#', '$1/', $baseUrl);
+    // Remover qualquer duplicação de localhost
+    $baseUrl = preg_replace('#localhost/localhost#', 'localhost', $baseUrl);
+    $baseUrl = preg_replace('#(https?://localhost)/localhost#', '$1', $baseUrl);
 }
 $baseUrl = ensureHttps($baseUrl);
 

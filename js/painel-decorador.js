@@ -8305,6 +8305,30 @@ Qualquer dúvida, estou à disposição! 😊`;
                 if (pageDescEl) pageDescEl.value = config.page_description || '';
                 if (welcomeTextEl) welcomeTextEl.value = config.welcome_text || '';
                 
+                // Carregar configuração de imagem de fundo
+                const heroImageUrlEl = document.getElementById('decorator-hero-image-url');
+                const heroBackgroundTypeColor = document.getElementById('hero-background-color');
+                const heroBackgroundTypeImage = document.getElementById('hero-background-image');
+                const heroImageUrlContainer = document.getElementById('hero-image-url-container');
+                
+                // Verificar se há imagem de fundo configurada
+                const coverImageUrl = config.cover_image_url || '';
+                if (coverImageUrl && coverImageUrl.trim() !== '') {
+                    // Usar imagem
+                    if (heroBackgroundTypeImage) heroBackgroundTypeImage.checked = true;
+                    if (heroImageUrlEl) heroImageUrlEl.value = coverImageUrl;
+                    if (heroImageUrlContainer) heroImageUrlContainer.classList.remove('hidden');
+                    updateHeroImagePreview(coverImageUrl);
+                } else {
+                    // Usar cor (padrão)
+                    if (heroBackgroundTypeColor) heroBackgroundTypeColor.checked = true;
+                    if (heroImageUrlContainer) heroImageUrlContainer.classList.add('hidden');
+                }
+                
+                // Configurar eventos de toggle
+                setupHeroBackgroundToggle();
+                setupHeroImageUpload();
+                
                 // Preencher contatos
                 const contactEmailEl = document.getElementById('decorator-contact-email');
                 const contactWhatsappEl = document.getElementById('decorator-contact-whatsapp');
@@ -8327,6 +8351,8 @@ Qualquer dúvida, estou à disposição! 😊`;
                 setupDecoratorCustomizationTabs();
                 setupDecoratorCharCounters();
                 setupSaveButton();
+                setupHeroBackgroundToggle();
+                setupHeroImageUpload();
                 console.log('Eventos configurados com sucesso');
             }, 200);
             
@@ -8370,12 +8396,21 @@ Qualquer dúvida, estou à disposição! 😊`;
                 const formData = new FormData(form);
                 
                 // Coletar dados do formulário
+                const heroBackgroundType = formData.get('hero_background_type') || 'color';
+                const heroImageUrl = formData.get('hero_image_url') || '';
+                
+                // Determinar cover_image_url baseado no tipo selecionado
+                let coverImageUrl = '';
+                if (heroBackgroundType === 'image' && heroImageUrl && heroImageUrl.trim() !== '') {
+                    coverImageUrl = heroImageUrl.trim();
+                }
+                
                 const customizationData = {
                     action: 'save_my_page_customization',
                     page_title: formData.get('page_title'),
                     page_description: formData.get('page_description'),
                     welcome_text: formData.get('welcome_text'),
-                    cover_image_url: '', // Sempre vazio - usar padrão
+                    cover_image_url: coverImageUrl, // URL da imagem ou vazio para usar cor
                     contact_email: formData.get('contact_email'),
                     contact_whatsapp: formData.get('contact_whatsapp'),
                     contact_instagram: formData.get('contact_instagram')
@@ -8544,6 +8579,128 @@ Qualquer dúvida, estou à disposição! 😊`;
             }, 300);
         } else {
             console.warn('Slug não encontrado para atualizar preview');
+        }
+    }
+    
+    // Função para configurar toggle entre imagem e cor de fundo
+    function setupHeroBackgroundToggle() {
+        const colorRadio = document.getElementById('hero-background-color');
+        const imageRadio = document.getElementById('hero-background-image');
+        const imageContainer = document.getElementById('hero-image-url-container');
+        
+        if (!colorRadio || !imageRadio || !imageContainer) {
+            return;
+        }
+        
+        function toggleImageContainer() {
+            if (imageRadio.checked) {
+                imageContainer.classList.remove('hidden');
+            } else {
+                imageContainer.classList.add('hidden');
+            }
+        }
+        
+        colorRadio.addEventListener('change', toggleImageContainer);
+        imageRadio.addEventListener('change', toggleImageContainer);
+        
+        // Inicializar estado
+        toggleImageContainer();
+    }
+    
+    // Função para configurar upload e preview de imagem
+    function setupHeroImageUpload() {
+        const imageUrlInput = document.getElementById('decorator-hero-image-url');
+        const imageUploadInput = document.getElementById('decorator-hero-image-upload');
+        const imagePreview = document.getElementById('hero-image-preview');
+        const previewContainer = document.getElementById('hero-image-preview-container');
+        const removeBtn = document.getElementById('remove-hero-image');
+        
+        if (!imageUrlInput || !imageUploadInput || !imagePreview || !previewContainer) {
+            return;
+        }
+        
+        // Atualizar preview quando URL mudar
+        imageUrlInput.addEventListener('input', function() {
+            const url = this.value.trim();
+            if (url) {
+                updateHeroImagePreview(url);
+            } else {
+                previewContainer.classList.add('hidden');
+            }
+        });
+        
+        // Upload de arquivo
+        imageUploadInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Validar tamanho (máx 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showNotification('Imagem muito grande. Máximo de 5MB.', 'error');
+                this.value = '';
+                return;
+            }
+            
+            // Validar tipo
+            if (!file.type.match('image.*')) {
+                showNotification('Por favor, selecione uma imagem válida.', 'error');
+                this.value = '';
+                return;
+            }
+            
+            // Criar preview local
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                updateHeroImagePreview(e.target.result);
+                // Também preencher o campo de URL com o data URL temporário
+                // (em produção, você deve fazer upload para o servidor primeiro)
+                imageUrlInput.value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            
+            // TODO: Fazer upload para o servidor e obter URL real
+            // Por enquanto, usar data URL como preview
+        });
+        
+        // Remover imagem
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                imageUrlInput.value = '';
+                imageUploadInput.value = '';
+                previewContainer.classList.add('hidden');
+                // Voltar para cor de fundo
+                const colorRadio = document.getElementById('hero-background-color');
+                if (colorRadio) {
+                    colorRadio.checked = true;
+                    const imageContainer = document.getElementById('hero-image-url-container');
+                    if (imageContainer) {
+                        imageContainer.classList.add('hidden');
+                    }
+                }
+            });
+        }
+    }
+    
+    // Função para atualizar preview da imagem
+    function updateHeroImagePreview(imageUrl) {
+        const imagePreview = document.getElementById('hero-image-preview');
+        const previewContainer = document.getElementById('hero-image-preview-container');
+        
+        if (!imagePreview || !previewContainer) {
+            return;
+        }
+        
+        if (imageUrl && imageUrl.trim() !== '') {
+            imagePreview.src = imageUrl;
+            imagePreview.onerror = function() {
+                showNotification('Erro ao carregar imagem. Verifique se a URL está correta.', 'error');
+                previewContainer.classList.add('hidden');
+            };
+            imagePreview.onload = function() {
+                previewContainer.classList.remove('hidden');
+            };
+        } else {
+            previewContainer.classList.add('hidden');
         }
     }
     

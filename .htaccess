@@ -19,6 +19,19 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} !^/Up\.Bal-es/(pages|services|css|js|Images|utils|database|uploads)/
 RewriteCond %{REQUEST_URI} !^/Up\.Bal-es/.*\.(html|php|css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$
 
+# Rotas amigáveis para páginas do decorador
+# IMPORTANTE: Estas regras funcionam para URLs como /Up.Bal-es/slug/rota
+
+# Rotas específicas do decorador (devem vir antes da regra geral do slug)
+# /{slug}/carrinho -> services/carrinho.php?slug={slug}
+RewriteRule ^([a-zA-Z0-9-]+)/carrinho/?$ services/carrinho.php?slug=$1 [L,QSA]
+
+# /{slug}/solicitar -> services/solicitacao.php?slug={slug}
+RewriteRule ^([a-zA-Z0-9-]+)/solicitar/?$ services/solicitacao.php?slug=$1 [L,QSA]
+
+# /{slug}/minhas-compras -> services/minhas-compras.php?slug={slug}
+RewriteRule ^([a-zA-Z0-9-]+)/minhas-compras/?$ services/minhas-compras.php?slug=$1 [L,QSA]
+
 # Redireciona slugs de decoradores para 'pagina-decorador.php'
 # Aceita apenas letras, números e hífens (slug válido)
 # IMPORTANTE: Esta regra funciona para URLs como /Up.Bal-es/slug

@@ -1,0 +1,521 @@
+<?php
+/**
+ * Página de Carrinho - Up.Baloes
+ * Versão PHP dinâmica com contexto do decorador
+ */
+
+// Permitir carregamento em iframe do mesmo domínio (para preview)
+header('X-Frame-Options: SAMEORIGIN');
+// Definir Content-Type como HTML (não JSON)
+header('Content-Type: text/html; charset=utf-8');
+
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/decorador-service.php';
+
+// Função auxiliar para garantir URL base correta
+function getCorrectBaseUrl() {
+    global $urls;
+    
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    
+    // Lista de projetos conhecidos (priorizar Up.Bal-es)
+    $knownProjects = ['Up.Bal-es', 'Up.BaloesV3', 'Up.Baloes'];
+    
+    // Tentar detectar do SCRIPT_NAME primeiro (mais confiável)
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (preg_match('#^/([^/]+)#', $scriptName, $matches)) {
+        $projectName = $matches[1];
+        
+        // Se detectou Up.BaloesV3, substituir por Up.Bal-es
+        if ($projectName === 'Up.BaloesV3') {
+            $base = $protocol . '://' . $host . '/Up.Bal-es/';
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            return $base;
+        }
+        
+        // Se for um projeto conhecido, usar ele (priorizar Up.Bal-es)
+        if (in_array($projectName, $knownProjects)) {
+            if ($projectName === 'Up.Bal-es') {
+                $base = $protocol . '://' . $host . '/Up.Bal-es/';
+                $base = preg_replace('#([^:])//+#', '$1/', $base);
+                return $base;
+            }
+            $base = $protocol . '://' . $host . '/' . $projectName . '/';
+            $base = preg_replace('#([^:])//+#', '$1/', $base);
+            return $base;
+        }
+    }
+    
+    // Fallback padrão - sempre usar Up.Bal-es
+    $base = $protocol . '://' . $host . '/Up.Bal-es/';
+    return $base;
+}
+
+// Obter slug da URL
+$slug = $_GET['slug'] ?? '';
+
+// Se não houver slug, redirecionar para index
+if (empty($slug)) {
+    $baseUrl = getCorrectBaseUrl();
+    header('Location: ' . $baseUrl . 'index.html');
+    exit;
+}
+
+try {
+    // Buscar dados do decorador
+    $decoratorService = new DecoratorService($database_config);
+    $result = $decoratorService->getDecoratorBySlug($slug);
+    
+    if (!$result['success']) {
+        http_response_code(404);
+        $baseUrl = getCorrectBaseUrl();
+        ?>
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Decorador não encontrado - Up.Baloes</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-50">
+            <div class="min-h-screen flex items-center justify-center px-4">
+                <div class="max-w-md w-full text-center">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-4">Decorador não encontrado</h1>
+                    <p class="text-gray-600 mb-8">O decorador que você está procurando não foi encontrado.</p>
+                    <a href="<?php echo $baseUrl; ?>index.html" 
+                       class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                        Voltar para o Início
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
+    
+    $data = $result['data'];
+    $decorator = $data['decorator'];
+    $customization = $data['customization'] ?? [];
+    
+    // Cores personalizadas
+    $primaryColor = !empty($customization['primary_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['primary_color']) 
+        ? $customization['primary_color'] : '#667eea';
+    $secondaryColor = !empty($customization['secondary_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['secondary_color']) 
+        ? $customization['secondary_color'] : '#764ba2';
+    $accentColor = !empty($customization['accent_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $customization['accent_color']) 
+        ? $customization['accent_color'] : '#f59e0b';
+    
+    $decoratorId = $decorator['id'];
+    $decoratorName = $decorator['name'] ?? $decorator['nome'] ?? 'Decorador';
+    
+    // Base URL para assets
+    $baseUrl = getCorrectBaseUrl();
+    
+} catch (Exception $e) {
+    error_log("Erro ao carregar página do carrinho: " . $e->getMessage());
+    http_response_code(500);
+    $baseUrl = getCorrectBaseUrl();
+    ?>
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erro - Up.Baloes</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-50">
+        <div class="min-h-screen flex items-center justify-center px-4">
+            <div class="max-w-md w-full text-center">
+                <h1 class="text-3xl font-bold text-gray-900 mb-4">Erro ao carregar página</h1>
+                <p class="text-gray-600 mb-8">Ocorreu um erro ao carregar a página. Tente novamente mais tarde.</p>
+                <a href="<?php echo $baseUrl; ?>index.html" 
+                   class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                    Voltar para o Início
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrinho - <?php echo htmlspecialchars($decoratorName); ?> - Up.Baloes</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="<?php echo $baseUrl; ?>Images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="<?php echo $baseUrl; ?>Images/favicon.ico">
+    <link rel="apple-touch-icon" href="<?php echo $baseUrl; ?>Images/favicon.ico">
+    
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- TailwindCSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- CSS personalizado -->
+    <link rel="stylesheet" href="<?php echo $baseUrl; ?>css/estilos.css">
+    
+    <style>
+        :root {
+            --primary-color: <?php echo $primaryColor; ?>;
+            --secondary-color: <?php echo $secondaryColor; ?>;
+            --accent-color: <?php echo $accentColor; ?>;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    
+    <!-- Navbar -->
+    <nav class="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                            <img src="<?php echo $baseUrl; ?>Images/Logo System.jpeg" alt="Up.Baloes Logo" class="w-full h-full object-cover rounded-full">
+                        </div>
+                        <span class="text-xl font-bold text-gray-800">Up.Baloes</span>
+                    </a>
+                </div>
+                
+                <!-- Menu -->
+                <div class="flex items-center space-x-4">
+                    <a href="/<?php echo htmlspecialchars($slug); ?>" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-home mr-2"></i>Início
+                    </a>
+                    <a href="/<?php echo htmlspecialchars($slug); ?>#portfolio" class="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium">
+                        <i class="fas fa-briefcase mr-2"></i>Portfólio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-shopping-cart mr-3 text-blue-600"></i>Meu Carrinho
+                </h1>
+                <p class="text-base sm:text-lg md:text-xl text-gray-600">
+                    Revise seus itens selecionados antes de confirmar a solicitação
+                </p>
+            </div>
+
+            <!-- Conteúdo do Carrinho -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Lista de Itens -->
+                <div class="lg:col-span-2">
+                    <!-- Itens do Portfólio -->
+                    <div id="portfolio-items-section" class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4 sm:mb-6 flex items-center">
+                            <i class="fas fa-briefcase mr-2 sm:mr-3 text-purple-600"></i>
+                            Itens do Portfólio
+                        </h2>
+                        <div id="portfolio-items-list" class="space-y-4">
+                            <!-- Itens serão carregados dinamicamente aqui -->
+                        </div>
+                        <div id="empty-portfolio-items" class="text-center py-8 sm:py-12 hidden">
+                            <i class="fas fa-shopping-bag text-4xl sm:text-6xl text-gray-300 mb-3 sm:mb-4"></i>
+                            <p class="text-gray-500 text-base sm:text-lg mb-3 sm:mb-4">Nenhum item do portfólio selecionado</p>
+                            <a href="/<?php echo htmlspecialchars($slug); ?>#portfolio" class="inline-block text-sm sm:text-base text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-arrow-left mr-2"></i>Voltar ao Portfólio
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Orçamentos Personalizados -->
+                    <div id="custom-quotes-section" class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 mb-4 sm:mb-6 flex items-center">
+                            <i class="fas fa-file-invoice-dollar mr-2 sm:mr-3 text-green-600"></i>
+                            Orçamentos Personalizados
+                        </h2>
+                        <div id="custom-quotes-list" class="space-y-4">
+                            <!-- Orçamentos serão carregados dinamicamente aqui -->
+                        </div>
+                        <div id="empty-custom-quotes" class="text-center py-8 sm:py-12 hidden">
+                            <i class="fas fa-file-invoice text-4xl sm:text-6xl text-gray-300 mb-3 sm:mb-4"></i>
+                            <p class="text-gray-500 text-base sm:text-lg">Nenhum orçamento personalizado</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumo e Ações -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:sticky lg:top-24">
+                        <h2 class="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6">Resumo</h2>
+                        
+                        <!-- Totais -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex justify-between text-gray-600">
+                                <span>Itens:</span>
+                                <span id="total-items" class="font-medium">0</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600">
+                                <span>Subtotal:</span>
+                                <span id="subtotal" class="font-medium">R$ 0,00</span>
+                            </div>
+                            <hr class="border-gray-200">
+                            <div class="flex justify-between text-xl font-bold text-gray-800">
+                                <span>Total:</span>
+                                <span id="total-price" class="text-blue-600">R$ 0,00</span>
+                            </div>
+                        </div>
+
+                        <!-- Botão Confirmar -->
+                        <button id="confirm-request-btn" 
+                                class="w-full px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                disabled>
+                            <i class="fas fa-check-circle mr-2"></i><span class="hidden sm:inline">Confirmar Solicitação de Serviço</span><span class="sm:hidden">Confirmar</span>
+                        </button>
+
+                        <!-- Aviso -->
+                        <p class="text-xs text-gray-500 mt-3 sm:mt-4 text-center">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <span class="hidden sm:inline">Você precisará preencher informações adicionais na próxima etapa</span>
+                            <span class="sm:hidden">Preencha os dados na próxima etapa</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de Confirmação de Solicitação -->
+    <div id="confirm-request-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-2 sm:p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <!-- Header do Modal -->
+            <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 rounded-t-xl flex justify-between items-center">
+                <h2 class="text-xl sm:text-2xl font-bold">
+                    <i class="fas fa-clipboard-list mr-2"></i>Confirmar Solicitação
+                </h2>
+                <button id="close-modal-btn" class="text-white hover:text-gray-200 transition-colors">
+                    <i class="fas fa-times text-xl sm:text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Formulário -->
+            <form id="request-form" class="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <!-- Campo hidden com decorator_id -->
+                <input type="hidden" id="decorator-id" name="decorator_id" value="<?php echo htmlspecialchars($decoratorId); ?>">
+                <input type="hidden" id="decorator-slug" name="decorator_slug" value="<?php echo htmlspecialchars($slug); ?>">
+                
+                <!-- Dados do Cliente -->
+                <div class="border-b border-gray-200 pb-4 sm:pb-6">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                        <i class="fas fa-user mr-2 text-blue-600"></i>
+                        Dados do Cliente
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                            <label for="modal-client-name" class="block text-sm font-medium text-gray-700 mb-2">
+                                Nome Completo *
+                            </label>
+                            <input type="text" id="modal-client-name" name="client_name" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label for="modal-client-email" class="block text-sm font-medium text-gray-700 mb-2">
+                                Email *
+                            </label>
+                            <input type="email" id="modal-client-email" name="client_email" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label for="modal-client-phone" class="block text-sm font-medium text-gray-700 mb-2">
+                                Telefone
+                            </label>
+                            <input type="tel" id="modal-client-phone" name="client_phone"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="(11) 99999-9999">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dados do Evento -->
+                <div class="border-b border-gray-200 pb-4 sm:pb-6">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                        <i class="fas fa-calendar-alt mr-2 text-purple-600"></i>
+                        Dados do Evento
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <!-- Calendário de Disponibilidade -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Selecione uma Data Disponível *
+                            </label>
+                            <div id="availability-calendar" class="bg-gray-50 rounded-lg p-4 border border-gray-300">
+                                <div class="flex items-center justify-between mb-4">
+                                    <button type="button" id="prev-month" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h4 id="calendar-month-year" class="text-base font-semibold text-gray-800"></h4>
+                                    <button type="button" id="next-month" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                                    <!-- Dias da semana -->
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Dom</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Seg</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Ter</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Qua</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Qui</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Sex</div>
+                                    <div class="text-center text-xs font-semibold text-gray-600 py-2">Sáb</div>
+                                    <!-- Dias do mês serão inseridos aqui dinamicamente -->
+                                </div>
+                                <input type="hidden" id="modal-event-date" name="event_date" required>
+                                <div id="calendar-loading" class="text-center py-4 text-gray-500 text-sm hidden">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Carregando disponibilidade...
+                                </div>
+                                <div id="calendar-error" class="text-center py-4 text-red-500 text-sm hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- Horários Disponíveis -->
+                        <div id="available-times-container" class="hidden">
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Selecione um Horário Disponível *
+                            </label>
+                            <div id="available-times-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                <!-- Horários serão inseridos aqui dinamicamente -->
+                            </div>
+                            <input type="hidden" id="modal-event-time" name="event_time" required>
+                            <div id="times-loading" class="text-center py-4 text-gray-500 text-sm hidden">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Carregando horários...
+                            </div>
+                            <div id="times-error" class="text-center py-4 text-red-500 text-sm hidden"></div>
+                        </div>
+
+                        <!-- Campo de data oculto para compatibilidade -->
+                        <div class="hidden">
+                            <input type="date" id="modal-event-date-hidden" name="event_date_hidden">
+                        </div>
+
+                        <!-- Local do Evento -->
+                        <div>
+                            <label for="modal-event-location" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                                Local do Evento *
+                            </label>
+                            <input type="text" id="modal-event-location" name="event_location" required
+                                   class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Endereço completo do evento">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dados do Serviço -->
+                <div class="border-b border-gray-200 pb-4 sm:pb-6">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                        <i class="fas fa-gift mr-2 text-green-600"></i>
+                        Dados do Serviço
+                    </h3>
+                    
+                    <div class="space-y-3 sm:space-y-4">
+                        <div>
+                            <label for="modal-service-type" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                                Tipo de Serviço *
+                            </label>
+                            <select id="modal-service-type" name="service_type" required
+                                    class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                <option value="">Selecione o tipo de serviço</option>
+                                <option value="arco-tradicional">Arco Tradicional</option>
+                                <option value="arco-desconstruido">Arco Desconstruído</option>
+                                <option value="escultura-balao">Escultura de Balão</option>
+                                <option value="centro-mesa">Centro de Mesa</option>
+                                <option value="baloes-piscina">Balões na Piscina</option>
+                            </select>
+                        </div>
+
+                        <div id="modal-arc-size-container">
+                            <label for="modal-arc-size" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                                <i class="fas fa-ruler mr-2 text-green-600"></i>Tamanho do Arco (metros) *
+                            </label>
+                            <input type="number" id="modal-arc-size" name="tamanho_arco_m" step="0.1" min="0.5" max="30"
+                                   class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                   placeholder="Ex: 2.5">
+                            <p class="text-xs text-gray-500 mt-1">
+                                Informe o tamanho do arco em metros (entre 0.5 e 30 metros)
+                            </p>
+                        </div>
+
+                        <div>
+                            <label for="modal-description" class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Descrição do Evento
+                            </label>
+                            <textarea id="modal-description" name="description" rows="3" sm:rows="4"
+                                      class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                      placeholder="Descreva os detalhes do seu evento e decoração desejada..."></textarea>
+                        </div>
+
+                        <div>
+                            <label for="modal-notes" class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                Observações Adicionais
+                            </label>
+                            <textarea id="modal-notes" name="notes" rows="2" sm:rows="3"
+                                      class="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                      placeholder="Alguma informação adicional que gostaria de compartilhar..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="flex flex-col sm:flex-row gap-4 pt-6">
+                    <button type="button" id="cancel-modal-btn" 
+                            class="flex-1 px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </button>
+                    <button type="submit" id="submit-request-btn"
+                            class="flex-1 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
+                        <i class="fas fa-paper-plane mr-2"></i>Enviar Solicitação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2025 Up.Baloes. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="<?php echo $baseUrl; ?>js/principal.js"></script>
+    <script src="<?php echo $baseUrl; ?>js/carrinho-cliente.js"></script>
+    <script>
+        // Injetar decorator_id e slug no contexto global
+        window.DECORATOR_ID = <?php echo json_encode($decoratorId); ?>;
+        window.DECORATOR_SLUG = <?php echo json_encode($slug); ?>;
+        window.BASE_URL = <?php echo json_encode($baseUrl); ?>;
+    </script>
+</body>
+</html>
+
