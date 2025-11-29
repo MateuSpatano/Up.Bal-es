@@ -84,32 +84,35 @@ class DashboardService {
      */
     private function getKPIs($decoradorId, $dateFrom, $dateTo) {
         try {
-            // Total de festas no período
+            // Total de festas no período (apenas aprovadas/confirmadas)
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
+                AND status = 'aprovado'
                 AND data_evento BETWEEN ? AND ?
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
             $festasTotal = $stmt->fetch()['total'];
             
-            // Festas solicitadas por clientes (criadas via fluxo do cliente)
+            // Festas solicitadas por clientes (criadas via fluxo do cliente) - apenas aprovadas
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
+                AND status = 'aprovado'
                 AND data_evento BETWEEN ? AND ?
                 AND created_via = 'client'
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
             $festasSolicitadasClientes = $stmt->fetch()['total'];
             
-            // Festas criadas pelo decorador (inseridas pelo próprio decorador)
+            // Festas criadas pelo decorador (inseridas pelo próprio decorador) - apenas aprovadas
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
+                AND status = 'aprovado'
                 AND data_evento BETWEEN ? AND ?
                 AND (created_via = 'decorator' OR created_via IS NULL)
             ");
@@ -201,12 +204,14 @@ class DashboardService {
      */
     private function getFestasPorMes($decoradorId) {
         try {
+            // Contar apenas orçamentos aprovados (confirmados) nos gráficos
             $stmt = $this->pdo->prepare("
                 SELECT 
                     DATE_FORMAT(data_evento, '%Y-%m') as mes,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
+                AND status = 'aprovado'
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
                 GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
                 ORDER BY mes ASC
@@ -247,12 +252,14 @@ class DashboardService {
      */
     private function getFestasPorAno($decoradorId) {
         try {
+            // Contar apenas orçamentos aprovados (confirmados) nos gráficos
             $stmt = $this->pdo->prepare("
                 SELECT 
                     YEAR(data_evento) as ano,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
+                AND status = 'aprovado'
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
                 GROUP BY YEAR(data_evento)
                 ORDER BY ano ASC
@@ -293,6 +300,8 @@ class DashboardService {
      */
     private function getProjetosConcluidosParaCustos($decoradorId) {
         try {
+            // Buscar apenas orçamentos aprovados (confirmados) para que o decorador possa inserir despesas
+            // Incluir tanto os que já têm custos quanto os que não têm, para permitir adicionar despesas adicionais
             $stmt = $this->pdo->prepare("
                 SELECT 
                     o.id,
@@ -303,14 +312,17 @@ class DashboardService {
                     o.valor_estimado,
                     o.local_evento,
                     o.descricao,
-                    CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados
+                    o.hora_evento,
+                    CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
+                    COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
+                    COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
+                    COALESCE(pc.custos_diversos, 0) as custos_diversos
                 FROM orcamentos o
                 LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
                 WHERE o.decorador_id = ? 
                 AND o.status = 'aprovado'
-                AND (pc.id IS NULL OR pc.id IS NOT NULL)
-                ORDER BY o.data_evento DESC
-                LIMIT 20
+                ORDER BY o.data_evento DESC, o.hora_evento DESC
+                LIMIT 50
             ");
             $stmt->execute([$decoradorId]);
             $results = $stmt->fetchAll();
@@ -353,6 +365,21 @@ class DashboardService {
             $stmt->execute([$orcamentoId]);
             $custosExistentes = $stmt->fetch();
             
+            // Calcular valores derivados
+            $custoTotalMateriais = (float) ($dadosCustos['custo_total_materiais'] ?? 0);
+            $custoTotalMaoObra = (float) ($dadosCustos['custo_total_mao_de_obra'] ?? 0);
+            $custosDiversos = (float) ($dadosCustos['custos_diversos'] ?? 0);
+            $precoVenda = (float) $orcamento['valor_estimado'];
+            
+            // Calcular custo total do projeto
+            $custoTotalProjeto = $custoTotalMateriais + $custoTotalMaoObra + $custosDiversos;
+            
+            // Calcular lucro real líquido
+            $lucroRealLiquido = $precoVenda - $custoTotalProjeto;
+            
+            // Calcular margem de lucro percentual
+            $margemLucroPercentual = $precoVenda > 0 ? (($lucroRealLiquido / $precoVenda) * 100) : 0;
+            
             if ($custosExistentes) {
                 // Atualizar custos existentes
                 $stmt = $this->pdo->prepare("
@@ -361,14 +388,20 @@ class DashboardService {
                         custo_total_materiais = ?,
                         custo_total_mao_de_obra = ?,
                         custos_diversos = ?,
+                        custo_total_projeto = ?,
+                        lucro_real_liquido = ?,
+                        margem_lucro_percentual = ?,
                         observacoes = ?,
                         updated_at = NOW()
                     WHERE orcamento_id = ?
                 ");
                 $stmt->execute([
-                    $dadosCustos['custo_total_materiais'],
-                    $dadosCustos['custo_total_mao_de_obra'],
-                    $dadosCustos['custos_diversos'],
+                    $custoTotalMateriais,
+                    $custoTotalMaoObra,
+                    $custosDiversos,
+                    $custoTotalProjeto,
+                    $lucroRealLiquido,
+                    $margemLucroPercentual,
                     $dadosCustos['observacoes'] ?? '',
                     $orcamentoId
                 ]);
@@ -379,15 +412,20 @@ class DashboardService {
                 $stmt = $this->pdo->prepare("
                     INSERT INTO projeto_custos (
                         orcamento_id, preco_venda, custo_total_materiais, 
-                        custo_total_mao_de_obra, custos_diversos, observacoes
-                    ) VALUES (?, ?, ?, ?, ?, ?)
+                        custo_total_mao_de_obra, custos_diversos, 
+                        custo_total_projeto, lucro_real_liquido, margem_lucro_percentual,
+                        observacoes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $orcamentoId,
-                    $orcamento['valor_estimado'],
-                    $dadosCustos['custo_total_materiais'],
-                    $dadosCustos['custo_total_mao_de_obra'],
-                    $dadosCustos['custos_diversos'],
+                    $precoVenda,
+                    $custoTotalMateriais,
+                    $custoTotalMaoObra,
+                    $custosDiversos,
+                    $custoTotalProjeto,
+                    $lucroRealLiquido,
+                    $margemLucroPercentual,
                     $dadosCustos['observacoes'] ?? ''
                 ]);
                 
@@ -400,7 +438,9 @@ class DashboardService {
                     pc.*,
                     o.cliente,
                     o.data_evento,
-                    o.tipo_servico
+                    o.tipo_servico,
+                    o.local_evento,
+                    o.valor_estimado
                 FROM projeto_custos pc
                 INNER JOIN orcamentos o ON pc.orcamento_id = o.id
                 WHERE pc.orcamento_id = ?
@@ -430,6 +470,7 @@ class DashboardService {
         try {
             $decoradorId = $_SESSION['user_id'] ?? 1;
             
+            // Buscar apenas orçamentos aprovados (confirmados) para permitir inserir despesas
             $stmt = $this->pdo->prepare("
                 SELECT 
                     o.id,
@@ -439,18 +480,21 @@ class DashboardService {
                     o.tipo_servico,
                     o.local_evento,
                     o.descricao,
-                    pc.custo_total_materiais,
-                    pc.custo_total_mao_de_obra,
-                    pc.custos_diversos,
-                    pc.custo_total_projeto,
-                    pc.lucro_real_liquido,
-                    pc.margem_lucro_percentual,
-                    pc.observacoes,
+                    o.hora_evento,
+                    COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
+                    COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
+                    COALESCE(pc.custos_diversos, 0) as custos_diversos,
+                    COALESCE(pc.custo_total_projeto, 0) as custo_total_projeto,
+                    COALESCE(pc.lucro_real_liquido, 0) as lucro_real_liquido,
+                    COALESCE(pc.margem_lucro_percentual, 0) as margem_lucro_percentual,
+                    COALESCE(pc.observacoes, '') as observacoes,
                     pc.created_at,
                     pc.updated_at
                 FROM orcamentos o
                 LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
-                WHERE o.id = ? AND o.decorador_id = ?
+                WHERE o.id = ? 
+                AND o.decorador_id = ?
+                AND o.status = 'aprovado'
             ");
             $stmt->execute([$orcamentoId, $decoradorId]);
             $projeto = $stmt->fetch();
@@ -458,7 +502,7 @@ class DashboardService {
             if (!$projeto) {
                 return [
                     'success' => false,
-                    'message' => 'Projeto não encontrado.'
+                    'message' => 'Projeto não encontrado ou não está aprovado.'
                 ];
             }
             

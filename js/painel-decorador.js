@@ -1026,10 +1026,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ${valorFormatado}
                                 </div>
                             </div>
-                            <div class="mt-2 text-sm text-gray-600">
-                                <i class="fas fa-map-marker-alt mr-1"></i>
-                                ${projeto.local_evento}
-                            </div>
+                            ${projeto.local_evento ? `
+                                <div class="mt-2 text-sm text-gray-600">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>
+                                    ${projeto.local_evento}
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="flex items-center space-x-2 ml-4">
                             <button onclick="openCostModal(${projeto.id})" 
