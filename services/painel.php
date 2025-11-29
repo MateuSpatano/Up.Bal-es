@@ -50,6 +50,10 @@ class DashboardService {
         try {
             $decoradorId = $_SESSION['user_id'] ?? 1;
             
+            // Log para debug
+            error_log('getDashboardData: Decorador ID da sessão = ' . ($_SESSION['user_id'] ?? 'não definido'));
+            error_log('getDashboardData: Decorador ID usado = ' . $decoradorId);
+            
             // Definir período padrão (mês atual)
             $dateFrom = $filters['date_from'] ?? date('Y-m-01');
             $dateTo = $filters['date_to'] ?? date('Y-m-t');
@@ -63,15 +67,23 @@ class DashboardService {
             // Obter projetos concluídos para lançamento de custos
             $projetosConcluidos = $this->getProjetosConcluidosParaCustos($decoradorId);
             
+            // Log para debug
+            error_log('getDashboardData: Retornando ' . count($projetosConcluidos) . ' projeto(s) concluído(s)');
+            
             return [
                 'success' => true,
                 'kpis' => $kpis,
                 'series' => $series,
-                'projetos_concluidos' => $projetosConcluidos
+                'projetos_concluidos' => $projetosConcluidos,
+                'debug' => [
+                    'decorador_id' => $decoradorId,
+                    'projetos_count' => count($projetosConcluidos)
+                ]
             ];
             
         } catch (Exception $e) {
             error_log('Erro ao obter dados do dashboard: ' . $e->getMessage());
+            error_log('Erro ao obter dados do dashboard: Stack trace - ' . $e->getTraceAsString());
             return [
                 'success' => false,
                 'message' => 'Erro interno do servidor.'
@@ -300,8 +312,12 @@ class DashboardService {
      */
     private function getProjetosConcluidosParaCustos($decoradorId) {
         try {
+            // Log para debug
+            error_log('getProjetosConcluidosParaCustos: Decorador ID = ' . $decoradorId);
+            
             // Buscar apenas orçamentos aprovados (confirmados) para que o decorador possa inserir despesas
             // Incluir tanto os que já têm custos quanto os que não têm, para permitir adicionar despesas adicionais
+            // Buscar orçamentos aprovados (comparação case-insensitive)
             $stmt = $this->pdo->prepare("
                 SELECT 
                     o.id,
@@ -313,6 +329,8 @@ class DashboardService {
                     o.local_evento,
                     o.descricao,
                     o.hora_evento,
+                    o.status,
+                    o.decorador_id,
                     CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
                     COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
                     COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
@@ -320,17 +338,38 @@ class DashboardService {
                 FROM orcamentos o
                 LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
                 WHERE o.decorador_id = ? 
-                AND o.status = 'aprovado'
+                AND LOWER(TRIM(o.status)) = 'aprovado'
                 ORDER BY o.data_evento DESC, o.hora_evento DESC
                 LIMIT 50
             ");
             $stmt->execute([$decoradorId]);
             $results = $stmt->fetchAll();
             
+            // Log para debug
+            error_log('getProjetosConcluidosParaCustos: Encontrados ' . count($results) . ' projeto(s) aprovado(s)');
+            
+            // Se não encontrou nenhum, verificar se há orçamentos com outros status ou sem filtro de decorador
+            if (count($results) === 0) {
+                // Verificar quantos orçamentos existem para este decorador
+                $stmtCount = $this->pdo->prepare("
+                    SELECT COUNT(*) as total, 
+                           SUM(CASE WHEN status = 'aprovado' THEN 1 ELSE 0 END) as aprovados,
+                           GROUP_CONCAT(DISTINCT status) as status_list
+                    FROM orcamentos 
+                    WHERE decorador_id = ?
+                ");
+                $stmtCount->execute([$decoradorId]);
+                $countResult = $stmtCount->fetch();
+                error_log('getProjetosConcluidosParaCustos: Total de orçamentos para decorador ' . $decoradorId . ': ' . ($countResult['total'] ?? 0));
+                error_log('getProjetosConcluidosParaCustos: Aprovados: ' . ($countResult['aprovados'] ?? 0));
+                error_log('getProjetosConcluidosParaCustos: Status encontrados: ' . ($countResult['status_list'] ?? 'nenhum'));
+            }
+            
             return $results;
             
         } catch (Exception $e) {
             error_log('Erro ao obter projetos concluídos: ' . $e->getMessage());
+            error_log('Erro ao obter projetos concluídos: Stack trace - ' . $e->getTraceAsString());
             return [];
         }
     }

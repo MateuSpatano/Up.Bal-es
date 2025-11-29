@@ -943,10 +943,21 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.projetos_concluidos) {
-                projetosConcluidos = data.projetos_concluidos;
-                renderProjetosConcluidos();
+            console.log('Resposta do servidor (loadProjetosConcluidos):', data);
+            
+            if (data.success) {
+                if (data.projetos_concluidos && Array.isArray(data.projetos_concluidos)) {
+                    projetosConcluidos = data.projetos_concluidos;
+                    console.log('Projetos concluídos carregados:', projetosConcluidos.length, 'projeto(s)');
+                    console.log('Detalhes dos projetos:', projetosConcluidos);
+                    renderProjetosConcluidos();
+                } else {
+                    console.warn('Nenhum projeto concluído retornado ou formato inválido');
+                    projetosConcluidos = [];
+                    renderProjetosConcluidos();
+                }
             } else {
+                console.error('Erro ao carregar projetos:', data.message);
                 showProjetosConcluidosError(data.message || 'Erro ao carregar projetos.');
             }
         })
