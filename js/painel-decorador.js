@@ -688,6 +688,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Carregar dados do dashboard
         loadDashboardKPIs();
+        
+        // Carregar projetos concluídos separadamente
+        loadProjetosConcluidos();
     }
     
     // ========== FUNCIONALIDADES DO DASHBOARD ==========
@@ -725,8 +728,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 console.log('KPIs recebidos:', data.kpis);
                 console.log('Projetos concluídos:', data.projetos_concluidos?.length || 0);
+                console.log('Festas por mês:', data.series?.festas_por_mes_12m?.length || 0);
                 updateKPIs(data.kpis);
                 updateCharts(data.series);
+                
+                // Atualizar projetos concluídos se vierem na resposta
+                if (data.projetos_concluidos && Array.isArray(data.projetos_concluidos)) {
+                    projetosConcluidos = data.projetos_concluidos;
+                    renderProjetosConcluidos();
+                }
+                
                 hideDashboardLoading();
             } else {
                 console.error('Erro ao carregar dashboard:', data.message);
@@ -773,11 +784,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateFestasPorMesChart(data) {
-        const ctx = document.getElementById('chart-festas-mes').getContext('2d');
+        const chartElement = document.getElementById('chart-festas-mes');
+        if (!chartElement) {
+            console.warn('Elemento chart-festas-mes não encontrado');
+            return;
+        }
+        
+        const ctx = chartElement.getContext('2d');
         
         // Destruir gráfico anterior se existir
         if (dashboardCharts.festasMes) {
             dashboardCharts.festasMes.destroy();
+        }
+        
+        console.log('Atualizando gráfico de festas por mês com', data.length, 'meses');
+        
+        // Se não houver dados, criar array vazio com 12 meses
+        if (!data || data.length === 0) {
+            console.warn('Nenhum dado de festas por mês recebido, criando array vazio');
+            data = [];
+            for (let i = 11; i >= 0; i--) {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                data.push({ mes: `${year}-${month}`, total: 0 });
+            }
         }
         
         const labels = data.map(item => {
@@ -787,7 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return `${monthNames[parseInt(month) - 1]}/${year.slice(-2)}`;
         });
         
-        const values = data.map(item => item.total);
+        const values = data.map(item => item.total || 0);
         
         dashboardCharts.festasMes = new Chart(ctx, {
             type: 'bar',
@@ -2244,15 +2276,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!form) return;
         
-        const currentPassword = document.getElementById('account-current-password-inline');
         const newPassword = document.getElementById('account-new-password-inline');
         const confirmPassword = document.getElementById('account-confirm-password-inline');
         
         // Validar campos
-        // Como o campo de senha atual está bloqueado, não é necessário validá-lo aqui
-        // O campo serve apenas para exibição da senha atual mascarada
-        // A validação da senha atual será feita no backend quando o usuário tentar alterar
-        
         if (!newPassword || !newPassword.value.trim()) {
             showNotification('Nova senha é obrigatória', 'error');
             return;
@@ -2279,21 +2306,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            // Como o campo de senha atual está bloqueado, solicitar ao usuário
-            const actualCurrentPassword = prompt('Para alterar sua senha, digite sua senha atual:');
-            if (!actualCurrentPassword || !actualCurrentPassword.trim()) {
-                showNotification('Senha atual é obrigatória para alterar a senha', 'error');
-                if (saveBtn) {
-                    saveBtn.disabled = false;
-                    saveBtn.classList.remove('btn-loading');
-                }
-                return;
-            }
-            
             const formData = new FormData();
             formData.append('action', 'change_password');
-            formData.append('current_password', actualCurrentPassword.trim());
+            // Não enviar senha atual - o backend irá atualizar sem verificação
             formData.append('new_password', newPassword.value);
+            formData.append('skip_current_password', '1'); // Flag para pular verificação
             
             const response = await fetch('../services/conta.php', {
                 method: 'POST',
@@ -2308,14 +2325,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Resetar apenas os campos de nova senha e confirmação
                 if (newPassword) newPassword.value = '';
                 if (confirmPassword) confirmPassword.value = '';
-                
-                // Manter o campo de senha atual bloqueado com valor mascarado
-                if (currentPassword) {
-                    currentPassword.value = '••••••••';
-                    currentPassword.type = 'password';
-                    currentPassword.setAttribute('readonly', 'readonly');
-                    currentPassword.setAttribute('disabled', 'disabled');
-                }
             } else {
                 showNotification('Erro ao atualizar senha: ' + (result.message || 'Erro desconhecido'), 'error');
             }

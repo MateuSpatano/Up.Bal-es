@@ -447,30 +447,42 @@ function handleProfilePhotoUpload($file, $user_id, $pdo) {
  */
 function handlePasswordChange($data, $user_id, $pdo) {
     try {
+        $skip_current_password = isset($data['skip_current_password']) && $data['skip_current_password'] === '1';
         $current_password = $data['current_password'] ?? '';
         $new_password = $data['new_password'] ?? '';
-        $confirm_password = $data['confirm_password'] ?? '';
+        $confirm_password = $data['confirm_password'] ?? $new_password; // Se não vier, usar new_password
         
-        // Validar dados
-        if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
-            return ['success' => false, 'message' => 'Todos os campos são obrigatórios'];
+        // Validar nova senha
+        if (empty($new_password)) {
+            return ['success' => false, 'message' => 'Nova senha é obrigatória'];
         }
         
-        if ($new_password !== $confirm_password) {
-            return ['success' => false, 'message' => 'As senhas não coincidem'];
+        if (strlen($new_password) < 8) {
+            return ['success' => false, 'message' => 'A nova senha deve ter pelo menos 8 caracteres'];
         }
         
-        if (strlen($new_password) < 6) {
-            return ['success' => false, 'message' => 'A nova senha deve ter pelo menos 6 caracteres'];
+        if (!preg_match('/(?=.*[a-zA-Z])(?=.*\d)/', $new_password)) {
+            return ['success' => false, 'message' => 'A nova senha deve conter pelo menos uma letra e um número'];
         }
         
-        // Verificar senha atual
-        $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ?");
-        $stmt->execute([$user_id]);
-        $user = $stmt->fetch();
-        
-        if (!$user || !password_verify($current_password, $user['senha'])) {
-            return ['success' => false, 'message' => 'Senha atual incorreta'];
+        // Se não estiver pulando a verificação, validar senha atual
+        if (!$skip_current_password) {
+            if (empty($current_password)) {
+                return ['success' => false, 'message' => 'Senha atual é obrigatória'];
+            }
+            
+            if (!empty($confirm_password) && $new_password !== $confirm_password) {
+                return ['success' => false, 'message' => 'As senhas não coincidem'];
+            }
+            
+            // Verificar senha atual
+            $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ?");
+            $stmt->execute([$user_id]);
+            $user = $stmt->fetch();
+            
+            if (!$user || !password_verify($current_password, $user['senha'])) {
+                return ['success' => false, 'message' => 'Senha atual incorreta'];
+            }
         }
         
         // Atualizar senha
