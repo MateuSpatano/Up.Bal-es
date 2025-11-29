@@ -1350,19 +1350,6 @@ document.addEventListener('DOMContentLoaded', function() {
     async function saveAccountData() {
         const formData = new FormData(accountForm);
         
-        // Verificar se há alteração de senha
-        const newPassword = document.getElementById('account-new-password')?.value.trim();
-        const confirmPassword = document.getElementById('account-confirm-password')?.value.trim();
-        
-        // Se houver tentativa de alterar senha, solicitar senha atual (campo está bloqueado)
-        if (newPassword || confirmPassword) {
-            const actualCurrentPassword = prompt('Para alterar sua senha, digite sua senha atual:');
-            if (!actualCurrentPassword || !actualCurrentPassword.trim()) {
-                throw new Error('Senha atual é obrigatória para alterar a senha');
-            }
-            formData.set('current_password', actualCurrentPassword.trim());
-        }
-        
         const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;
         let response;
         let result;
