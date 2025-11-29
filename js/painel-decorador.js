@@ -1552,6 +1552,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function formatDateForDisplay(dateString) {
+        // Garantir que a data seja tratada no fuso horário local
+        // Evitar problemas de conversão UTC que podem causar perda de um dia
+        if (!dateString) return '';
+        
+        // Se a data já estiver no formato YYYY-MM-DD, criar Date no fuso local
+        const dateParts = dateString.split('-');
+        if (dateParts.length === 3) {
+            const year = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10) - 1; // Mês é 0-indexed
+            const day = parseInt(dateParts[2], 10);
+            
+            // Criar data no fuso horário local (não UTC)
+            const date = new Date(year, month, day);
+            
+            return date.toLocaleDateString('pt-BR');
+        }
+        
+        // Fallback para outras formatações
         const date = new Date(dateString);
         return date.toLocaleDateString('pt-BR');
     }
@@ -2980,9 +2998,27 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleBlockedDateSubmit(e) {
         e.preventDefault();
         
+        // Pegar o valor diretamente do input, sem usar FormData para evitar conversões
+        const blockedDateInput = document.getElementById('blocked-date');
+        
+        if (!blockedDateInput) {
+            showNotification('Campo de data não encontrado', 'error');
+            return;
+        }
+        
+        // Pegar o valor diretamente do input type="date" que já retorna YYYY-MM-DD
+        let blockedDate = blockedDateInput.value.trim();
+        
+        // Garantir que a data seja tratada como string no formato YYYY-MM-DD
+        // Sem conversão de fuso horário que pode causar perda de um dia
+        if (blockedDate) {
+            // Remover qualquer parte de hora se existir (não deveria acontecer com input type="date")
+            blockedDate = blockedDate.split('T')[0];
+        }
+        
         const formData = new FormData(e.target);
         const blockedDateData = {
-            blocked_date: formData.get('blocked_date'),
+            blocked_date: blockedDate,
             reason: formData.get('reason') || 'Data bloqueada pelo decorador',
             is_recurring: formData.has('is_recurring')
         };
@@ -2992,6 +3028,16 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('Data é obrigatória', 'error');
             return;
         }
+        
+        // Validar formato da data (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(blockedDateData.blocked_date)) {
+            showNotification('Formato de data inválido', 'error');
+            return;
+        }
+        
+        console.log('Data selecionada pelo usuário:', blockedDateInput.value); // Debug
+        console.log('Data que será enviada:', blockedDateData.blocked_date); // Debug
         
         // Mostrar loading
         const submitBtn = document.getElementById('add-blocked-date-btn');
@@ -3023,6 +3069,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function addBlockedDate(data) {
         try {
+            // Garantir que a data está no formato correto YYYY-MM-DD
+            // Sem conversões que possam causar problemas de fuso horário
+            const blockedDate = data.blocked_date;
+            
+            // Validar formato antes de enviar
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(blockedDate)) {
+                throw new Error('Formato de data inválido. Use YYYY-MM-DD');
+            }
+            
+            console.log('Enviando data bloqueada:', blockedDate); // Debug
+            
             const response = await fetch('../services/datas-bloqueadas.php', {
                 method: 'POST',
                 headers: {
@@ -3030,11 +3087,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     action: 'add',
-                    ...data
+                    blocked_date: blockedDate, // Usar diretamente sem conversões
+                    reason: data.reason,
+                    is_recurring: data.is_recurring
                 })
             });
             
             const result = await response.json();
+            
+            console.log('Resposta do servidor:', result); // Debug
             
             if (!response.ok) {
                 throw new Error(result.message || 'Erro ao bloquear data');
@@ -3155,6 +3216,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function formatDateForDisplay(dateString) {
+        // Garantir que a data seja tratada no fuso horário local
+        // Evitar problemas de conversão UTC que podem causar perda de um dia
+        if (!dateString) return '';
+        
+        // Se a data já estiver no formato YYYY-MM-DD, criar Date no fuso local
+        const dateParts = dateString.split('-');
+        if (dateParts.length === 3) {
+            const year = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10) - 1; // Mês é 0-indexed
+            const day = parseInt(dateParts[2], 10);
+            
+            // Criar data no fuso horário local (não UTC)
+            const date = new Date(year, month, day);
+            
+            return date.toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+        
+        // Fallback para outras formatações
         const date = new Date(dateString);
         return date.toLocaleDateString('pt-BR', {
             weekday: 'long',
