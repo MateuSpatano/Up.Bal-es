@@ -841,6 +841,15 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('account-city').value = userData.city || '';
         document.getElementById('account-state').value = userData.state || '';
         document.getElementById('account-zipcode').value = userData.zipcode || '';
+        
+        // Preencher campo de senha atual com valor mascarado (sempre oculto, bloqueado, sem botão de olho)
+        const currentPasswordField = document.getElementById('account-current-password');
+        if (currentPasswordField) {
+            currentPasswordField.value = '••••••••';
+            currentPasswordField.type = 'password';
+            currentPasswordField.setAttribute('readonly', 'readonly');
+            currentPasswordField.setAttribute('disabled', 'disabled');
+        }
     }
 
     // Resetar formulário
@@ -848,6 +857,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (accountForm) {
             accountForm.reset();
             clearValidationMessages();
+            
+            // Manter o campo de senha atual bloqueado com valor mascarado após reset
+            const currentPasswordField = document.getElementById('account-current-password');
+            if (currentPasswordField) {
+                currentPasswordField.value = '••••••••';
+                currentPasswordField.type = 'password';
+                currentPasswordField.setAttribute('readonly', 'readonly');
+                currentPasswordField.setAttribute('disabled', 'disabled');
+            }
         }
     }
 
@@ -1112,13 +1130,40 @@ document.addEventListener('DOMContentLoaded', function() {
                            this.parentNode.querySelector('input[type="password"], input[type="text"]');
                 }
                 
-                if (input) {
+                // Não permitir toggle no campo de senha atual (bloqueado)
+                if (input && input.id !== 'account-current-password') {
                     togglePasswordVisibility(this, input);
                 }
             });
             
             processedButtons.add(button);
         });
+        
+        // Configurar campo de senha atual (sem botão de olho, sempre oculto, bloqueado)
+        const currentPasswordField = document.getElementById('account-current-password');
+        if (currentPasswordField) {
+            // Garantir que o campo sempre seja do tipo password e bloqueado
+            currentPasswordField.type = 'password';
+            currentPasswordField.setAttribute('readonly', 'readonly');
+            currentPasswordField.setAttribute('disabled', 'disabled');
+            currentPasswordField.value = '••••••••';
+            
+            // Prevenir qualquer tentativa de edição
+            currentPasswordField.addEventListener('keydown', function(e) {
+                e.preventDefault();
+                return false;
+            });
+            
+            currentPasswordField.addEventListener('paste', function(e) {
+                e.preventDefault();
+                return false;
+            });
+            
+            currentPasswordField.addEventListener('cut', function(e) {
+                e.preventDefault();
+                return false;
+            });
+        }
         
         // Configurar botões com classe .password-toggle (usado em reset-password.html e admin.html)
         document.querySelectorAll('.password-toggle').forEach(button => {
@@ -1269,6 +1314,19 @@ document.addEventListener('DOMContentLoaded', function() {
     async function saveAccountData() {
         const formData = new FormData(accountForm);
         
+        // Verificar se há alteração de senha
+        const newPassword = document.getElementById('account-new-password')?.value.trim();
+        const confirmPassword = document.getElementById('account-confirm-password')?.value.trim();
+        
+        // Se houver tentativa de alterar senha, solicitar senha atual (campo está bloqueado)
+        if (newPassword || confirmPassword) {
+            const actualCurrentPassword = prompt('Para alterar sua senha, digite sua senha atual:');
+            if (!actualCurrentPassword || !actualCurrentPassword.trim()) {
+                throw new Error('Senha atual é obrigatória para alterar a senha');
+            }
+            formData.set('current_password', actualCurrentPassword.trim());
+        }
+        
         try {
             const response = await fetch('services/conta.php', {
                 method: 'POST',
@@ -1291,6 +1349,21 @@ document.addEventListener('DOMContentLoaded', function() {
             // Atualizar dados do usuário na interface
             if (result.data) {
                 updateUserInterface(result.data);
+            }
+            
+            // Limpar campos de senha após sucesso
+            const newPasswordField = document.getElementById('account-new-password');
+            const confirmPasswordField = document.getElementById('account-confirm-password');
+            if (newPasswordField) newPasswordField.value = '';
+            if (confirmPasswordField) confirmPasswordField.value = '';
+            
+            // Manter o campo de senha atual bloqueado com valor mascarado
+            const currentPasswordField = document.getElementById('account-current-password');
+            if (currentPasswordField) {
+                currentPasswordField.value = '••••••••';
+                currentPasswordField.type = 'password';
+                currentPasswordField.setAttribute('readonly', 'readonly');
+                currentPasswordField.setAttribute('disabled', 'disabled');
             }
             
             return result;
