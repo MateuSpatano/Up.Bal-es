@@ -954,10 +954,7 @@ function handleGetAdminProfile() {
         $adminId = $_SESSION['admin_id'] ?? checkAdminAuth();
         $pdo = getDatabaseConnection($GLOBALS['database_config']);
         
-        $stmt = $pdo->prepare("SELECT id, nome, email FROM usuarios WHERE id = ? AND perfil = 'admin'");
-        $stmt->execute([$adminId]);
-        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+        $admin = fetchAdminProfile($pdo, $adminId);
         if (!$admin) {
             errorResponse('Admin não encontrado', 404);
         }
@@ -977,7 +974,98 @@ function handleGetAdminProfile() {
  * Atualizar perfil do admin
  */
 function handleUpdateAdminProfile($input) {
-    errorResponse('Funcionalidade em desenvolvimento', 501);
+    try {
+        $adminId = $_SESSION['admin_id'] ?? checkAdminAuth();
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        $stmt = $pdo->prepare("SELECT foto_perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+        $stmt->execute([$adminId]);
+        $currentAdmin = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$currentAdmin) {
+            errorResponse('Admin não encontrado', 404);
+        }
+        
+        $updates = [];
+        $params = [];
+        
+        $fieldsMap = [
+            'name' => 'nome',
+            'email' => 'email',
+            'phone' => 'telefone',
+            'whatsapp' => 'whatsapp',
+            'instagram' => 'instagram',
+            'communication_email' => 'email_comunicacao',
+            'bio' => 'bio'
+        ];
+        
+        foreach ($fieldsMap as $inputKey => $column) {
+            if (array_key_exists($inputKey, $input)) {
+                $value = trim((string)$input[$inputKey]);
+                
+                if (in_array($inputKey, ['email', 'communication_email']) && !empty($value) && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    errorResponse('E-mail inválido informado: ' . $inputKey, 400);
+                }
+                
+                if ($inputKey === 'name' && strlen($value) < 2) {
+                    errorResponse('Nome deve ter pelo menos 2 caracteres', 400);
+                }
+                
+                if ($inputKey === 'bio' && strlen($value) > 500) {
+                    $value = substr($value, 0, 500);
+                }
+                
+                $updates[] = "{$column} = ?";
+                $params[] = $value;
+            }
+        }
+        
+        $removePhoto = filter_var($input['remove_profile_image'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $newPhotoPath = null;
+        
+        if (!empty($input['profile_image'])) {
+            try {
+                $newPhotoPath = saveAdminProfileImage($input['profile_image'], $adminId);
+            } catch (Exception $e) {
+                errorResponse('Erro ao processar imagem do perfil: ' . $e->getMessage(), 400);
+            }
+        }
+        
+        if ($removePhoto) {
+            $updates[] = "foto_perfil = NULL";
+        } elseif ($newPhotoPath) {
+            $updates[] = "foto_perfil = ?";
+            $params[] = $newPhotoPath;
+        }
+        
+        if (empty($updates)) {
+            errorResponse('Nenhuma alteração para salvar', 400);
+        }
+        
+        $updates[] = "updated_at = NOW()";
+        $params[] = $adminId;
+        
+        $sql = "UPDATE usuarios SET " . implode(', ', $updates) . " WHERE id = ? AND perfil = 'admin'";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        
+        if (($removePhoto || $newPhotoPath) && !empty($currentAdmin['foto_perfil'])) {
+            $oldPath = __DIR__ . '/../' . $currentAdmin['foto_perfil'];
+            if (is_file($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+        
+        $updatedAdmin = fetchAdminProfile($pdo, $adminId);
+        successResponse($updatedAdmin, 'Perfil atualizado com sucesso');
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao atualizar perfil admin: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
+    } catch (Exception $e) {
+        error_log('Erro ao atualizar perfil admin: ' . $e->getMessage());
+        errorResponse('Erro ao atualizar perfil admin: ' . $e->getMessage(), 500);
+    }
 }
 
 /**
@@ -999,6 +1087,86 @@ function handleGetSettings() {
  */
 function handleUpdateSettings($input) {
     errorResponse('Funcionalidade em desenvolvimento', 501);
+}
+
+/**
+ * Buscar perfil completo do admin
+ */
+function fetchAdminProfile($pdo, $adminId) {
+    $stmt = $pdo->prepare("
+        SELECT id, nome, email, telefone, whatsapp, instagram, 
+               email_comunicacao, bio, foto_perfil 
+        FROM usuarios 
+        WHERE id = ? AND perfil = 'admin'
+        LIMIT 1
+    ");
+    $stmt->execute([$adminId]);
+    $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$admin) {
+        return null;
+    }
+    
+    return [
+        'id' => (int)($admin['id'] ?? 0),
+        'name' => $admin['nome'] ?? '',
+        'email' => $admin['email'] ?? '',
+        'phone' => $admin['telefone'] ?? '',
+        'whatsapp' => $admin['whatsapp'] ?? '',
+        'instagram' => $admin['instagram'] ?? '',
+        'communication_email' => $admin['email_comunicacao'] ?? '',
+        'bio' => $admin['bio'] ?? '',
+        'profile_photo' => !empty($admin['foto_perfil']) ? $admin['foto_perfil'] : null
+    ];
+}
+
+/**
+ * Salvar imagem de perfil do admin enviada em base64
+ */
+function saveAdminProfileImage($base64Image, $adminId) {
+    $base64Image = trim((string)$base64Image);
+    if (empty($base64Image)) {
+        throw new Exception('Imagem vazia.');
+    }
+    
+    if (!preg_match('/^data:image\/(\w+);base64,/', $base64Image, $matches)) {
+        throw new Exception('Formato da imagem inválido.');
+    }
+    
+    $type = strtolower($matches[1]);
+    $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    if (!in_array($type, $allowedTypes)) {
+        throw new Exception('Formato de imagem não suportado.');
+    }
+    
+    $base64Data = substr($base64Image, strpos($base64Image, ',') + 1);
+    $imageData = base64_decode($base64Data);
+    
+    if ($imageData === false) {
+        throw new Exception('Dados da imagem inválidos.');
+    }
+    
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if (strlen($imageData) > $maxSize) {
+        throw new Exception('A imagem deve ter no máximo 5MB.');
+    }
+    
+    $uploadDir = __DIR__ . '/../uploads/profile_photos/';
+    if (!is_dir($uploadDir)) {
+        if (!mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+            throw new Exception('Não foi possível criar o diretório de upload.');
+        }
+    }
+    
+    $extension = $type === 'jpeg' ? 'jpg' : $type;
+    $fileName = 'admin_' . $adminId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+    $filePath = $uploadDir . $fileName;
+    
+    if (file_put_contents($filePath, $imageData) === false) {
+        throw new Exception('Não foi possível salvar a imagem.');
+    }
+    
+    return 'uploads/profile_photos/' . $fileName;
 }
 
 /**

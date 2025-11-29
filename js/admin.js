@@ -2068,6 +2068,28 @@ class AdminSystem {
         const emailSubject = document.getElementById('email-subject').value;
         const emailMessage = document.getElementById('email-message').value;
         
+        let whatsappUrl = null;
+        if (sendWhatsApp) {
+            const rawPhone = (this.currentNotification.decorator.whatsapp || this.currentNotification.decorator.phone || '')
+                .toString()
+                .replace(/\D/g, '');
+            
+            if (!rawPhone) {
+                this.showNotification('Número de WhatsApp não disponível para este decorador.', 'error');
+                return;
+            }
+            
+            let whatsappNumber = rawPhone;
+            if (whatsappNumber.startsWith('00')) {
+                whatsappNumber = whatsappNumber.substring(2);
+            }
+            if (whatsappNumber.length <= 11 && !whatsappNumber.startsWith('55')) {
+                whatsappNumber = '55' + whatsappNumber;
+            }
+            
+            whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodeURIComponent(whatsappMessage)}`;
+        }
+        
         // Dados para envio
         const notificationData = {
             decorator_id: this.currentNotification.decorator.id,
@@ -2096,6 +2118,11 @@ class AdminSystem {
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
             btn.disabled = true;
+            
+            // Abrir WhatsApp Web/API em nova guia (baseado na ação do usuário)
+            if (whatsappUrl) {
+                window.open(whatsappUrl, '_blank');
+            }
             
             // Chamada real à API
             const response = await fetch('../services/admin.php', {
