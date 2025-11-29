@@ -301,6 +301,10 @@ try {
                 handleSaveLegalDocument($input);
                 break;
                 
+            case 'send_decorator_notification':
+                handleSendDecoratorNotification($input);
+                break;
+                
             default:
                 errorResponse('Ação não reconhecida: ' . $action, 400);
         }
@@ -406,7 +410,7 @@ function handleGetUsers($input) {
                 'approved' => (bool)($user['aprovado_por_admin'] ?? false),
                 'created_at' => $user['created_at'] ?? date('Y-m-d H:i:s'),
                 'url' => ($perfil === 'decorator') && !empty($user['slug'] ?? '') 
-                    ? '/' . $user['slug'] 
+                    ? rtrim($GLOBALS['urls']['base'] ?? 'http://localhost/Up.Bal-es/', '/') . '/' . $user['slug'] 
                     : null
             ];
         }
@@ -868,8 +872,9 @@ function handleApproveDecorator($input) {
  */
 function handleToggleUserStatus($input) {
     try {
-        $userId = intval($input['user_id'] ?? 0);
-         if (!$userId) {
+        // Aceitar tanto 'id' quanto 'user_id' para compatibilidade
+        $userId = intval($input['id'] ?? $input['user_id'] ?? 0);
+        if (!$userId) {
             errorResponse('ID do usuário é obrigatório', 400);
         }
         
@@ -884,11 +889,17 @@ function handleToggleUserStatus($input) {
             errorResponse('Usuário não encontrado', 404);
         }
         
-        $newStatus = $user['ativo'] ? 0 : 1;
+        // Se status foi enviado explicitamente, usar ele; caso contrário, alternar
+        if (isset($input['status'])) {
+            $newStatus = ($input['status'] === 'active' || $input['status'] === '1') ? 1 : 0;
+        } else {
+            $newStatus = $user['ativo'] ? 0 : 1;
+        }
+        
         $stmt = $pdo->prepare("UPDATE usuarios SET ativo = ? WHERE id = ?");
         $stmt->execute([$newStatus, $userId]);
         
-        successResponse(null, 'Status atualizado com sucesso');
+        successResponse(['ativo' => $newStatus], 'Status atualizado com sucesso');
         
     } catch (PDOException $e) {
         error_log('Erro PDO ao alterar status: ' . $e->getMessage());
@@ -904,7 +915,8 @@ function handleToggleUserStatus($input) {
  */
 function handleDeleteUser($input) {
     try {
-        $userId = intval($input['user_id'] ?? 0);
+        // Aceitar tanto 'id' quanto 'user_id' para compatibilidade
+        $userId = intval($input['id'] ?? $input['user_id'] ?? 0);
         if (!$userId) {
             errorResponse('ID do usuário é obrigatório', 400);
         }
@@ -1064,5 +1076,102 @@ function handleSaveLegalDocument($input) {
         error_log('Erro ao salvar documento legal: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
         errorResponse('Erro ao salvar documento: ' . $e->getMessage(), 500);
+    }
+}
+
+/**
+ * Enviar notificação para decorador
+ */
+function handleSendDecoratorNotification($input) {
+    try {
+        // Verificar autenticação de admin
+        checkAdminAuth();
+        
+        $decoratorId = intval($input['decorator_id'] ?? 0);
+        if (!$decoratorId) {
+            errorResponse('ID do decorador é obrigatório', 400);
+        }
+        
+        $channels = $input['channels'] ?? [];
+        $messages = $input['messages'] ?? [];
+        $contacts = $input['contacts'] ?? [];
+        
+        if (empty($channels['whatsapp']) && empty($channels['email'])) {
+            errorResponse('Selecione pelo menos um canal de envio', 400);
+        }
+        
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        
+        // Buscar dados do decorador
+        $stmt = $pdo->prepare("SELECT id, nome, email FROM usuarios WHERE id = ? AND perfil = 'decorator'");
+        $stmt->execute([$decoratorId]);
+        $decorator = $stmt->fetch();
+        
+        if (!$decorator) {
+            errorResponse('Decorador não encontrado', 404);
+        }
+        
+        $results = [];
+        
+        // Enviar e-mail se solicitado
+        if (!empty($channels['email']) && !empty($messages['email'])) {
+            $emailTo = $contacts['email'] ?? $decorator['email'];
+            $emailSubject = $messages['email']['subject'] ?? 'Notificação Up.Baloes';
+            $emailBody = $messages['email']['body'] ?? '';
+            
+            if (empty($emailTo)) {
+                $results['email'] = ['success' => false, 'message' => 'E-mail do decorador não encontrado'];
+            } else {
+                try {
+                    require_once __DIR__ . '/EmailService.php';
+                    $emailService = new EmailService();
+                    
+                    // Limpar HTML tags se necessário e criar corpo HTML formatado
+                    $htmlBody = nl2br(htmlspecialchars($emailBody));
+                    $htmlBody = '<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">' . 
+                                $htmlBody . 
+                                '</div>';
+                    
+                    $emailResult = $emailService->sendEmail(
+                        $emailTo,
+                        $emailSubject,
+                        $htmlBody,
+                        strip_tags($emailBody) // Versão texto plano
+                    );
+                    
+                    $results['email'] = $emailResult;
+                } catch (Exception $e) {
+                    error_log('Erro ao enviar e-mail: ' . $e->getMessage());
+                    $results['email'] = ['success' => false, 'message' => 'Erro ao enviar e-mail: ' . $e->getMessage()];
+                }
+            }
+        }
+        
+        // WhatsApp seria enviado via API externa (não implementado ainda)
+        if (!empty($channels['whatsapp']) && !empty($messages['whatsapp'])) {
+            $results['whatsapp'] = ['success' => false, 'message' => 'Envio via WhatsApp ainda não implementado'];
+        }
+        
+        // Verificar se pelo menos um canal foi enviado com sucesso
+        $hasSuccess = false;
+        foreach ($results as $result) {
+            if (isset($result['success']) && $result['success']) {
+                $hasSuccess = true;
+                break;
+            }
+        }
+        
+        if ($hasSuccess) {
+            successResponse($results, 'Notificação enviada com sucesso');
+        } else {
+            errorResponse('Erro ao enviar notificação: ' . json_encode($results), 500);
+        }
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao enviar notificação: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
+    } catch (Exception $e) {
+        error_log('Erro ao enviar notificação: ' . $e->getMessage());
+        errorResponse('Erro ao enviar notificação: ' . $e->getMessage(), 500);
     }
 }

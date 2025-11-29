@@ -1991,7 +1991,14 @@ class AdminSystem {
         // Preencher mensagens
         document.getElementById('whatsapp-message').value = templates.whatsapp;
         document.getElementById('email-subject').value = templates.emailSubject;
-        document.getElementById('email-message').value = templates.emailBody;
+        
+        // Limpar HTML tags do corpo do e-mail antes de exibir no textarea
+        const emailBodyText = templates.emailBody || '';
+        // Remover tags HTML e converter entidades HTML para texto
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = emailBodyText;
+        const cleanEmailBody = tempDiv.textContent || tempDiv.innerText || emailBodyText;
+        document.getElementById('email-message').value = cleanEmailBody;
         
         // Atualizar contador de caracteres
         this.updateCharCounter();
@@ -2076,34 +2083,37 @@ class AdminSystem {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
             btn.disabled = true;
             
-            // Simular envio (substituir por chamada real à API)
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Chamada real à API
+            const response = await fetch('../services/admin.php', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    action: 'send_decorator_notification',
+                    ...notificationData
+                })
+            });
             
-            // Log para debug
-            console.log('Notificação enviada:', notificationData);
+            const result = await this.safeJsonParse(response, { success: false });
             
-            // Sucesso
-            this.showNotification(
-                `Notificação enviada com sucesso para ${this.currentNotification.decorator.nome}!`,
-                'success'
-            );
-            
-            // Fechar modal
-            this.closeNotificationModal();
-            
-            // TODO: Implementar chamada real à API
-            // const response = await fetch('../services/admin.php', {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({
-            //         action: 'send_decorator_notification',
-            //         ...notificationData
-            //     })
-            // });
+            if (result && result.success) {
+                this.showNotification(
+                    `Notificação enviada com sucesso para ${this.currentNotification.decorator.nome}!`,
+                    'success'
+                );
+                
+                // Fechar modal
+                this.closeNotificationModal();
+            } else {
+                const errorMsg = result?.message || 'Erro desconhecido ao enviar notificação';
+                this.showNotification('Erro: ' + errorMsg, 'error');
+            }
             
         } catch (error) {
             console.error('Erro ao enviar notificação:', error);
-            this.showNotification('Erro ao enviar notificação', 'error');
+            this.showNotification('Erro de conexão ao enviar notificação', 'error');
         } finally {
             const btn = document.getElementById('send-notification');
             btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar Notificação';
