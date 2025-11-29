@@ -1878,8 +1878,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // Carregar configurações de disponibilidade
         loadAvailabilitySettings();
         
-        // Inicializar calendário da agenda
+        // Inicializar calendário da agenda (agora exibe lista de compromissos)
         initializeAgendaCalendar();
+        
+        // Se os orçamentos ainda não foram carregados, carregá-los primeiro
+        if (typeof budgets === 'undefined' || budgets.length === 0) {
+            // Carregar orçamentos se ainda não foram carregados
+            if (typeof loadBudgets === 'function') {
+                loadBudgets().then(() => {
+                    // Após carregar orçamentos, atualizar a lista de eventos
+                    loadAgendaEventsList();
+                }).catch(error => {
+                    console.error('Erro ao carregar orçamentos para agenda:', error);
+                    loadAgendaEventsList(); // Tentar carregar mesmo assim
+                });
+            } else {
+                loadAgendaEventsList();
+            }
+        } else {
+            // Se os orçamentos já foram carregados, atualizar a lista de eventos
+            loadAgendaEventsList();
+        }
     }
     
     async function loadAccountData() {
@@ -2968,17 +2987,108 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function initializeAgendaCalendar() {
-        const calendarElement = document.getElementById('agenda-calendar');
-        if (!calendarElement) return;
+        // Carregar e exibir compromissos em formato lista
+        loadAgendaEventsList();
+    }
+    
+    function loadAgendaEventsList() {
+        // Usar os mesmos eventos do calendário do painel gerencial
+        const events = getCalendarEvents();
+        const eventsListContainer = document.getElementById('agenda-events-list');
+        const noEventsMessage = document.getElementById('agenda-no-events');
         
-        // Inicializar calendário da agenda (similar ao calendário principal)
-        // Por enquanto, apenas um placeholder
-        calendarElement.innerHTML = `
-            <div class="text-center py-12 text-gray-500">
-                <i class="fas fa-calendar-alt text-4xl mb-4"></i>
-                <p>Calendário da agenda será implementado aqui</p>
-            </div>
-        `;
+        if (!eventsListContainer || !noEventsMessage) return;
+        
+        if (events.length === 0) {
+            eventsListContainer.innerHTML = '';
+            noEventsMessage.classList.remove('hidden');
+            return;
+        }
+        
+        noEventsMessage.classList.add('hidden');
+        
+        // Ordenar eventos por data (mais próximos primeiro)
+        const sortedEvents = [...events].sort((a, b) => {
+            return new Date(a.start) - new Date(b.start);
+        });
+        
+        // Renderizar eventos em formato lista com o mesmo estilo visual do calendário
+        const eventsHTML = sortedEvents.map(event => {
+            const eventDate = new Date(event.start);
+            const formattedDate = formatDateForDisplay(event.start.split('T')[0]);
+            const formattedTime = event.start.split('T')[1] ? event.start.split('T')[1].substring(0, 5) : '';
+            
+            // Obter informações do evento
+            const client = event.extendedProps?.client || 'Cliente';
+            const location = event.extendedProps?.location || '';
+            const status = event.extendedProps?.status || 'pendente';
+            const description = event.extendedProps?.description || '';
+            
+            // Obter cor e label do status
+            const statusColor = getEventColor(status);
+            const statusLabels = {
+                'pendente': 'Pendente',
+                'aprovado': 'Aprovado',
+                'recusado': 'Recusado',
+                'cancelado': 'Cancelado',
+                'enviado': 'Enviado'
+            };
+            const statusLabel = statusLabels[status] || 'Pendente';
+            
+            // Obter tipo de serviço do título
+            const serviceType = event.title.split(' - ')[1] || 'Serviço';
+            
+            return `
+                <div class="agenda-event-item mb-4 p-4 rounded-lg border-l-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" 
+                     style="border-left-color: ${statusColor}; background-color: ${statusColor}15;"
+                     onclick="showBudgetDetails(${event.extendedProps?.budgetId || event.id})">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold text-sm" 
+                                     style="background-color: ${statusColor};">
+                                    <i class="fas fa-calendar-day"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <h4 class="text-lg font-semibold text-gray-800">${client}</h4>
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium text-white" 
+                                              style="background-color: ${statusColor};">
+                                            ${statusLabel}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-2">
+                                        <i class="fas fa-briefcase mr-1"></i>${serviceType}
+                                    </p>
+                                    ${location ? `
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>${location}
+                                        </p>
+                                    ` : ''}
+                                    ${description ? `
+                                        <p class="text-sm text-gray-500 mt-2 line-clamp-2">${description}</p>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 text-right">
+                            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                                <div class="text-sm font-medium text-gray-800 mb-1">
+                                    <i class="fas fa-calendar mr-1"></i>${formattedDate}
+                                </div>
+                                ${formattedTime ? `
+                                    <div class="text-sm text-gray-600">
+                                        <i class="fas fa-clock mr-1"></i>${formattedTime}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        eventsListContainer.innerHTML = eventsHTML;
     }
     
     // ========== FUNCIONALIDADES DE DATAS BLOQUEADAS ==========
@@ -5282,6 +5392,12 @@ _${decoratorName}_`;
         
         // Atualizar calendário
         updateCalendarDisplay();
+        
+        // Atualizar lista de eventos da agenda se o módulo estiver visível
+        const agendaModule = document.getElementById('agenda-module');
+        if (agendaModule && !agendaModule.classList.contains('hidden')) {
+            loadAgendaEventsList();
+        }
     }
     
     function toggleBudgetSortOrder() {
