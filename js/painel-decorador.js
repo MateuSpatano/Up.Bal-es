@@ -784,12 +784,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     'kpi-margem-media-lucro'
                 ];
                 
+                let allElementsFound = true;
                 kpiElements.forEach(id => {
                     const el = document.getElementById(id);
                     if (!el) {
-                        console.warn(`Elemento ${id} não encontrado!`);
+                        console.error(`❌ Elemento ${id} NÃO encontrado!`);
+                        allElementsFound = false;
+                    } else {
+                        console.log(`✅ Elemento ${id} encontrado`);
                     }
                 });
+                
+                if (!allElementsFound) {
+                    console.error('Alguns elementos KPI não foram encontrados. Verifique se o módulo dashboard está visível.');
+                }
+                
+                // Verificar se os KPIs têm dados válidos
+                if (data.kpis) {
+                    console.log('KPIs detalhados:', {
+                        festas_total: data.kpis.festas_total,
+                        festas_solicitadas_clientes: data.kpis.festas_solicitadas_clientes,
+                        festas_criadas_decorador: data.kpis.festas_criadas_decorador,
+                        receita_recebida: data.kpis.receita_recebida,
+                        lucro_total_mes: data.kpis.lucro_total_mes,
+                        margem_media_lucro: data.kpis.margem_media_lucro
+                    });
+                }
                 
                 updateKPIs(data.kpis);
                 updateCharts(data.series);
@@ -815,63 +835,89 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateKPIs(kpis) {
-        console.log('Atualizando KPIs:', kpis);
+        console.log('=== updateKPIs chamado ===');
+        console.log('KPIs recebidos:', kpis);
         
         if (!kpis) {
-            console.warn('KPIs não fornecidos');
+            console.error('❌ KPIs não fornecidos!');
             return;
+        }
+        
+        // Verificar se estamos no módulo dashboard
+        const dashboardModule = document.getElementById('dashboard-module');
+        if (!dashboardModule) {
+            console.error('❌ Módulo dashboard não encontrado!');
+            return;
+        }
+        
+        if (dashboardModule.classList.contains('hidden')) {
+            console.warn('⚠️ Módulo dashboard está oculto. Tentando atualizar mesmo assim...');
         }
         
         // Atualizar total de festas
         const kpiFestasTotal = document.getElementById('kpi-festas-total');
         if (kpiFestasTotal) {
-            kpiFestasTotal.textContent = kpis.festas_total || 0;
+            const valor = kpis.festas_total || 0;
+            kpiFestasTotal.textContent = valor;
+            console.log(`✅ kpi-festas-total atualizado: ${valor}`);
         } else {
-            console.warn('Elemento kpi-festas-total não encontrado');
+            console.error('❌ Elemento kpi-festas-total não encontrado!');
         }
         
         // Atualizar festas solicitadas por clientes
         const kpiFestasClientes = document.getElementById('kpi-festas-clientes');
         if (kpiFestasClientes) {
-            kpiFestasClientes.textContent = kpis.festas_solicitadas_clientes || 0;
+            const valor = kpis.festas_solicitadas_clientes || 0;
+            kpiFestasClientes.textContent = valor;
+            console.log(`✅ kpi-festas-clientes atualizado: ${valor}`);
         } else {
-            console.warn('Elemento kpi-festas-clientes não encontrado');
+            console.error('❌ Elemento kpi-festas-clientes não encontrado!');
         }
         
         // Atualizar festas criadas pelo decorador
         const kpiFestasDecorador = document.getElementById('kpi-festas-decorador');
         if (kpiFestasDecorador) {
-            kpiFestasDecorador.textContent = kpis.festas_criadas_decorador || 0;
+            const valor = kpis.festas_criadas_decorador || 0;
+            kpiFestasDecorador.textContent = valor;
+            console.log(`✅ kpi-festas-decorador atualizado: ${valor}`);
         } else {
-            console.warn('Elemento kpi-festas-decorador não encontrado');
+            console.error('❌ Elemento kpi-festas-decorador não encontrado!');
         }
         
         // Atualizar receita recebida
         const receita = kpis.receita_recebida || 0;
         const kpiReceita = document.getElementById('kpi-receita-recebida');
         if (kpiReceita) {
-            kpiReceita.textContent = formatCurrency(receita);
+            const valorFormatado = formatCurrency(receita);
+            kpiReceita.textContent = valorFormatado;
+            console.log(`✅ kpi-receita-recebida atualizado: ${valorFormatado} (valor: ${receita})`);
         } else {
-            console.warn('Elemento kpi-receita-recebida não encontrado');
+            console.error('❌ Elemento kpi-receita-recebida não encontrado!');
         }
         
         // Atualizar lucro total do mês
         const lucroTotal = kpis.lucro_total_mes || 0;
         const kpiLucro = document.getElementById('kpi-lucro-total-mes');
         if (kpiLucro) {
-            kpiLucro.textContent = formatCurrency(lucroTotal);
+            const valorFormatado = formatCurrency(lucroTotal);
+            kpiLucro.textContent = valorFormatado;
+            console.log(`✅ kpi-lucro-total-mes atualizado: ${valorFormatado} (valor: ${lucroTotal})`);
         } else {
-            console.warn('Elemento kpi-lucro-total-mes não encontrado');
+            console.error('❌ Elemento kpi-lucro-total-mes não encontrado!');
         }
         
         // Atualizar margem média de lucro
         const margemMedia = kpis.margem_media_lucro || 0;
         const kpiMargem = document.getElementById('kpi-margem-media-lucro');
         if (kpiMargem) {
-            kpiMargem.textContent = margemMedia.toFixed(1) + '%';
+            const valorFormatado = margemMedia.toFixed(1) + '%';
+            kpiMargem.textContent = valorFormatado;
+            console.log(`✅ kpi-margem-media-lucro atualizado: ${valorFormatado} (valor: ${margemMedia})`);
         } else {
-            console.warn('Elemento kpi-margem-media-lucro não encontrado');
+            console.error('❌ Elemento kpi-margem-media-lucro não encontrado!');
         }
+        
+        console.log('=== updateKPIs concluído ===');
     }
     
     function updateCharts(series) {
