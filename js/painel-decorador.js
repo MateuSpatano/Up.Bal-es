@@ -1919,6 +1919,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cityField = document.getElementById('account-city-inline');
         const stateField = document.getElementById('account-state-inline');
         const zipcodeField = document.getElementById('account-zipcode-inline');
+        const currentPasswordField = document.getElementById('account-current-password-inline');
         
         if (nameField) nameField.value = data.name || '';
         if (emailField) emailField.value = data.email || '';
@@ -1934,6 +1935,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cityField) cityField.value = data.city || '';
         if (stateField) stateField.value = data.state || '';
         if (zipcodeField) zipcodeField.value = data.zipcode || '';
+        
+        // Preencher campo de senha atual com valor mascarado (sempre oculto, sem botão de olho)
+        if (currentPasswordField) {
+            currentPasswordField.value = '••••••••';
+            currentPasswordField.type = 'password';
+        }
         
         // Atualizar foto de perfil se existir
         if (data.profile_photo) {
@@ -1973,12 +1980,13 @@ document.addEventListener('DOMContentLoaded', function() {
             bioField.addEventListener('input', updateBioCounter);
         }
         
-        // Toggle de senha
+        // Toggle de senha (exceto para o campo de senha atual que não tem botão de olho)
         document.querySelectorAll('.password-toggle').forEach(btn => {
             btn.addEventListener('click', function() {
                 const targetId = this.getAttribute('data-target');
                 const targetInput = document.getElementById(targetId);
-                if (targetInput) {
+                // Não permitir toggle no campo de senha atual
+                if (targetInput && targetId !== 'account-current-password-inline') {
                     const type = targetInput.type === 'password' ? 'text' : 'password';
                     targetInput.type = type;
                     const icon = this.querySelector('i');
@@ -1989,6 +1997,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
+        // Configurar campo de senha atual (sem botão de olho, sempre oculto)
+        const currentPasswordField = document.getElementById('account-current-password-inline');
+        if (currentPasswordField) {
+            // Garantir que o campo sempre seja do tipo password
+            currentPasswordField.type = 'password';
+            
+            // Quando o usuário focar no campo, limpar o valor mascarado para permitir digitação
+            currentPasswordField.addEventListener('focus', function() {
+                if (this.value === '••••••••') {
+                    this.value = '';
+                }
+            });
+            
+            // Se o campo perder o foco e estiver vazio, restaurar o valor mascarado
+            currentPasswordField.addEventListener('blur', function() {
+                if (!this.value.trim()) {
+                    this.value = '••••••••';
+                }
+            });
+        }
         
         // Salvar informações da conta
         if (accountFormInline) {
@@ -2033,6 +2062,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (resetAccountPassword) {
             resetAccountPassword.addEventListener('click', function() {
                 passwordFormInline.reset();
+                // Restaurar valor mascarado no campo de senha atual após reset
+                const currentPasswordField = document.getElementById('account-current-password-inline');
+                if (currentPasswordField) {
+                    currentPasswordField.value = '••••••••';
+                    currentPasswordField.type = 'password';
+                }
             });
         }
         
@@ -2150,8 +2185,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmPassword = document.getElementById('account-confirm-password-inline');
         
         // Validar campos
-        if (!currentPassword || !currentPassword.value.trim()) {
+        // Ignorar valor mascarado (••••••••) - tratar como campo vazio
+        const currentPasswordValue = currentPassword && currentPassword.value.trim() !== '••••••••' 
+            ? currentPassword.value.trim() 
+            : '';
+        if (!currentPasswordValue) {
             showNotification('Senha atual é obrigatória', 'error');
+            currentPassword?.focus();
             return;
         }
         
@@ -2183,7 +2223,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const formData = new FormData();
             formData.append('action', 'change_password');
-            formData.append('current_password', currentPassword.value);
+            formData.append('current_password', currentPasswordValue);
             formData.append('new_password', newPassword.value);
             
             const response = await fetch('../services/conta.php', {
@@ -2197,6 +2237,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (result.success) {
                 showNotification('Senha atualizada com sucesso!', 'success');
                 form.reset();
+                // Restaurar valor mascarado no campo de senha atual após sucesso
+                if (currentPassword) {
+                    currentPassword.value = '••••••••';
+                    currentPassword.type = 'password';
+                }
             } else {
                 showNotification('Erro ao atualizar senha: ' + (result.message || 'Erro desconhecido'), 'error');
             }
