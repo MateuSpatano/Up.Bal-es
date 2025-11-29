@@ -1260,15 +1260,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveAccountChanges.disabled = true;
                 
                 try {
-                    // Simular envio para o backend
-                    await saveAccountData();
+                    const result = await saveAccountData();
                     
-                    showNotification('Dados atualizados com sucesso!', 'success');
-                    closeAccountModalFunc();
+                    if (result && result.success) {
+                        showNotification(result.message || 'Dados atualizados com sucesso!', 'success');
+                        closeAccountModalFunc();
+                    } else {
+                        const errorMsg = result?.message || 'Erro ao salvar dados. Tente novamente.';
+                        showNotification(errorMsg, 'error');
+                    }
                     
                 } catch (error) {
-                    showNotification('Erro ao salvar dados. Tente novamente.', 'error');
                     console.error('Erro ao salvar dados:', error);
+                    showNotification(error.message || 'Erro ao salvar dados. Tente novamente.', 'error');
                 } finally {
                     // Remover loading
                     saveAccountChanges.classList.remove('btn-loading');
@@ -1359,52 +1363,62 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.set('current_password', actualCurrentPassword.trim());
         }
         
+        const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;
+        let response;
+        let result;
+        
         try {
-            const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;
-            const response = await fetch(accountEndpoint, {
+            response = await fetch(accountEndpoint, {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
             });
-            
-            const result = (typeof window !== 'undefined' && window.safeResponseJson) 
+        } catch (networkError) {
+            console.error('Erro de rede ao salvar dados:', networkError);
+            return { success: false, message: 'Erro de conexão. Verifique sua internet e tente novamente.' };
+        }
+        
+        try {
+            result = (typeof window !== 'undefined' && window.safeResponseJson) 
                 ? await window.safeResponseJson(response, { success: false })
                 : await response.json();
-            
+        } catch (parseError) {
+            console.error('Erro ao interpretar resposta do servidor:', parseError);
             if (!response.ok) {
-                throw new Error(result?.message || 'Erro ao salvar dados');
+                return { success: false, message: 'Erro ao salvar dados. Servidor retornou uma resposta inválida.' };
             }
-            
-            if (!result.success) {
-                throw new Error(result.message || 'Erro ao salvar dados');
-            }
-            
-            // Atualizar dados do usuário na interface
-            if (result.data) {
-                updateUserInterface(result.data);
-            }
-            
-            // Limpar campos de senha após sucesso
-            const newPasswordField = document.getElementById('account-new-password');
-            const confirmPasswordField = document.getElementById('account-confirm-password');
-            if (newPasswordField) newPasswordField.value = '';
-            if (confirmPasswordField) confirmPasswordField.value = '';
-            
-            // Manter o campo de senha atual bloqueado com valor mascarado
-            const currentPasswordField = document.getElementById('account-current-password');
-            if (currentPasswordField) {
-                currentPasswordField.value = '••••••••';
-                currentPasswordField.type = 'password';
-                currentPasswordField.setAttribute('readonly', 'readonly');
-                currentPasswordField.setAttribute('disabled', 'disabled');
-            }
-            
-            return result;
-            
-        } catch (error) {
-            console.error('Erro ao salvar dados:', error);
-            throw error;
+            // Se a resposta HTTP for OK, assumir sucesso genérico
+            return { success: true, message: 'Dados atualizados com sucesso!' };
         }
+        
+        if (!response.ok || !result || result.success === false) {
+            return {
+                success: false,
+                message: result?.message || 'Erro ao salvar dados. Tente novamente.'
+            };
+        }
+        
+        // Atualizar dados do usuário na interface
+        if (result.data) {
+            updateUserInterface(result.data);
+        }
+        
+        // Limpar campos de senha após sucesso
+        const newPasswordField = document.getElementById('account-new-password');
+        const confirmPasswordField = document.getElementById('account-confirm-password');
+        if (newPasswordField) newPasswordField.value = '';
+        if (confirmPasswordField) confirmPasswordField.value = '';
+        
+        // Manter o campo de senha atual bloqueado com valor mascarado
+        const currentPasswordField = document.getElementById('account-current-password');
+        if (currentPasswordField) {
+            currentPasswordField.value = '••••••••';
+            currentPasswordField.type = 'password';
+            currentPasswordField.setAttribute('readonly', 'readonly');
+            currentPasswordField.setAttribute('disabled', 'disabled');
+        }
+        
+        return result || { success: true, message: 'Dados atualizados com sucesso!' };
     }
 
     // Atualizar interface do usuário
