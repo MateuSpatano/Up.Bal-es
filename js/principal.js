@@ -197,24 +197,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Função para scroll suave para seções
     function smoothScrollTo(targetId) {
-        const targetElement = document.querySelector(targetId);
-        if (targetElement) {
-            const offsetTop = targetElement.offsetTop - 80; // Considerando altura da navbar
-            window.scrollTo({
-                top: offsetTop,
-                behavior: 'smooth'
-            });
+        // Ignorar seletor inválido (# vazio ou apenas #)
+        if (!targetId || targetId === '#' || targetId.length <= 1) {
+            return;
+        }
+        
+        try {
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                const offsetTop = targetElement.offsetTop - 80; // Considerando altura da navbar
+                window.scrollTo({
+                    top: offsetTop,
+                    behavior: 'smooth'
+                });
+            }
+        } catch (e) {
+            // Ignorar erros de seletor inválido
+            console.warn('Seletor inválido para scroll:', targetId);
         }
     }
 
     // Adicionar event listeners para links de navegação
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
+            // Ignorar links com IDs específicos que têm seus próprios handlers
+            if (this.id === 'account-management-link' || 
+                this.id === 'painel-admin-link' || 
+                this.id === 'painel-decorador-link' ||
+                this.id === 'minhas-compras-menu-item' ||
+                this.id === 'logout-link') {
+                return; // Deixar o handler específico tratar
+            }
+            
             const targetId = this.getAttribute('href');
             
-            // Apenas interceptar links que são âncoras (começam com #)
+            // Apenas interceptar links que são âncoras válidas (começam com # e têm mais de 1 caractere)
             // Links para outras páginas devem funcionar normalmente
-            if (targetId && targetId.startsWith('#')) {
+            if (targetId && targetId.startsWith('#') && targetId.length > 1) {
                 e.preventDefault();
                 smoothScrollTo(targetId);
                 
@@ -230,11 +249,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Adicionar event listeners para links do menu mobile
     mobileNavLinks.forEach(link => {
         link.addEventListener('click', function(e) {
+            // Ignorar links com IDs específicos que têm seus próprios handlers
+            if (this.id === 'account-management-link' || 
+                this.id === 'painel-admin-link' || 
+                this.id === 'painel-decorador-link' ||
+                this.id === 'minhas-compras-menu-item' ||
+                this.id === 'logout-link') {
+                return; // Deixar o handler específico tratar
+            }
+            
             const targetId = this.getAttribute('href');
             
-            // Apenas interceptar links que são âncoras (começam com #)
+            // Apenas interceptar links que são âncoras válidas (começam com # e têm mais de 1 caractere)
             // Links para outras páginas devem funcionar normalmente
-            if (targetId && targetId.startsWith('#')) {
+            if (targetId && targetId.startsWith('#') && targetId.length > 1) {
                 e.preventDefault();
                 smoothScrollTo(targetId);
                 toggleMobileMenu(); // Fechar menu mobile
@@ -1171,30 +1199,31 @@ document.addEventListener('DOMContentLoaded', function() {
             processedButtons.add(button);
         });
         
-        // Configurar campo de senha atual (sem botão de olho, sempre oculto, bloqueado)
+        // Configurar campo de senha atual (permitir edição quando necessário)
         const currentPasswordField = document.getElementById('account-current-password');
+        const newPasswordField = document.getElementById('account-new-password');
+        const confirmPasswordField = document.getElementById('account-confirm-password');
+        
         if (currentPasswordField) {
-            // Garantir que o campo sempre seja do tipo password e bloqueado
+            // Inicialmente, o campo está vazio e habilitado
             currentPasswordField.type = 'password';
-            currentPasswordField.setAttribute('readonly', 'readonly');
-            currentPasswordField.setAttribute('disabled', 'disabled');
-            currentPasswordField.value = '••••••••';
+            currentPasswordField.removeAttribute('readonly');
+            currentPasswordField.removeAttribute('disabled');
+            currentPasswordField.value = '';
+            currentPasswordField.placeholder = 'Digite sua senha atual (obrigatório para alterar senha)';
             
-            // Prevenir qualquer tentativa de edição
-            currentPasswordField.addEventListener('keydown', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            
-            currentPasswordField.addEventListener('paste', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            
-            currentPasswordField.addEventListener('cut', function(e) {
-                e.preventDefault();
-                return false;
-            });
+            // Quando o usuário começar a digitar a nova senha, tornar a senha atual obrigatória
+            if (newPasswordField) {
+                newPasswordField.addEventListener('input', function() {
+                    if (this.value.trim() && !currentPasswordField.value.trim()) {
+                        currentPasswordField.required = true;
+                        currentPasswordField.classList.add('border-red-300');
+                    } else if (!this.value.trim()) {
+                        currentPasswordField.required = false;
+                        currentPasswordField.classList.remove('border-red-300');
+                    }
+                });
+            }
         }
         
         // Configurar botões com classe .password-toggle (usado em reset-password.html e admin.html)
@@ -1327,8 +1356,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Validar senhas se preenchidas
         const newPassword = document.getElementById('account-new-password').value;
         const confirmPassword = document.getElementById('account-confirm-password').value;
+        const currentPassword = document.getElementById('account-current-password').value;
         
+        // Se o usuário está tentando mudar a senha, validar
         if (newPassword || confirmPassword) {
+            // Senha atual é obrigatória quando há nova senha
+            if (!currentPassword || currentPassword.trim() === '' || currentPassword === '••••••••') {
+                showFieldError('account-current-password', 'Senha atual é obrigatória para alterar a senha');
+                isValid = false;
+            }
+            
             if (newPassword) {
                 const passwordValidation = validatePassword(newPassword);
                 if (!passwordValidation.valid) {
@@ -1349,6 +1386,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Salvar dados da conta
     async function saveAccountData() {
         const formData = new FormData(accountForm);
+        
+        // Remover campo de senha atual se estiver vazio ou mascarado
+        const currentPassword = formData.get('current_password');
+        if (!currentPassword || currentPassword.trim() === '' || currentPassword === '••••••••') {
+            formData.delete('current_password');
+        }
+        
+        // Remover campos de senha se não houver nova senha
+        const newPassword = formData.get('new_password');
+        if (!newPassword || newPassword.trim() === '') {
+            formData.delete('new_password');
+            formData.delete('confirm_password');
+            formData.delete('current_password');
+        }
         
         const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;
         let response;

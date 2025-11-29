@@ -112,8 +112,9 @@ try {
     }
 
     // Validar senhas se fornecidas
-    if (!empty($new_password) || !empty($confirm_password)) {
-        if (empty($current_password)) {
+    // Apenas validar se realmente há uma nova senha sendo definida
+    if (!empty($new_password) && trim($new_password) !== '') {
+        if (empty($current_password) || trim($current_password) === '' || $current_password === '••••••••') {
             $errors[] = 'Senha atual é obrigatória para alterar a senha';
         }
 
@@ -125,7 +126,7 @@ try {
             $errors[] = 'Nova senha deve conter pelo menos uma letra e um número';
         }
 
-        if ($new_password !== $confirm_password) {
+        if (empty($confirm_password) || $new_password !== $confirm_password) {
             $errors[] = 'Confirmação de senha não confere';
         }
     }
