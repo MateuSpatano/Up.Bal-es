@@ -238,6 +238,7 @@ class AdminSystem {
             if (result && result.success) {
                 // Ajustar para a estrutura de resposta do admin.php
                 this.users = result.data?.users || result.users || [];
+                
                 // Inicializar filteredUsers com todos os usuários carregados
                 this.filteredUsers = [...this.users];
                 this.refreshUsersChart();
@@ -281,6 +282,7 @@ class AdminSystem {
             const typeIcon = user.type === 'decorator' ? 'fas fa-user-tie' : 'fas fa-user';
             const typeText = user.type === 'decorator' ? 'Decorador' : 'Cliente';
             
+            row.hidden = user.type === 'admin';
             row.innerHTML = `
                 <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
@@ -1420,7 +1422,7 @@ class AdminSystem {
         const pageUsers = this.filteredUsers.slice(startIndex, endIndex);
 
         tbody.innerHTML = pageUsers.map(user => `
-            <tr class="table-row">
+            <tr class="table-row"${user.type === 'admin' ? ' hidden' : ''}>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <div class="flex items-center">
                         <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-200 flex items-center justify-center">
