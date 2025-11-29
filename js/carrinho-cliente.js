@@ -712,6 +712,32 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== SUBMISSÃO DO FORMULÁRIO ==========
     
+    function getMyOrdersRedirectUrl() {
+        try {
+            const { origin, pathname } = window.location;
+            const segments = pathname.split('/').filter(Boolean);
+            const reservedSegments = ['pages', 'services', 'css', 'js', 'components', 'uploads', 'admin', 'api', 'temp'];
+            
+            const projectIndex = segments.findIndex(seg => /up\.bal/i.test(seg));
+            const baseSegments = projectIndex >= 0 ? segments.slice(0, projectIndex + 1) : [];
+            const slugCandidate = projectIndex >= 0 ? segments[projectIndex + 1] : segments[0];
+            const basePath = baseSegments.length ? '/' + baseSegments.join('/') : '';
+            
+            if (slugCandidate && !reservedSegments.includes(slugCandidate.toLowerCase()) && !slugCandidate.includes('.')) {
+                return `${origin}${basePath}/${slugCandidate}/minhas-compras`;
+            }
+            
+            if (baseSegments.length) {
+                return `${origin}${basePath}/pages/minhas-compras.html`;
+            }
+            
+            return `${origin}/pages/minhas-compras.html`;
+        } catch (error) {
+            console.error('Erro ao construir URL de redirecionamento para minhas compras:', error);
+            return 'pages/minhas-compras.html';
+        }
+    }
+    
     function setupFormSubmission() {
         requestForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -738,7 +764,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Fechar modal e redirecionar
                 closeConfirmModal();
                 setTimeout(() => {
-                    window.location.href = 'minhas-compras.html';
+                    window.location.href = getMyOrdersRedirectUrl();
                 }, 1500);
                 
             } catch (error) {
