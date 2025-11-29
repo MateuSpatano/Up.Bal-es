@@ -1,5 +1,31 @@
 // Sistema principal Up.Baloes
 const CART_STORAGE_KEY = 'upbaloes_cart_items';
+const PROJECT_SEGMENT_PATTERN = /up\.bal/i;
+
+function getProjectBasePath() {
+    if (typeof window === 'undefined') {
+        return '/';
+    }
+    
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const projectIndex = segments.findIndex(segment => PROJECT_SEGMENT_PATTERN.test(segment));
+    
+    if (projectIndex >= 0) {
+        return '/' + segments.slice(0, projectIndex + 1).join('/') + '/';
+    }
+    
+    return '/';
+}
+
+function getProjectBaseUrl() {
+    if (typeof window === 'undefined') {
+        return '/';
+    }
+    
+    return window.location.origin + getProjectBasePath();
+}
+
+const PROJECT_BASE_URL = getProjectBaseUrl();
 
 function getStoredCartItems() {
     try {
@@ -337,8 +363,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Adicionar event listeners para as opções do dropdown
     if (userDropdown) {
-        const loginLink = userDropdown.querySelector('a[href="pages/login.html"]:first-of-type');
-        const logoutLink = Array.from(userDropdown.querySelectorAll('a')).find(a => a.querySelector('.fa-sign-out-alt'));
+        const loginLink = document.getElementById('login-menu-item');
+        const logoutLink = document.getElementById('logout-link');
         const accountLink = document.getElementById('account-management-link');
         const minhasComprasLink = document.getElementById('minhas-compras-menu-item');
         const painelAdminLink = document.getElementById('painel-admin-link');
@@ -361,6 +387,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     if (loginLink) {
                         loginLink.classList.add('hidden');
+                    }
+                    if (logoutLink) {
+                        logoutLink.classList.remove('hidden');
                     }
                     
                     // Mostrar/ocultar links de painel baseado no perfil
@@ -397,6 +426,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (loginLink) {
                         loginLink.classList.remove('hidden');
                     }
+                    if (logoutLink) {
+                        logoutLink.classList.add('hidden');
+                    }
                     if (painelAdminLink) {
                         painelAdminLink.classList.add('hidden');
                     }
@@ -412,8 +444,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (loginLink) {
             loginLink.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Redirecionar para a tela de login
-                window.location.href = 'pages/login.html';
+                const loginHref = loginLink.getAttribute('href') || `${PROJECT_BASE_URL}pages/login.html`;
+                window.location.href = loginHref;
                 toggleUserDropdown();
             });
         }
@@ -1328,7 +1360,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch('services/conta.php', {
+            const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;
+            const response = await fetch(accountEndpoint, {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
