@@ -54,12 +54,26 @@ class DashboardService {
             error_log('getDashboardData: Decorador ID da sessão = ' . ($_SESSION['user_id'] ?? 'não definido'));
             error_log('getDashboardData: Decorador ID usado = ' . $decoradorId);
             
+            // Verificar se há orçamentos aprovados antes de buscar
+            $stmtCheck = $this->pdo->prepare("
+                SELECT COUNT(*) as total_aprovados
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+                AND status = 'aprovado'
+            ");
+            $stmtCheck->execute([$decoradorId]);
+            $checkResult = $stmtCheck->fetch();
+            error_log('getDashboardData: Total de orçamentos aprovados encontrados: ' . ($checkResult['total_aprovados'] ?? 0));
+            
             // Definir período padrão (mês atual)
             $dateFrom = $filters['date_from'] ?? date('Y-m-01');
             $dateTo = $filters['date_to'] ?? date('Y-m-t');
             
+            error_log('getDashboardData: Período - De: ' . $dateFrom . ' Até: ' . $dateTo);
+            
             // Obter KPIs
             $kpis = $this->getKPIs($decoradorId, $dateFrom, $dateTo);
+            error_log('getDashboardData: KPIs obtidos - Total: ' . ($kpis['festas_total'] ?? 0));
             
             // Obter dados para gráficos
             $series = $this->getChartData($decoradorId, $dateFrom, $dateTo);
@@ -77,7 +91,8 @@ class DashboardService {
                 'projetos_concluidos' => $projetosConcluidos,
                 'debug' => [
                     'decorador_id' => $decoradorId,
-                    'projetos_count' => count($projetosConcluidos)
+                    'projetos_count' => count($projetosConcluidos),
+                    'total_aprovados' => $checkResult['total_aprovados'] ?? 0
                 ]
             ];
             
@@ -96,15 +111,13 @@ class DashboardService {
      */
     private function getKPIs($decoradorId, $dateFrom, $dateTo) {
         try {
-            // Usar comparação flexível para status aprovado
-            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
-            
             // Total de festas no período (apenas aprovadas/confirmadas)
+            // Usar comparação direta na query SQL
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento BETWEEN ? AND ?
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
@@ -115,7 +128,7 @@ class DashboardService {
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento BETWEEN ? AND ?
                 AND created_via = 'client'
             ");
@@ -127,7 +140,7 @@ class DashboardService {
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento BETWEEN ? AND ?
                 AND (created_via = 'decorator' OR created_via IS NULL)
             ");
@@ -140,7 +153,7 @@ class DashboardService {
                 FROM orcamentos 
                 WHERE decorador_id = ? 
                 AND data_evento BETWEEN ? AND ?
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
             $receitaRecebida = $stmt->fetch()['total'];
@@ -220,14 +233,13 @@ class DashboardService {
     private function getFestasPorMes($decoradorId) {
         try {
             // Contar apenas orçamentos aprovados (confirmados) nos gráficos
-            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
             $stmt = $this->pdo->prepare("
                 SELECT 
                     DATE_FORMAT(data_evento, '%Y-%m') as mes,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
                 GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
                 ORDER BY mes ASC
@@ -269,14 +281,13 @@ class DashboardService {
     private function getFestasPorAno($decoradorId) {
         try {
             // Contar apenas orçamentos aprovados (confirmados) nos gráficos
-            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
             $stmt = $this->pdo->prepare("
                 SELECT 
                     YEAR(data_evento) as ano,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND {$statusCondition}
+                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
                 GROUP BY YEAR(data_evento)
                 ORDER BY ano ASC
