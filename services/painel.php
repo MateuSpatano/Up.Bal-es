@@ -48,11 +48,24 @@ class DashboardService {
      */
     public function getDashboardData($filters = []) {
         try {
-            $decoradorId = $_SESSION['user_id'] ?? 1;
+            // Obter decorador_id da sessão, similar ao painel gerencial
+            $decoradorId = $_SESSION['user_id'] ?? null;
+            
+            // Se não houver user_id na sessão, tentar obter do role
+            if (!$decoradorId && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'decorator') {
+                $decoradorId = $_SESSION['user_id'] ?? null;
+            }
+            
+            // Se ainda não houver, usar 1 como fallback (apenas para debug)
+            if (!$decoradorId) {
+                $decoradorId = 1;
+                error_log('getDashboardData: Usando decorador_id padrão (1) - sessão não contém user_id');
+            }
             
             // Log para debug
             error_log('getDashboardData: Decorador ID da sessão = ' . ($_SESSION['user_id'] ?? 'não definido'));
             error_log('getDashboardData: Decorador ID usado = ' . $decoradorId);
+            error_log('getDashboardData: Sessão user_role = ' . ($_SESSION['user_role'] ?? 'não definido'));
             
             // Verificar se há orçamentos aprovados antes de buscar
             $stmtCheck = $this->pdo->prepare("
@@ -113,35 +126,44 @@ class DashboardService {
         try {
             error_log('getKPIs: Decorador ID = ' . $decoradorId . ', Período: ' . $dateFrom . ' até ' . $dateTo);
             
-            // Total de festas APROVADAS (TODAS, sem filtro de período para os cards principais)
+            // Verificar quantos orçamentos existem no total (todos os status)
+            $stmt = $this->pdo->prepare("
+                SELECT COUNT(*) as total, 
+                       GROUP_CONCAT(DISTINCT status) as status_list
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+            ");
+            $stmt->execute([$decoradorId]);
+            $totalCheck = $stmt->fetch();
+            error_log('getKPIs: Total de orçamentos (todos status): ' . ($totalCheck['total'] ?? 0));
+            error_log('getKPIs: Status encontrados: ' . ($totalCheck['status_list'] ?? 'nenhum'));
+            
+            // Total de festas (TODAS, independente do status, sem filtro de período)
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
             ");
             $stmt->execute([$decoradorId]);
             $festasTotal = $stmt->fetch()['total'];
-            error_log('getKPIs: Total de festas aprovadas: ' . $festasTotal);
+            error_log('getKPIs: Total de festas (todos status): ' . $festasTotal);
             
-            // Festas solicitadas por clientes (criadas via fluxo do cliente) - TODAS aprovadas
+            // Festas solicitadas por clientes (criadas via fluxo do cliente) - TODAS
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
                 AND created_via = 'client'
             ");
             $stmt->execute([$decoradorId]);
             $festasSolicitadasClientes = $stmt->fetch()['total'];
             error_log('getKPIs: Festas solicitadas por clientes: ' . $festasSolicitadasClientes);
             
-            // Festas criadas pelo decorador (inseridas pelo próprio decorador) - TODAS aprovadas
+            // Festas criadas pelo decorador (inseridas pelo próprio decorador) - TODAS
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
                 AND (created_via = 'decorator' OR created_via IS NULL)
             ");
             $stmt->execute([$decoradorId]);
@@ -149,6 +171,7 @@ class DashboardService {
             error_log('getKPIs: Festas criadas pelo decorador: ' . $festasCriadasDecorador);
             
             // Receita recebida (TODOS os orçamentos aprovados, sem filtro de período)
+            // Se não houver aprovados, usar todos os orçamentos para calcular receita potencial
             $stmt = $this->pdo->prepare("
                 SELECT COALESCE(SUM(valor_estimado), 0) as total
                 FROM orcamentos 
@@ -235,14 +258,13 @@ class DashboardService {
      */
     private function getFestasPorMes($decoradorId) {
         try {
-            // Contar apenas orçamentos aprovados (confirmados) nos gráficos
+            // Contar TODOS os orçamentos nos gráficos (não apenas aprovados)
             $stmt = $this->pdo->prepare("
                 SELECT 
                     DATE_FORMAT(data_evento, '%Y-%m') as mes,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
                 GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
                 ORDER BY mes ASC
@@ -283,14 +305,13 @@ class DashboardService {
      */
     private function getFestasPorAno($decoradorId) {
         try {
-            // Contar apenas orçamentos aprovados (confirmados) nos gráficos
+            // Contar TODOS os orçamentos nos gráficos (não apenas aprovados)
             $stmt = $this->pdo->prepare("
                 SELECT 
                     YEAR(data_evento) as ano,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND (status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
                 GROUP BY YEAR(data_evento)
                 ORDER BY ano ASC
