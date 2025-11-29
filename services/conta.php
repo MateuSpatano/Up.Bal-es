@@ -21,7 +21,9 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT'])) {
 }
 
 // Verificar se o usuário está logado
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
