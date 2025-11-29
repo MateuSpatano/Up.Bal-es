@@ -228,7 +228,7 @@ try {
                      'create_decorator', 'approve_decorator', 'toggle_user_status', 
                      'delete_user', 'get_admin_profile', 'update_admin_profile', 
                      'update_admin_password', 'get_settings', 'update_settings', 
-                     'save_legal_document'];
+                     'save_legal_document', 'change_admin_password'];
     
     if (in_array($action, $requiresAuth)) {
         try {
@@ -299,6 +299,10 @@ try {
                 
             case 'save_legal_document':
                 handleSaveLegalDocument($input);
+                break;
+                
+            case 'change_admin_password':
+                handleChangeAdminPassword($input);
                 break;
                 
             case 'send_decorator_notification':
@@ -1081,6 +1085,61 @@ function handleUpdateAdminProfile($input) {
  */
 function handleUpdateAdminPassword($input) {
     errorResponse('Funcionalidade em desenvolvimento', 501);
+}
+
+/**
+ * Alterar senha do administrador
+ */
+function handleChangeAdminPassword($input) {
+    try {
+        $adminId = $_SESSION['admin_id'] ?? checkAdminAuth();
+        
+        $currentPassword = trim($input['current_password'] ?? '');
+        $newPassword = trim($input['new_password'] ?? '');
+        $confirmPassword = trim($input['confirm_password'] ?? '');
+        
+        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            errorResponse('Todos os campos são obrigatórios.', 400);
+        }
+        
+        if ($newPassword !== $confirmPassword) {
+            errorResponse('A nova senha e a confirmação não coincidem.', 400);
+        }
+        
+        if (strlen($newPassword) < 6) {
+            errorResponse('A nova senha deve ter pelo menos 6 caracteres.', 400);
+        }
+        
+        $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ? AND perfil = 'admin' LIMIT 1");
+        $stmt->execute([$adminId]);
+        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$admin || empty($admin['senha'])) {
+            errorResponse('Admin não encontrado.', 404);
+        }
+        
+        if (!verifyPassword($currentPassword, $admin['senha'])) {
+            errorResponse('Senha atual incorreta.', 400);
+        }
+        
+        if (verifyPassword($newPassword, $admin['senha'])) {
+            errorResponse('A nova senha deve ser diferente da atual.', 400);
+        }
+        
+        $newHash = hashPassword($newPassword);
+        $updateStmt = $pdo->prepare("UPDATE usuarios SET senha = ?, updated_at = NOW() WHERE id = ? AND perfil = 'admin'");
+        $updateStmt->execute([$newHash, $adminId]);
+        
+        successResponse(null, 'Senha atualizada com sucesso.');
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao alterar senha do admin: ' . $e->getMessage());
+        errorResponse('Erro ao conectar com o banco de dados', 500);
+    } catch (Exception $e) {
+        error_log('Erro ao alterar senha do admin: ' . $e->getMessage());
+        errorResponse('Erro ao alterar senha: ' . $e->getMessage(), 500);
+    }
 }
 
 /**
