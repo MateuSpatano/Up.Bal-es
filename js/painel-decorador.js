@@ -6001,7 +6001,7 @@ _${decoratorName}_`;
     }
     
     // Carregar notificações
-    function loadNotifications() {
+    async function loadNotifications() {
         if (!notificationsList) return;
         
         // Mostrar loading
@@ -6012,60 +6012,176 @@ _${decoratorName}_`;
             </div>
         `;
         
-        // Fazer requisição para buscar orçamentos recentes
-        fetch('../services/orcamentos.php?action=recent')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayNotifications(data.budgets);
-                    updateNotificationCount(data.count);
-                } else {
-                    showNotificationError(data.message);
+        try {
+            // Buscar orçamentos e tickets em paralelo
+            const [budgetsResponse, ticketsResponse] = await Promise.all([
+                fetch('../services/orcamentos.php?action=recent').catch(() => null),
+                fetch('../services/suporte.php?action=recent').catch(() => null)
+            ]);
+            
+            // Processar respostas com tratamento de erros
+            let budgetsData = { success: false, budgets: [], count: 0 };
+            let ticketsData = { success: false, tickets: [], count: 0 };
+            
+            if (budgetsResponse && budgetsResponse.ok) {
+                try {
+                    budgetsData = await budgetsResponse.json();
+                } catch (e) {
+                    console.error('Erro ao processar resposta de orçamentos:', e);
                 }
-            })
-            .catch(error => {
-                console.error('Erro ao carregar notificações:', error);
-                showNotificationError('Erro ao carregar notificações');
-            });
+            }
+            
+            if (ticketsResponse && ticketsResponse.ok) {
+                try {
+                    ticketsData = await ticketsResponse.json();
+                } catch (e) {
+                    console.error('Erro ao processar resposta de tickets:', e);
+                }
+            }
+            
+            // Combinar notificações
+            const allNotifications = [];
+            
+            // Adicionar orçamentos
+            if (budgetsData.success && budgetsData.budgets) {
+                budgetsData.budgets.forEach(budget => {
+                    allNotifications.push({
+                        ...budget,
+                        type: 'budget',
+                        sortDate: new Date(budget.created_at || budget.updated_at)
+                    });
+                });
+            }
+            
+            // Adicionar tickets de suporte
+            if (ticketsData.success && ticketsData.tickets) {
+                ticketsData.tickets.forEach(ticket => {
+                    allNotifications.push({
+                        ...ticket,
+                        type: 'support',
+                        sortDate: new Date(ticket.updated_at || ticket.created_at)
+                    });
+                });
+            }
+            
+            // Ordenar por data (mais recentes primeiro)
+            allNotifications.sort((a, b) => b.sortDate - a.sortDate);
+            
+            // Exibir notificações combinadas
+            displayNotifications(allNotifications);
+            updateNotificationCount(allNotifications.length);
+            
+        } catch (error) {
+            console.error('Erro ao carregar notificações:', error);
+            showNotificationError('Erro ao carregar notificações');
+        }
     }
     
     // Exibir notificações
-    function displayNotifications(budgets) {
+    function displayNotifications(notifications) {
         if (!notificationsList) return;
         
-        if (budgets.length === 0) {
+        if (notifications.length === 0) {
             notificationsList.innerHTML = `
                 <div class="notifications-empty">
                     <i class="fas fa-bell-slash"></i>
-                    <p>Nenhum orçamento recente</p>
+                    <p>Nenhuma notificação recente</p>
                 </div>
             `;
             return;
         }
         
-        const notificationsHTML = budgets.map(budget => `
-            <div class="notification-item" data-budget-id="${budget.id}">
-                <div class="notification-content">
-                    <div class="notification-client">${budget.client}</div>
-                    <div class="notification-date">${budget.time_ago}</div>
-                    <div class="notification-status ${budget.status}">
-                        <i class="fas fa-circle"></i>
-                        ${getStatusText(budget.status)}
+        const notificationsHTML = notifications.map(notification => {
+            if (notification.type === 'support') {
+                // Notificação de ticket de suporte
+                return `
+                    <div class="notification-item notification-support" data-ticket-id="${notification.id}" data-type="support">
+                        <div class="notification-content">
+                            <div class="notification-icon">
+                                <i class="fas fa-headset text-indigo-600"></i>
+                            </div>
+                            <div class="notification-details">
+                                <div class="notification-title">${escapeHtml(notification.title)}</div>
+                                <div class="notification-date">${notification.time_ago || 'Recente'}</div>
+                                <div class="notification-status support-status ${notification.status}">
+                                    <i class="fas fa-circle"></i>
+                                    ${getSupportStatusText(notification.status)}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        `).join('');
+                `;
+            } else {
+                // Notificação de orçamento
+                return `
+                    <div class="notification-item notification-budget" data-budget-id="${notification.id}" data-type="budget">
+                        <div class="notification-content">
+                            <div class="notification-icon">
+                                <i class="fas fa-file-invoice-dollar text-blue-600"></i>
+                            </div>
+                            <div class="notification-details">
+                                <div class="notification-title">${escapeHtml(notification.client || 'Cliente')}</div>
+                                <div class="notification-date">${notification.time_ago || 'Recente'}</div>
+                                <div class="notification-status budget-status ${notification.status}">
+                                    <i class="fas fa-circle"></i>
+                                    ${getStatusText(notification.status)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }).join('');
         
         notificationsList.innerHTML = notificationsHTML;
         
         // Adicionar event listeners para os itens
         document.querySelectorAll('.notification-item').forEach(item => {
             item.addEventListener('click', () => {
-                const budgetId = item.dataset.budgetId;
-                openBudgetDetails(budgetId);
+                const type = item.dataset.type;
+                if (type === 'support') {
+                    const ticketId = item.dataset.ticketId;
+                    // Abrir modal de suporte ou navegar para a seção de suporte
+                    openSupportTicket(ticketId);
+                } else {
+                    const budgetId = item.dataset.budgetId;
+                    openBudgetDetails(budgetId);
+                }
                 closeNotificationsDropdown();
             });
         });
+    }
+    
+    // Função auxiliar para escapar HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Abrir ticket de suporte
+    function openSupportTicket(ticketId) {
+        // Tentar abrir modal de suporte se existir
+        const supportModal = document.getElementById('support-modal');
+        if (supportModal) {
+            // Disparar evento para abrir o modal com o ticket específico
+            const event = new CustomEvent('openSupportTicket', { detail: { ticketId } });
+            document.dispatchEvent(event);
+        } else {
+            // Se não houver modal, mostrar notificação
+            showNotification('Visualize seus chamados de suporte na seção de Suporte', 'info');
+        }
+    }
+    
+    // Obter texto do status de suporte
+    function getSupportStatusText(status) {
+        const statusMap = {
+            'novo': 'Novo',
+            'em_analise': 'Em Análise',
+            'resolvido': 'Resolvido',
+            'cancelado': 'Cancelado'
+        };
+        return statusMap[status] || status;
     }
     
     // Exibir erro nas notificações
@@ -6084,8 +6200,104 @@ _${decoratorName}_`;
     function updateNotificationCount(count) {
         if (!notificationCount) return;
         
-        notificationCount.textContent = count;
+        // Limitar a exibição do número (máximo 99+)
+        const displayCount = count > 99 ? '99+' : count;
+        notificationCount.textContent = displayCount;
         notificationCount.style.display = count > 0 ? 'flex' : 'none';
+    }
+    
+    // Polling de notificações (verificar a cada 30 segundos)
+    let notificationPollingInterval = null;
+    
+    function startNotificationPolling() {
+        // Limpar intervalo anterior se existir
+        if (notificationPollingInterval) {
+            clearInterval(notificationPollingInterval);
+        }
+        
+        // Verificar notificações a cada 30 segundos
+        notificationPollingInterval = setInterval(() => {
+            // Carregar notificações em background (sem mostrar loading)
+            loadNotificationsSilently();
+        }, 30000); // 30 segundos
+    }
+    
+    function stopNotificationPolling() {
+        if (notificationPollingInterval) {
+            clearInterval(notificationPollingInterval);
+            notificationPollingInterval = null;
+        }
+    }
+    
+    // Carregar notificações silenciosamente (sem mostrar loading)
+    async function loadNotificationsSilently() {
+        try {
+            // Buscar orçamentos e tickets em paralelo
+            const [budgetsResponse, ticketsResponse] = await Promise.all([
+                fetch('../services/orcamentos.php?action=recent').catch(() => null),
+                fetch('../services/suporte.php?action=recent').catch(() => null)
+            ]);
+            
+            // Processar respostas com tratamento de erros
+            let budgetsData = { success: false, budgets: [], count: 0 };
+            let ticketsData = { success: false, tickets: [], count: 0 };
+            
+            if (budgetsResponse && budgetsResponse.ok) {
+                try {
+                    budgetsData = await budgetsResponse.json();
+                } catch (e) {
+                    console.error('Erro ao processar resposta de orçamentos:', e);
+                }
+            }
+            
+            if (ticketsResponse && ticketsResponse.ok) {
+                try {
+                    ticketsData = await ticketsResponse.json();
+                } catch (e) {
+                    console.error('Erro ao processar resposta de tickets:', e);
+                }
+            }
+            
+            // Combinar notificações
+            const allNotifications = [];
+            
+            // Adicionar orçamentos
+            if (budgetsData.success && budgetsData.budgets) {
+                budgetsData.budgets.forEach(budget => {
+                    allNotifications.push({
+                        ...budget,
+                        type: 'budget',
+                        sortDate: new Date(budget.created_at || budget.updated_at)
+                    });
+                });
+            }
+            
+            // Adicionar tickets de suporte
+            if (ticketsData.success && ticketsData.tickets) {
+                ticketsData.tickets.forEach(ticket => {
+                    allNotifications.push({
+                        ...ticket,
+                        type: 'support',
+                        sortDate: new Date(ticket.updated_at || ticket.created_at)
+                    });
+                });
+            }
+            
+            // Ordenar por data (mais recentes primeiro)
+            allNotifications.sort((a, b) => b.sortDate - a.sortDate);
+            
+            // Atualizar contador e lista apenas se o dropdown estiver fechado
+            // Se estiver aberto, atualizar a lista também
+            updateNotificationCount(allNotifications.length);
+            
+            // Se o dropdown estiver aberto, atualizar a lista
+            if (notificationsOpen && notificationsList) {
+                displayNotifications(allNotifications);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao carregar notificações silenciosamente:', error);
+        }
     }
     
     // Obter texto do status
@@ -9036,6 +9248,24 @@ _${decoratorName}_`;
         // Função mantida para compatibilidade, mas não há mais campos com contadores
     }
     
+    // ========== INICIALIZAÇÃO DO POLLING DE NOTIFICAÇÕES ==========
+    
+    // Iniciar polling de notificações quando a página carregar
+    startNotificationPolling();
+    
+    // Parar polling quando a página for fechada ou quando o usuário sair
+    window.addEventListener('beforeunload', () => {
+        stopNotificationPolling();
+    });
+    
+    // Parar polling quando a página perder foco (opcional - pode ser removido se quiser continuar verificando)
+    // document.addEventListener('visibilitychange', () => {
+    //     if (document.hidden) {
+    //         stopNotificationPolling();
+    //     } else {
+    //         startNotificationPolling();
+    //     }
+    // });
 
     console.log('Dashboard do Decorador - Sistema carregado com sucesso!');
 });

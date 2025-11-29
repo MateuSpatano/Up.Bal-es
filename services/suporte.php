@@ -124,6 +124,17 @@ try {
     }
     
     // Verificar método da requisição
+    // Permitir GET para buscar tickets recentes (notificações)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'recent') {
+        getRecentTickets($pdo);
+        exit();
+    }
+    
+    // Para outras requisições GET, retornar erro
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        ensureJsonResponse(['success' => false, 'message' => 'Método GET não permitido para esta ação'], 405);
+    }
+    
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         ensureJsonResponse(['success' => false, 'message' => 'Método não permitido'], 405);
     }
@@ -628,5 +639,105 @@ function getTicket($pdo, $data) {
     } catch (Exception $e) {
         error_log('Erro ao buscar ticket: ' . $e->getMessage());
         ensureJsonResponse(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Obter tickets recentes com mudanças de status para notificações
+ */
+function getRecentTickets($pdo) {
+    try {
+        $decoratorId = $_SESSION['user_id'] ?? null;
+        
+        if (!$decoratorId) {
+            ensureJsonResponse([
+                'success' => true,
+                'tickets' => [],
+                'count' => 0
+            ]);
+        }
+        
+        // Buscar tickets do decorador que foram atualizados recentemente (últimas 24 horas)
+        // e que não estão mais com status 'novo' (ou seja, tiveram mudança de status)
+        $stmt = $pdo->prepare("
+            SELECT 
+                id, title, description, status, admin_response,
+                decorator_id, decorator_name, decorator_email,
+                created_at, updated_at
+            FROM support_tickets 
+            WHERE decorator_id = ?
+            AND status != 'novo'
+            AND updated_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY updated_at DESC
+            LIMIT 10
+        ");
+        
+        $stmt->execute([$decoratorId]);
+        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Formatar dados para notificações
+        foreach ($tickets as &$ticket) {
+            // Formatar data para exibição
+            $ticket['formatted_date'] = date('d/m/Y H:i', strtotime($ticket['updated_at']));
+            $ticket['time_ago'] = getTimeAgo($ticket['updated_at']);
+            
+            // Mapear status para texto legível
+            $statusMap = [
+                'novo' => 'Novo',
+                'em_analise' => 'Em Análise',
+                'resolvido' => 'Resolvido',
+                'cancelado' => 'Cancelado'
+            ];
+            $ticket['status_text'] = $statusMap[$ticket['status']] ?? $ticket['status'];
+            
+            // Tipo de notificação
+            $ticket['type'] = 'support';
+        }
+        
+        ensureJsonResponse([
+            'success' => true,
+            'tickets' => $tickets,
+            'count' => count($tickets)
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log('Erro PDO ao buscar tickets recentes: ' . $e->getMessage());
+        ensureJsonResponse([
+            'success' => false,
+            'message' => 'Erro ao buscar tickets recentes',
+            'tickets' => [],
+            'count' => 0
+        ]);
+    } catch (Exception $e) {
+        error_log('Erro ao buscar tickets recentes: ' . $e->getMessage());
+        ensureJsonResponse([
+            'success' => false,
+            'message' => 'Erro ao buscar tickets recentes',
+            'tickets' => [],
+            'count' => 0
+        ]);
+    }
+}
+
+/**
+ * Função auxiliar para calcular tempo relativo (há X tempo)
+ */
+function getTimeAgo($datetime) {
+    $timestamp = strtotime($datetime);
+    $diff = time() - $timestamp;
+    
+    if ($diff < 60) {
+        return 'há alguns segundos';
+    } elseif ($diff < 3600) {
+        $minutes = floor($diff / 60);
+        return "há {$minutes} minuto" . ($minutes > 1 ? 's' : '');
+    } elseif ($diff < 86400) {
+        $hours = floor($diff / 3600);
+        return "há {$hours} hora" . ($hours > 1 ? 's' : '');
+    } elseif ($diff < 604800) {
+        $days = floor($diff / 86400);
+        return "há {$days} dia" . ($days > 1 ? 's' : '');
+    } else {
+        return date('d/m/Y', $timestamp);
     }
 }
