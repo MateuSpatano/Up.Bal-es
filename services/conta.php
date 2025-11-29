@@ -68,6 +68,7 @@ try {
     $city = trim($_POST['city'] ?? '');
     $state = trim($_POST['state'] ?? '');
     $zipcode = trim($_POST['zipcode'] ?? '');
+    $skip_current_password = isset($_POST['skip_current_password']) && $_POST['skip_current_password'] === '1';
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -114,8 +115,11 @@ try {
     // Validar senhas se fornecidas
     // Apenas validar se realmente há uma nova senha sendo definida
     if (!empty($new_password) && trim($new_password) !== '') {
-        if (empty($current_password) || trim($current_password) === '' || $current_password === '••••••••') {
-            $errors[] = 'Senha atual é obrigatória para alterar a senha';
+        // Só exigir senha atual se não estiver pulando a verificação
+        if (!$skip_current_password) {
+            if (empty($current_password) || trim($current_password) === '' || $current_password === '••••••••') {
+                $errors[] = 'Senha atual é obrigatória para alterar a senha';
+            }
         }
 
         if (strlen($new_password) < 8) {
@@ -145,8 +149,8 @@ try {
         exit;
     }
 
-    // Verificar senha atual se fornecida
-    if (!empty($current_password)) {
+    // Verificar senha atual se fornecida e não estiver pulando a verificação
+    if (!$skip_current_password && !empty($current_password)) {
         $stmt = $pdo->prepare("SELECT senha FROM usuarios WHERE id = ?");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();

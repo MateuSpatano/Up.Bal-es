@@ -684,7 +684,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CARREGAMENTO DE DADOS DOS MÓDULOS ==========
     
     function loadDashboardData() {
-        console.log('Carregando dados do dashboard...');
+        console.log('=== Carregando dados do dashboard ===');
+        
+        // Verificar se os elementos existem
+        const dateFromEl = document.getElementById('dashboard-date-from');
+        const dateToEl = document.getElementById('dashboard-date-to');
+        
+        if (!dateFromEl || !dateToEl) {
+            console.error('Elementos de data do dashboard não encontrados!');
+            console.log('dateFromEl:', dateFromEl);
+            console.log('dateToEl:', dateToEl);
+            return;
+        }
         
         // Definir período padrão (mês atual)
         const today = new Date();
@@ -692,8 +703,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         
         // Definir valores padrão dos filtros
-        document.getElementById('dashboard-date-from').value = firstDay.toISOString().split('T')[0];
-        document.getElementById('dashboard-date-to').value = lastDay.toISOString().split('T')[0];
+        dateFromEl.value = firstDay.toISOString().split('T')[0];
+        dateToEl.value = lastDay.toISOString().split('T')[0];
+        
+        console.log('Datas definidas - De:', dateFromEl.value, 'Até:', dateToEl.value);
         
         // Carregar dados do dashboard
         loadDashboardKPIs();
@@ -710,8 +723,21 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     function loadDashboardKPIs() {
-        const dateFrom = document.getElementById('dashboard-date-from').value;
-        const dateTo = document.getElementById('dashboard-date-to').value;
+        console.log('=== loadDashboardKPIs chamado ===');
+        
+        const dateFromEl = document.getElementById('dashboard-date-from');
+        const dateToEl = document.getElementById('dashboard-date-to');
+        
+        if (!dateFromEl || !dateToEl) {
+            console.error('Elementos de data não encontrados!');
+            showDashboardError('Erro: Elementos do formulário não encontrados.');
+            return;
+        }
+        
+        const dateFrom = dateFromEl.value;
+        const dateTo = dateToEl.value;
+        
+        console.log('Datas obtidas - De:', dateFrom, 'Até:', dateTo);
         
         if (!dateFrom || !dateTo) {
             showDashboardError('Por favor, selecione as datas inicial e final.');
@@ -719,6 +745,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         showDashboardLoading();
+        
+        console.log('Fazendo requisição para ../services/painel.php');
         
         fetch('../services/painel.php', {
             method: 'POST',
@@ -731,13 +759,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 date_to: dateTo
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Resposta recebida, status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            console.log('Resposta do dashboard:', data);
+            console.log('=== Resposta completa do dashboard ===', data);
             if (data.success) {
                 console.log('KPIs recebidos:', data.kpis);
+                console.log('Series recebidas:', data.series);
                 console.log('Projetos concluídos:', data.projetos_concluidos?.length || 0);
                 console.log('Festas por mês:', data.series?.festas_por_mes_12m?.length || 0);
+                
+                // Verificar se os elementos KPI existem antes de atualizar
+                const kpiElements = [
+                    'kpi-festas-total',
+                    'kpi-festas-clientes',
+                    'kpi-festas-decorador',
+                    'kpi-receita-recebida',
+                    'kpi-lucro-total-mes',
+                    'kpi-margem-media-lucro'
+                ];
+                
+                kpiElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) {
+                        console.warn(`Elemento ${id} não encontrado!`);
+                    }
+                });
+                
                 updateKPIs(data.kpis);
                 updateCharts(data.series);
                 
@@ -750,11 +803,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 hideDashboardLoading();
             } else {
                 console.error('Erro ao carregar dashboard:', data.message);
+                console.error('Detalhes do erro:', data);
                 showDashboardError(data.message || 'Erro ao carregar dados do dashboard.');
             }
         })
         .catch(error => {
             console.error('Erro ao carregar dashboard:', error);
+            console.error('Stack trace:', error.stack);
             showDashboardError('Erro de conexão. Verifique sua internet e tente novamente.');
         });
     }
