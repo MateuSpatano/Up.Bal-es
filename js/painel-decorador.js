@@ -1936,10 +1936,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (stateField) stateField.value = data.state || '';
         if (zipcodeField) zipcodeField.value = data.zipcode || '';
         
-        // Preencher campo de senha atual com valor mascarado (sempre oculto, sem botão de olho)
+        // Preencher campo de senha atual com valor mascarado (sempre oculto, bloqueado, sem botão de olho)
         if (currentPasswordField) {
             currentPasswordField.value = '••••••••';
             currentPasswordField.type = 'password';
+            currentPasswordField.setAttribute('readonly', 'readonly');
+            currentPasswordField.setAttribute('disabled', 'disabled');
         }
         
         // Atualizar foto de perfil se existir
@@ -1998,24 +2000,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Configurar campo de senha atual (sem botão de olho, sempre oculto)
+        // Configurar campo de senha atual (sem botão de olho, sempre oculto, bloqueado)
         const currentPasswordField = document.getElementById('account-current-password-inline');
         if (currentPasswordField) {
-            // Garantir que o campo sempre seja do tipo password
+            // Garantir que o campo sempre seja do tipo password e bloqueado
             currentPasswordField.type = 'password';
+            currentPasswordField.setAttribute('readonly', 'readonly');
+            currentPasswordField.setAttribute('disabled', 'disabled');
+            currentPasswordField.value = '••••••••';
             
-            // Quando o usuário focar no campo, limpar o valor mascarado para permitir digitação
-            currentPasswordField.addEventListener('focus', function() {
-                if (this.value === '••••••••') {
-                    this.value = '';
-                }
+            // Prevenir qualquer tentativa de edição
+            currentPasswordField.addEventListener('keydown', function(e) {
+                e.preventDefault();
+                return false;
             });
             
-            // Se o campo perder o foco e estiver vazio, restaurar o valor mascarado
-            currentPasswordField.addEventListener('blur', function() {
-                if (!this.value.trim()) {
-                    this.value = '••••••••';
-                }
+            currentPasswordField.addEventListener('paste', function(e) {
+                e.preventDefault();
+                return false;
+            });
+            
+            currentPasswordField.addEventListener('cut', function(e) {
+                e.preventDefault();
+                return false;
             });
         }
         
@@ -2061,12 +2068,19 @@ document.addEventListener('DOMContentLoaded', function() {
         // Resetar senha
         if (resetAccountPassword) {
             resetAccountPassword.addEventListener('click', function() {
-                passwordFormInline.reset();
-                // Restaurar valor mascarado no campo de senha atual após reset
+                // Resetar apenas os campos de nova senha e confirmação
+                const newPasswordField = document.getElementById('account-new-password-inline');
+                const confirmPasswordField = document.getElementById('account-confirm-password-inline');
+                if (newPasswordField) newPasswordField.value = '';
+                if (confirmPasswordField) confirmPasswordField.value = '';
+                
+                // Manter o campo de senha atual bloqueado com valor mascarado
                 const currentPasswordField = document.getElementById('account-current-password-inline');
                 if (currentPasswordField) {
                     currentPasswordField.value = '••••••••';
                     currentPasswordField.type = 'password';
+                    currentPasswordField.setAttribute('readonly', 'readonly');
+                    currentPasswordField.setAttribute('disabled', 'disabled');
                 }
             });
         }
@@ -2185,15 +2199,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmPassword = document.getElementById('account-confirm-password-inline');
         
         // Validar campos
-        // Ignorar valor mascarado (••••••••) - tratar como campo vazio
-        const currentPasswordValue = currentPassword && currentPassword.value.trim() !== '••••••••' 
-            ? currentPassword.value.trim() 
-            : '';
-        if (!currentPasswordValue) {
-            showNotification('Senha atual é obrigatória', 'error');
-            currentPassword?.focus();
-            return;
-        }
+        // Como o campo de senha atual está bloqueado, não é necessário validá-lo aqui
+        // O campo serve apenas para exibição da senha atual mascarada
+        // A validação da senha atual será feita no backend quando o usuário tentar alterar
         
         if (!newPassword || !newPassword.value.trim()) {
             showNotification('Nova senha é obrigatória', 'error');
@@ -2221,9 +2229,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
+            // Como o campo de senha atual está bloqueado, solicitar ao usuário
+            const actualCurrentPassword = prompt('Para alterar sua senha, digite sua senha atual:');
+            if (!actualCurrentPassword || !actualCurrentPassword.trim()) {
+                showNotification('Senha atual é obrigatória para alterar a senha', 'error');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('btn-loading');
+                }
+                return;
+            }
+            
             const formData = new FormData();
             formData.append('action', 'change_password');
-            formData.append('current_password', currentPasswordValue);
+            formData.append('current_password', actualCurrentPassword.trim());
             formData.append('new_password', newPassword.value);
             
             const response = await fetch('../services/conta.php', {
@@ -2236,11 +2255,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 showNotification('Senha atualizada com sucesso!', 'success');
-                form.reset();
-                // Restaurar valor mascarado no campo de senha atual após sucesso
+                // Resetar apenas os campos de nova senha e confirmação
+                if (newPassword) newPassword.value = '';
+                if (confirmPassword) confirmPassword.value = '';
+                
+                // Manter o campo de senha atual bloqueado com valor mascarado
                 if (currentPassword) {
                     currentPassword.value = '••••••••';
                     currentPassword.type = 'password';
+                    currentPassword.setAttribute('readonly', 'readonly');
+                    currentPassword.setAttribute('disabled', 'disabled');
                 }
             } else {
                 showNotification('Erro ao atualizar senha: ' + (result.message || 'Erro desconhecido'), 'error');
