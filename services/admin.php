@@ -977,8 +977,12 @@ function handleUpdateAdminProfile($input) {
     try {
         $adminId = $_SESSION['admin_id'] ?? checkAdminAuth();
         $pdo = getDatabaseConnection($GLOBALS['database_config']);
+        $columnExists = function($column) use ($pdo) {
+            return tableHasColumn($pdo, 'usuarios', $column);
+        };
         
-        $stmt = $pdo->prepare("SELECT foto_perfil FROM usuarios WHERE id = ? AND perfil = 'admin'");
+        $selectColumns = $columnExists('foto_perfil') ? 'foto_perfil' : 'id';
+        $stmt = $pdo->prepare("SELECT {$selectColumns} FROM usuarios WHERE id = ? AND perfil = 'admin'");
         $stmt->execute([$adminId]);
         $currentAdmin = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -1000,6 +1004,9 @@ function handleUpdateAdminProfile($input) {
         ];
         
         foreach ($fieldsMap as $inputKey => $column) {
+            if (!$columnExists($column)) {
+                continue;
+            }
             if (array_key_exists($inputKey, $input)) {
                 $value = trim((string)$input[$inputKey]);
                 
@@ -1020,10 +1027,11 @@ function handleUpdateAdminProfile($input) {
             }
         }
         
-        $removePhoto = filter_var($input['remove_profile_image'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $hasPhotoColumn = $columnExists('foto_perfil');
+        $removePhoto = $hasPhotoColumn && filter_var($input['remove_profile_image'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $newPhotoPath = null;
         
-        if (!empty($input['profile_image'])) {
+        if (!empty($input['profile_image']) && $hasPhotoColumn) {
             try {
                 $newPhotoPath = saveAdminProfileImage($input['profile_image'], $adminId);
             } catch (Exception $e) {
@@ -1049,7 +1057,7 @@ function handleUpdateAdminProfile($input) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         
-        if (($removePhoto || $newPhotoPath) && !empty($currentAdmin['foto_perfil'])) {
+        if ($hasPhotoColumn && ($removePhoto || $newPhotoPath) && !empty($currentAdmin['foto_perfil'])) {
             $oldPath = __DIR__ . '/../' . $currentAdmin['foto_perfil'];
             if (is_file($oldPath)) {
                 @unlink($oldPath);
@@ -1094,8 +1102,7 @@ function handleUpdateSettings($input) {
  */
 function fetchAdminProfile($pdo, $adminId) {
     $stmt = $pdo->prepare("
-        SELECT id, nome, email, telefone, whatsapp, instagram, 
-               email_comunicacao, bio, foto_perfil 
+        SELECT * 
         FROM usuarios 
         WHERE id = ? AND perfil = 'admin'
         LIMIT 1
@@ -1107,16 +1114,23 @@ function fetchAdminProfile($pdo, $adminId) {
         return null;
     }
     
+    $hasPhotoColumn = tableHasColumn($pdo, 'usuarios', 'foto_perfil');
+    $hasPhoneColumn = tableHasColumn($pdo, 'usuarios', 'telefone');
+    $hasWhatsappColumn = tableHasColumn($pdo, 'usuarios', 'whatsapp');
+    $hasInstagramColumn = tableHasColumn($pdo, 'usuarios', 'instagram');
+    $hasCommEmailColumn = tableHasColumn($pdo, 'usuarios', 'email_comunicacao');
+    $hasBioColumn = tableHasColumn($pdo, 'usuarios', 'bio');
+    
     return [
         'id' => (int)($admin['id'] ?? 0),
         'name' => $admin['nome'] ?? '',
         'email' => $admin['email'] ?? '',
-        'phone' => $admin['telefone'] ?? '',
-        'whatsapp' => $admin['whatsapp'] ?? '',
-        'instagram' => $admin['instagram'] ?? '',
-        'communication_email' => $admin['email_comunicacao'] ?? '',
-        'bio' => $admin['bio'] ?? '',
-        'profile_photo' => !empty($admin['foto_perfil']) ? $admin['foto_perfil'] : null
+        'phone' => ($hasPhoneColumn && isset($admin['telefone'])) ? $admin['telefone'] : '',
+        'whatsapp' => ($hasWhatsappColumn && isset($admin['whatsapp'])) ? $admin['whatsapp'] : '',
+        'instagram' => ($hasInstagramColumn && isset($admin['instagram'])) ? $admin['instagram'] : '',
+        'communication_email' => ($hasCommEmailColumn && isset($admin['email_comunicacao'])) ? $admin['email_comunicacao'] : '',
+        'bio' => ($hasBioColumn && isset($admin['bio'])) ? $admin['bio'] : '',
+        'profile_photo' => ($hasPhotoColumn && !empty($admin['foto_perfil'])) ? $admin['foto_perfil'] : null
     ];
 }
 
@@ -1167,6 +1181,36 @@ function saveAdminProfileImage($base64Image, $adminId) {
     }
     
     return 'uploads/profile_photos/' . $fileName;
+}
+
+/**
+ * Verificar se coluna existe na tabela
+ */
+function tableHasColumn($pdo, $table, $column) {
+    static $columnCache = [];
+    $schema = $GLOBALS['database_config']['dbname'] ?? '';
+    if (empty($schema)) {
+        return false;
+    }
+    
+    $cacheKey = "{$schema}.{$table}.{$column}";
+    if (isset($columnCache[$cacheKey])) {
+        return $columnCache[$cacheKey];
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as total 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = ? 
+          AND TABLE_NAME = ? 
+          AND COLUMN_NAME = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$schema, $table, $column]);
+    $exists = (bool)$stmt->fetchColumn();
+    $columnCache[$cacheKey] = $exists;
+    
+    return $exists;
 }
 
 /**
