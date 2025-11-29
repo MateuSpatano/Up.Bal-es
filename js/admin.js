@@ -238,7 +238,6 @@ class AdminSystem {
             if (result && result.success) {
                 // Ajustar para a estrutura de resposta do admin.php
                 this.users = result.data?.users || result.users || [];
-                
                 // Inicializar filteredUsers com todos os usuários carregados
                 this.filteredUsers = [...this.users];
                 this.refreshUsersChart();
@@ -279,10 +278,20 @@ class AdminSystem {
             row.className = 'table-row hover:bg-gray-50';
             
             const statusBadge = this.getStatusBadge(user.status);
-            const typeIcon = user.type === 'decorator' ? 'fas fa-user-tie' : 'fas fa-user';
-            const typeText = user.type === 'decorator' ? 'Decorador' : 'Cliente';
+            let typeIcon = 'fas fa-user';
+            let typeText = 'Cliente';
+            let badgeClass = 'bg-blue-100 text-blue-800';
             
-            row.hidden = user.type === 'admin';
+            if (user.type === 'decorator') {
+                typeIcon = 'fas fa-user-tie';
+                typeText = 'Decorador';
+                badgeClass = 'bg-green-100 text-green-800';
+            } else if (user.type === 'admin') {
+                typeIcon = 'fas fa-user-shield';
+                typeText = 'Administrador';
+                badgeClass = 'bg-purple-100 text-purple-800';
+            }
+            
             row.innerHTML = `
                 <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
@@ -296,7 +305,9 @@ class AdminSystem {
                     </div>
                 </td>
                 <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                    <span class="text-sm text-gray-900">${typeText}</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}">
+                        <i class="${typeIcon} mr-1"></i>${typeText}
+                    </span>
                 </td>
                 <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                     ${statusBadge}
@@ -1422,7 +1433,7 @@ class AdminSystem {
         const pageUsers = this.filteredUsers.slice(startIndex, endIndex);
 
         tbody.innerHTML = pageUsers.map(user => `
-            <tr class="table-row"${user.type === 'admin' ? ' hidden' : ''}>
+            <tr class="table-row">
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <div class="flex items-center">
                         <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -1444,10 +1455,26 @@ class AdminSystem {
                 </td>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap hidden sm:table-cell">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.type === 'decorator' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                        user.type === 'decorator'
+                            ? 'bg-green-100 text-green-800'
+                            : user.type === 'admin'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
                     }">
-                        <i class="fas ${user.type === 'decorator' ? 'fa-user-tie' : 'fa-user'} mr-1"></i>
-                        ${user.type === 'decorator' ? 'Decorador' : 'Cliente'}
+                        <i class="fas ${
+                            user.type === 'decorator'
+                                ? 'fa-user-tie'
+                                : user.type === 'admin'
+                                    ? 'fa-user-shield'
+                                    : 'fa-user'
+                        } mr-1"></i>
+                        ${
+                            user.type === 'decorator'
+                                ? 'Decorador'
+                                : user.type === 'admin'
+                                    ? 'Administrador'
+                                    : 'Cliente'
+                        }
                     </span>
                 </td>
                 <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
