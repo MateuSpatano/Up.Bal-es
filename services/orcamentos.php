@@ -875,20 +875,36 @@ class BudgetService {
      */
     public function getRecentBudgets($limit = 10) {
         try {
-            $decoradorId = $_SESSION['user_id'] ?? 1;
+            // Verificar se há sessão válida
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, cliente, email, telefone, data_evento, hora_evento,
-                    local_evento, tipo_servico, descricao, valor_estimado,
-                    observacoes, status, tamanho_arco_m, created_at, updated_at
-                FROM orcamentos 
-                WHERE decorador_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-            ");
+            // Se não houver sessão válida, buscar todos os orçamentos (como no painel gerencial)
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        id, cliente, email, telefone, data_evento, hora_evento,
+                        local_evento, tipo_servico, descricao, valor_estimado,
+                        observacoes, status, tamanho_arco_m, created_at, updated_at
+                    FROM orcamentos 
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ");
+                $stmt->execute([$limit]);
+            } else {
+                $decoradorId = $_SESSION['user_id'];
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        id, cliente, email, telefone, data_evento, hora_evento,
+                        local_evento, tipo_servico, descricao, valor_estimado,
+                        observacoes, status, tamanho_arco_m, created_at, updated_at
+                    FROM orcamentos 
+                    WHERE decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ");
+                $stmt->execute([$decoradorId, $limit]);
+            }
             
-            $stmt->execute([$decoradorId, $limit]);
             $budgets = $stmt->fetchAll();
             
             // Formatar dados
@@ -1716,15 +1732,22 @@ try {
  */
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'recent') {
     try {
+        // Garantir que a sessão está iniciada
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
         $budgetService = new BudgetService($database_config);
         $recentBudgets = $budgetService->getRecentBudgets();
         echo json_encode($recentBudgets);
         exit;
     } catch (Exception $e) {
+        error_log('Erro ao obter orçamentos recentes: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => $e->getMessage()
+            'message' => 'Erro ao obter orçamentos recentes: ' . $e->getMessage()
         ]);
         exit;
     }

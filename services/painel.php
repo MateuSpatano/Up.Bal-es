@@ -398,20 +398,7 @@ class DashboardService {
             // Log para debug
             error_log('getProjetosConcluidosParaCustos: Decorador ID = ' . $decoradorId);
             
-            // Verificar quantos orçamentos existem no total
-            $stmtCount = $this->pdo->prepare("
-                SELECT COUNT(*) as total, 
-                       SUM(CASE WHEN status = 'aprovado' THEN 1 ELSE 0 END) as aprovados,
-                       GROUP_CONCAT(DISTINCT status) as status_list
-                FROM orcamentos 
-                WHERE decorador_id = ?
-            ");
-            $stmtCount->execute([$decoradorId]);
-            $countResult = $stmtCount->fetch();
-            error_log('getProjetosConcluidosParaCustos: Total de orçamentos: ' . ($countResult['total'] ?? 0));
-            error_log('getProjetosConcluidosParaCustos: Aprovados: ' . ($countResult['aprovados'] ?? 0));
-            error_log('getProjetosConcluidosParaCustos: Status encontrados: ' . ($countResult['status_list'] ?? 'nenhum'));
-            
+            // Para o dashboard, buscar TODOS os orçamentos aprovados (como no painel gerencial)
             // Buscar TODOS os orçamentos aprovados (sem limite, para que o decorador possa lançar custos em todos)
             $stmt = $this->pdo->prepare("
                 SELECT 
@@ -432,29 +419,14 @@ class DashboardService {
                     COALESCE(pc.custos_diversos, 0) as custos_diversos
                 FROM orcamentos o
                 LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
-                WHERE o.decorador_id = ? 
-                AND o.status = 'aprovado'
+                WHERE o.status = 'aprovado'
                 ORDER BY o.data_evento DESC, o.hora_evento DESC
             ");
-            $stmt->execute([$decoradorId]);
+            $stmt->execute();
             $results = $stmt->fetchAll();
             
             // Log para debug
             error_log('getProjetosConcluidosParaCustos: Encontrados ' . count($results) . ' projeto(s) aprovado(s)');
-            
-            // Se não encontrou nenhum, tentar buscar sem filtro de status para debug
-            if (count($results) === 0) {
-                $stmtAll = $this->pdo->prepare("
-                    SELECT id, cliente, status, data_evento, decorador_id
-                    FROM orcamentos 
-                    WHERE decorador_id = ?
-                    ORDER BY data_evento DESC
-                    LIMIT 10
-                ");
-                $stmtAll->execute([$decoradorId]);
-                $allResults = $stmtAll->fetchAll();
-                error_log('getProjetosConcluidosParaCustos: Últimos 10 orçamentos (todos status): ' . json_encode($allResults));
-            }
             
             return $results;
             

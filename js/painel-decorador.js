@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const applyDashboardFiltersBtn = document.getElementById('apply-dashboard-filters');
         if (applyDashboardFiltersBtn) {
             applyDashboardFiltersBtn.addEventListener('click', function() {
-                loadDashboardKPIs();
+                loadDashboardData();
             });
         }
         
