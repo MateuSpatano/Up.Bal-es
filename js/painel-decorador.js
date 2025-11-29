@@ -721,11 +721,15 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Resposta do dashboard:', data);
             if (data.success) {
+                console.log('KPIs recebidos:', data.kpis);
+                console.log('Projetos concluídos:', data.projetos_concluidos?.length || 0);
                 updateKPIs(data.kpis);
                 updateCharts(data.series);
                 hideDashboardLoading();
             } else {
+                console.error('Erro ao carregar dashboard:', data.message);
                 showDashboardError(data.message || 'Erro ao carregar dados do dashboard.');
             }
         })
@@ -757,11 +761,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const margemMedia = kpis.margem_media_lucro || 0;
         document.getElementById('kpi-margem-media-lucro').textContent = margemMedia.toFixed(1) + '%';
         
-        // Atualizar período nos cards
-        const dateFrom = document.getElementById('dashboard-date-from').value;
-        const dateTo = document.getElementById('dashboard-date-to').value;
-        const periodText = formatPeriodText(dateFrom, dateTo);
-        document.getElementById('kpi-festas-total-period').textContent = periodText;
+        // Removido: período não é mais exibido no card de Total de Festas
     }
     
     function updateCharts(series) {

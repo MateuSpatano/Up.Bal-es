@@ -96,12 +96,15 @@ class DashboardService {
      */
     private function getKPIs($decoradorId, $dateFrom, $dateTo) {
         try {
+            // Usar comparação flexível para status aprovado
+            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
+            
             // Total de festas no período (apenas aprovadas/confirmadas)
             $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
+                AND {$statusCondition}
                 AND data_evento BETWEEN ? AND ?
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
@@ -112,7 +115,7 @@ class DashboardService {
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
+                AND {$statusCondition}
                 AND data_evento BETWEEN ? AND ?
                 AND created_via = 'client'
             ");
@@ -124,7 +127,7 @@ class DashboardService {
                 SELECT COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
+                AND {$statusCondition}
                 AND data_evento BETWEEN ? AND ?
                 AND (created_via = 'decorator' OR created_via IS NULL)
             ");
@@ -137,7 +140,7 @@ class DashboardService {
                 FROM orcamentos 
                 WHERE decorador_id = ? 
                 AND data_evento BETWEEN ? AND ?
-                AND status = 'aprovado'
+                AND {$statusCondition}
             ");
             $stmt->execute([$decoradorId, $dateFrom, $dateTo]);
             $receitaRecebida = $stmt->fetch()['total'];
@@ -217,13 +220,14 @@ class DashboardService {
     private function getFestasPorMes($decoradorId) {
         try {
             // Contar apenas orçamentos aprovados (confirmados) nos gráficos
+            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
             $stmt = $this->pdo->prepare("
                 SELECT 
                     DATE_FORMAT(data_evento, '%Y-%m') as mes,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
+                AND {$statusCondition}
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
                 GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
                 ORDER BY mes ASC
@@ -265,13 +269,14 @@ class DashboardService {
     private function getFestasPorAno($decoradorId) {
         try {
             // Contar apenas orçamentos aprovados (confirmados) nos gráficos
+            $statusCondition = "(status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' OR status LIKE '%aprovado%')";
             $stmt = $this->pdo->prepare("
                 SELECT 
                     YEAR(data_evento) as ano,
                     COUNT(*) as total
                 FROM orcamentos 
                 WHERE decorador_id = ? 
-                AND status = 'aprovado'
+                AND {$statusCondition}
                 AND data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
                 GROUP BY YEAR(data_evento)
                 ORDER BY ano ASC
@@ -315,9 +320,19 @@ class DashboardService {
             // Log para debug
             error_log('getProjetosConcluidosParaCustos: Decorador ID = ' . $decoradorId);
             
+            // Primeiro, buscar todos os orçamentos do decorador para verificar os status
+            $stmtCheck = $this->pdo->prepare("
+                SELECT id, status, cliente 
+                FROM orcamentos 
+                WHERE decorador_id = ? 
+                LIMIT 10
+            ");
+            $stmtCheck->execute([$decoradorId]);
+            $checkResults = $stmtCheck->fetchAll();
+            error_log('getProjetosConcluidosParaCustos: Exemplo de status encontrados: ' . json_encode(array_column($checkResults, 'status')));
+            
             // Buscar apenas orçamentos aprovados (confirmados) para que o decorador possa inserir despesas
-            // Incluir tanto os que já têm custos quanto os que não têm, para permitir adicionar despesas adicionais
-            // Buscar orçamentos aprovados (comparação case-insensitive)
+            // Tentar múltiplas variações do status para garantir que encontre
             $stmt = $this->pdo->prepare("
                 SELECT 
                     o.id,
@@ -338,7 +353,7 @@ class DashboardService {
                 FROM orcamentos o
                 LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
                 WHERE o.decorador_id = ? 
-                AND LOWER(TRIM(o.status)) = 'aprovado'
+                AND (o.status = 'aprovado' OR LOWER(TRIM(o.status)) = 'aprovado' OR o.status LIKE '%aprovado%')
                 ORDER BY o.data_evento DESC, o.hora_evento DESC
                 LIMIT 50
             ");
@@ -353,7 +368,7 @@ class DashboardService {
                 // Verificar quantos orçamentos existem para este decorador
                 $stmtCount = $this->pdo->prepare("
                     SELECT COUNT(*) as total, 
-                           SUM(CASE WHEN status = 'aprovado' THEN 1 ELSE 0 END) as aprovados,
+                           SUM(CASE WHEN status = 'aprovado' OR LOWER(TRIM(status)) = 'aprovado' THEN 1 ELSE 0 END) as aprovados,
                            GROUP_CONCAT(DISTINCT status) as status_list
                     FROM orcamentos 
                     WHERE decorador_id = ?
@@ -363,6 +378,18 @@ class DashboardService {
                 error_log('getProjetosConcluidosParaCustos: Total de orçamentos para decorador ' . $decoradorId . ': ' . ($countResult['total'] ?? 0));
                 error_log('getProjetosConcluidosParaCustos: Aprovados: ' . ($countResult['aprovados'] ?? 0));
                 error_log('getProjetosConcluidosParaCustos: Status encontrados: ' . ($countResult['status_list'] ?? 'nenhum'));
+                
+                // Se ainda não encontrou, tentar buscar sem filtro de status para debug
+                $stmtAll = $this->pdo->prepare("
+                    SELECT id, cliente, status, data_evento
+                    FROM orcamentos 
+                    WHERE decorador_id = ?
+                    ORDER BY data_evento DESC
+                    LIMIT 5
+                ");
+                $stmtAll->execute([$decoradorId]);
+                $allResults = $stmtAll->fetchAll();
+                error_log('getProjetosConcluidosParaCustos: Últimos 5 orçamentos (todos status): ' . json_encode($allResults));
             }
             
             return $results;
