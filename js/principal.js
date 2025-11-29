@@ -1356,16 +1356,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Validar senhas se preenchidas
         const newPassword = document.getElementById('account-new-password').value;
         const confirmPassword = document.getElementById('account-confirm-password').value;
-        const currentPassword = document.getElementById('account-current-password').value;
         
-        // Se o usuário está tentando mudar a senha, validar
+        // Se o usuário está tentando mudar a senha, validar (sem exigir senha atual)
         if (newPassword || confirmPassword) {
-            // Senha atual é obrigatória quando há nova senha
-            if (!currentPassword || currentPassword.trim() === '' || currentPassword === '••••••••') {
-                showFieldError('account-current-password', 'Senha atual é obrigatória para alterar a senha');
-                isValid = false;
-            }
-            
             if (newPassword) {
                 const passwordValidation = validatePassword(newPassword);
                 if (!passwordValidation.valid) {
@@ -1399,6 +1392,10 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.delete('new_password');
             formData.delete('confirm_password');
             formData.delete('current_password');
+        } else {
+            // Se há nova senha, adicionar flag para pular verificação de senha atual
+            formData.append('skip_current_password', '1');
+            formData.delete('current_password'); // Remover senha atual mesmo se estiver presente
         }
         
         const accountEndpoint = `${PROJECT_BASE_URL}services/conta.php`;

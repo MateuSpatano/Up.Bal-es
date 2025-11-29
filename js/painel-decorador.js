@@ -598,6 +598,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Controlar visibilidade do botão flutuante
         toggleFloatingButton(moduleName);
         
+        // Carregar dados específicos do módulo quando for exibido
+        if (moduleName === 'dashboard') {
+            console.log('Módulo dashboard exibido, carregando dados...');
+            // Aguardar um pouco para garantir que o DOM está pronto
+            setTimeout(() => {
+                loadDashboardData();
+            }, 100);
+        }
+        
         // Aguardar um pouco para garantir que o DOM está atualizado antes de carregar dados
         setTimeout(() => {
             // Simular carregamento de dados do módulo
@@ -751,28 +760,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateKPIs(kpis) {
+        console.log('Atualizando KPIs:', kpis);
+        
+        if (!kpis) {
+            console.warn('KPIs não fornecidos');
+            return;
+        }
+        
         // Atualizar total de festas
-        document.getElementById('kpi-festas-total').textContent = kpis.festas_total || 0;
+        const kpiFestasTotal = document.getElementById('kpi-festas-total');
+        if (kpiFestasTotal) {
+            kpiFestasTotal.textContent = kpis.festas_total || 0;
+        } else {
+            console.warn('Elemento kpi-festas-total não encontrado');
+        }
         
         // Atualizar festas solicitadas por clientes
-        document.getElementById('kpi-festas-clientes').textContent = kpis.festas_solicitadas_clientes || 0;
+        const kpiFestasClientes = document.getElementById('kpi-festas-clientes');
+        if (kpiFestasClientes) {
+            kpiFestasClientes.textContent = kpis.festas_solicitadas_clientes || 0;
+        } else {
+            console.warn('Elemento kpi-festas-clientes não encontrado');
+        }
         
         // Atualizar festas criadas pelo decorador
-        document.getElementById('kpi-festas-decorador').textContent = kpis.festas_criadas_decorador || 0;
+        const kpiFestasDecorador = document.getElementById('kpi-festas-decorador');
+        if (kpiFestasDecorador) {
+            kpiFestasDecorador.textContent = kpis.festas_criadas_decorador || 0;
+        } else {
+            console.warn('Elemento kpi-festas-decorador não encontrado');
+        }
         
         // Atualizar receita recebida
         const receita = kpis.receita_recebida || 0;
-        document.getElementById('kpi-receita-recebida').textContent = formatCurrency(receita);
+        const kpiReceita = document.getElementById('kpi-receita-recebida');
+        if (kpiReceita) {
+            kpiReceita.textContent = formatCurrency(receita);
+        } else {
+            console.warn('Elemento kpi-receita-recebida não encontrado');
+        }
         
         // Atualizar lucro total do mês
         const lucroTotal = kpis.lucro_total_mes || 0;
-        document.getElementById('kpi-lucro-total-mes').textContent = formatCurrency(lucroTotal);
+        const kpiLucro = document.getElementById('kpi-lucro-total-mes');
+        if (kpiLucro) {
+            kpiLucro.textContent = formatCurrency(lucroTotal);
+        } else {
+            console.warn('Elemento kpi-lucro-total-mes não encontrado');
+        }
         
         // Atualizar margem média de lucro
         const margemMedia = kpis.margem_media_lucro || 0;
-        document.getElementById('kpi-margem-media-lucro').textContent = margemMedia.toFixed(1) + '%';
-        
-        // Removido: período não é mais exibido no card de Total de Festas
+        const kpiMargem = document.getElementById('kpi-margem-media-lucro');
+        if (kpiMargem) {
+            kpiMargem.textContent = margemMedia.toFixed(1) + '%';
+        } else {
+            console.warn('Elemento kpi-margem-media-lucro não encontrado');
+        }
     }
     
     function updateCharts(series) {
@@ -784,6 +828,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateFestasPorMesChart(data) {
+        // Verificar se Chart.js está disponível
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js não está carregado. Aguardando...');
+            setTimeout(() => updateFestasPorMesChart(data), 500);
+            return;
+        }
+        
         const chartElement = document.getElementById('chart-festas-mes');
         if (!chartElement) {
             console.warn('Elemento chart-festas-mes não encontrado');
@@ -821,7 +872,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const values = data.map(item => item.total || 0);
         
-        dashboardCharts.festasMes = new Chart(ctx, {
+        try {
+            dashboardCharts.festasMes = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -853,6 +905,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        } catch (error) {
+            console.error('Erro ao criar gráfico de festas por mês:', error);
+        }
     }
     
     function updateFestasPorAnoChart(data) {
