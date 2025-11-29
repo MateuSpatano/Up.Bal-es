@@ -1524,7 +1524,7 @@ class AdminSystem {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    action: 'update_user',
+                    action: 'toggle_user_status',
                     id: userId,
                     status: newStatus
                 })
@@ -1535,7 +1535,12 @@ class AdminSystem {
             if (result && result.success) {
                 // Atualizar status local após sucesso no backend
                 user.status = newStatus;
-                this.filteredUsers = [...this.users];
+                
+                const filteredUser = this.filteredUsers.find(u => u.id === userId);
+                if (filteredUser) {
+                    filteredUser.status = newStatus;
+                }
+                
                 this.renderUsersTable();
                 
                 const statusText = newStatus === 'active' ? 'ativado' : 'desativado';
@@ -1980,13 +1985,17 @@ class AdminSystem {
             subtitle.textContent = 'O decorador será notificado sobre a não aprovação';
         }
         
+        const decoratorName = decorator.name || decorator.nome || 'Decorador';
+        const decoratorWhatsapp = decorator.whatsapp || decorator.phone || decorator.telefone || '';
+        const decoratorEmail = decorator.communication_email || decorator.email_comunicacao || decorator.email || '';
+        
         // Preencher informações do decorador
-        document.getElementById('notification-decorator-name').textContent = decorator.nome;
-        document.getElementById('notification-whatsapp').textContent = decorator.whatsapp || 'Não informado';
-        document.getElementById('notification-email').textContent = decorator.communication_email || decorator.email || 'Não informado';
+        document.getElementById('notification-decorator-name').textContent = decoratorName;
+        document.getElementById('notification-whatsapp').textContent = decoratorWhatsapp || 'Não informado';
+        document.getElementById('notification-email').textContent = decoratorEmail || 'Não informado';
         
         // Obter templates
-        const templates = this.getMessageTemplates(decorator.nome, status);
+        const templates = this.getMessageTemplates(decoratorName, status);
         
         // Preencher mensagens
         document.getElementById('whatsapp-message').value = templates.whatsapp;
@@ -2005,7 +2014,12 @@ class AdminSystem {
         
         // Salvar dados do decorador e status para envio posterior
         this.currentNotification = {
-            decorator: decorator,
+            decorator: {
+                ...decorator,
+                name: decoratorName,
+                whatsapp: decoratorWhatsapp,
+                communication_email: decoratorEmail || decorator.communication_email
+            },
             status: status
         };
         
@@ -2057,7 +2071,7 @@ class AdminSystem {
         // Dados para envio
         const notificationData = {
             decorator_id: this.currentNotification.decorator.id,
-            decorator_name: this.currentNotification.decorator.nome,
+            decorator_name: this.currentNotification.decorator.name || this.currentNotification.decorator.nome,
             status: this.currentNotification.status,
             channels: {
                 whatsapp: sendWhatsApp,
@@ -2071,7 +2085,7 @@ class AdminSystem {
                 }
             },
             contacts: {
-                whatsapp: this.currentNotification.decorator.whatsapp,
+                whatsapp: this.currentNotification.decorator.whatsapp || this.currentNotification.decorator.phone,
                 email: this.currentNotification.decorator.communication_email || this.currentNotification.decorator.email
             }
         };
@@ -2100,7 +2114,7 @@ class AdminSystem {
             
             if (result && result.success) {
                 this.showNotification(
-                    `Notificação enviada com sucesso para ${this.currentNotification.decorator.nome}!`,
+                    `Notificação enviada com sucesso para ${this.currentNotification.decorator.name || this.currentNotification.decorator.nome}!`,
                     'success'
                 );
                 

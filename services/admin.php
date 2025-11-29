@@ -381,7 +381,8 @@ function handleGetUsers($input) {
         $total = (int)($totalResult['total'] ?? 0);
         
         // Buscar usuários
-        $sql = "SELECT id, nome, email, perfil, ativo, aprovado_por_admin, created_at, slug 
+        $sql = "SELECT id, nome, email, perfil, ativo, aprovado_por_admin, created_at, slug, 
+                       telefone, whatsapp, email_comunicacao 
                 FROM usuarios 
                 {$whereClause}
                 ORDER BY created_at DESC 
@@ -401,15 +402,24 @@ function handleGetUsers($input) {
             // Normalizar perfil 'user' para 'client' no frontend
             $type = ($perfil === 'user') ? 'client' : $perfil;
             
+            $isDecorator = ($perfil === 'decorator');
+            $isPendingApproval = $isDecorator && !(int)($user['aprovado_por_admin'] ?? 0);
+            $status = $isPendingApproval
+                ? 'pending_approval'
+                : (($user['ativo'] ?? 0) ? 'active' : 'inactive');
+            
             $formattedUsers[] = [
                 'id' => (int)($user['id'] ?? 0),
                 'name' => $user['nome'] ?? '',
                 'email' => $user['email'] ?? '',
                 'type' => $type,
-                'status' => ($user['ativo'] ?? 0) ? 'active' : 'inactive',
+                'status' => $status,
                 'approved' => (bool)($user['aprovado_por_admin'] ?? false),
                 'created_at' => $user['created_at'] ?? date('Y-m-d H:i:s'),
-                'url' => ($perfil === 'decorator') && !empty($user['slug'] ?? '') 
+                'phone' => $user['telefone'] ?? null,
+                'whatsapp' => $user['whatsapp'] ?? null,
+                'communication_email' => $user['email_comunicacao'] ?? null,
+                'url' => ($isDecorator) && !empty($user['slug'] ?? '') 
                     ? rtrim($GLOBALS['urls']['base'] ?? 'http://localhost/Up.Bal-es/', '/') . '/' . $user['slug'] 
                     : null
             ];

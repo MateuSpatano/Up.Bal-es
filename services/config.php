@@ -103,7 +103,32 @@ function ensureHttps($url) {
 // URLs do sistema - Centralizadas
 // Detectar automaticamente a URL base do projeto
 $baseUrl = $_ENV['BASE_URL'] ?? '';
-if (empty($baseUrl)) {
+if (!empty($baseUrl)) {
+    $baseUrl = trim($baseUrl);
+    
+    // Garantir que sempre usamos o projeto Up.Bal-es
+    $baseUrl = preg_replace('#Up\.BaloesV3#i', 'Up.Bal-es', $baseUrl);
+    $baseUrl = preg_replace('#Up\.Baloes#i', 'Up.Bal-es', $baseUrl);
+    
+    // Garantir que há protocolo
+    if (!preg_match('#^https?://#i', $baseUrl)) {
+        $baseUrl = 'http://' . ltrim($baseUrl, '/');
+    }
+    
+    // Se após normalização ainda não houver o caminho correto, forçar
+    if (stripos($baseUrl, 'Up.Bal-es') === false) {
+        $parsed = parse_url($baseUrl);
+        $scheme = $parsed['scheme'] ?? 'http';
+        $host = $parsed['host'] ?? 'localhost';
+        $baseUrl = $scheme . '://' . $host . '/Up.Bal-es/';
+    }
+    
+    // Normalizar barras duplicadas e garantir barra final
+    $baseUrl = preg_replace('#([^:])//+#', '$1/', $baseUrl);
+    if (substr($baseUrl, -1) !== '/') {
+        $baseUrl .= '/';
+    }
+} else {
     // Tentar detectar automaticamente
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
