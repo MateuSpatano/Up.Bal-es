@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelModalBtn = document.getElementById('cancel-modal-btn');
     const requestForm = document.getElementById('request-form');
     const submitRequestBtn = document.getElementById('submit-request-btn');
+    const decoratorIdInput = document.getElementById('decorator-id');
+    const decoratorSlugInput = document.getElementById('decorator-slug');
+    const pageDecoratorId = decoratorIdInput ? parseInt(decoratorIdInput.value, 10) || null : null;
+    const pageDecoratorSlug = decoratorSlugInput?.value?.trim() || null;
     
     // ========== FUNÇÕES DE CARREGAMENTO ==========
     
@@ -272,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variáveis do calendário
     let currentCalendarDate = new Date();
     let availableDates = [];
-    let currentDecoratorId = null;
+    let currentDecoratorId = pageDecoratorId || null;
     
     function openConfirmModal() {
         // Primeiro, restaurar dados previamente preenchidos (se houver)
@@ -326,6 +330,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Se não houver decorador_id, tentar buscar
+        if (!currentDecoratorId && pageDecoratorId) {
+            currentDecoratorId = pageDecoratorId;
+        }
+        
         if (!currentDecoratorId) {
             getDefaultDecoratorId().then(id => {
                 currentDecoratorId = id;
@@ -593,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Resetar calendário
         currentCalendarDate = new Date();
         availableDates = [];
-        currentDecoratorId = null;
+        currentDecoratorId = pageDecoratorId || null;
         document.getElementById('available-times-container').classList.add('hidden');
         document.getElementById('calendar-error').classList.add('hidden');
     }
@@ -714,6 +722,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function getMyOrdersRedirectUrl() {
         try {
+            if (pageDecoratorSlug) {
+                const pathSegments = window.location.pathname.split('/').filter(Boolean);
+                const slugIndex = pathSegments.indexOf(pageDecoratorSlug);
+                const baseSegments = slugIndex > 0 ? pathSegments.slice(0, slugIndex) : [];
+                const basePath = baseSegments.length ? '/' + baseSegments.join('/') : '';
+                return `${window.location.origin}${basePath}/${pageDecoratorSlug}/minhas-compras`;
+            }
+            
             const { origin, pathname } = window.location;
             const segments = pathname.split('/').filter(Boolean);
             const reservedSegments = ['pages', 'services', 'css', 'js', 'components', 'uploads', 'admin', 'api', 'temp'];
@@ -790,6 +806,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Se não houver decorador_id, buscar o primeiro decorador disponível
+        if (!decoradorId && pageDecoratorId) {
+            decoradorId = pageDecoratorId;
+        }
+        
         if (!decoradorId) {
             decoradorId = await getDefaultDecoratorId();
         }
