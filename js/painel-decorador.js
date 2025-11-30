@@ -768,11 +768,30 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             console.log('=== Resposta completa do dashboard ===', data);
+            console.log('=== DEBUG COMPLETO ===', JSON.stringify(data, null, 2));
             if (data.success) {
                 console.log('KPIs recebidos:', data.kpis);
                 console.log('Series recebidas:', data.series);
                 console.log('Projetos concluídos:', data.projetos_concluidos?.length || 0);
                 console.log('Festas por mês:', data.series?.festas_por_mes_12m?.length || 0);
+                
+                // Mostrar informações de debug
+                if (data.debug) {
+                    console.log('=== DEBUG INFO ===');
+                    console.log('Total de orçamentos no banco:', data.debug.total_orcamentos);
+                    console.log('Total com decorador_id:', data.debug.total_com_decorador_id);
+                    console.log('Total sem decorador_id:', data.debug.total_sem_decorador_id);
+                    console.log('Has valid session:', data.debug.has_valid_session);
+                    if (data.debug.test_query) {
+                        console.log('=== TESTE DIRETO DA QUERY ===');
+                        console.log('Total encontrado:', data.debug.test_query.total_encontrado);
+                        console.log('Primeiros 10 orçamentos:', data.debug.test_query.primeiros_10);
+                        if (data.debug.test_query.erro) {
+                            console.error('ERRO na query:', data.debug.test_query.erro);
+                        }
+                    }
+                    console.log('KPIs recebidos no debug:', data.debug.kpis_recebidos);
+                }
                 
                 // Verificar se os elementos KPI existem antes de atualizar
                 const kpiElements = [
