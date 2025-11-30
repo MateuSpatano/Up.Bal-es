@@ -96,9 +96,11 @@ class DashboardService {
             // Obter KPIs
             $kpis = $this->getKPIs($decoradorId, $dateFrom, $dateTo);
             error_log('getDashboardData: KPIs obtidos - Total: ' . ($kpis['festas_total'] ?? 0));
+            error_log('getDashboardData: KPIs completos: ' . json_encode($kpis));
             
             // Obter dados para gráficos
             $series = $this->getChartData($decoradorId, $dateFrom, $dateTo);
+            error_log('getDashboardData: Series obtidas - Festas por mês: ' . count($series['festas_por_mes_12m'] ?? []));
             
             // Obter projetos concluídos para lançamento de custos
             $projetosConcluidos = $this->getProjetosConcluidosParaCustos($decoradorId);
@@ -106,7 +108,7 @@ class DashboardService {
             // Log para debug
             error_log('getDashboardData: Retornando ' . count($projetosConcluidos) . ' projeto(s) concluído(s)');
             
-            return [
+            $response = [
                 'success' => true,
                 'kpis' => $kpis,
                 'series' => $series,
@@ -114,9 +116,16 @@ class DashboardService {
                 'debug' => [
                     'decorador_id' => $decoradorId,
                     'projetos_count' => count($projetosConcluidos),
-                    'total_aprovados' => $checkResult['total_aprovados'] ?? 0
+                    'total_orcamentos' => $checkAll['total'] ?? 0,
+                    'total_com_decorador_id' => $checkResult['total'] ?? 0,
+                    'total_sem_decorador_id' => $checkNull['total'] ?? 0,
+                    'has_valid_session' => isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1
                 ]
             ];
+            
+            error_log('getDashboardData: Resposta completa: ' . json_encode($response));
+            
+            return $response;
             
         } catch (Exception $e) {
             error_log('Erro ao obter dados do dashboard: ' . $e->getMessage());
@@ -135,20 +144,13 @@ class DashboardService {
         try {
             error_log('getKPIs: Decorador ID = ' . $decoradorId . ', Período: ' . $dateFrom . ' até ' . $dateTo);
             
-            // Usar a mesma lógica do painel gerencial (listBudgets)
-            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
-            
-            // Se não houver sessão válida, buscar TODOS os orçamentos (modo compatibilidade)
-            if (!$hasValidSession) {
-                $whereBase = '';
-                $paramsBase = [];
-                error_log('getKPIs: Modo compatibilidade - buscando TODOS os orçamentos (sem filtro de decorador_id)');
-            } else {
-                // Buscar apenas orçamentos do decorador logado OU sem decorador_id (para compatibilidade)
-                $whereBase = '(decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)';
-                $paramsBase = [$decoradorId];
-                error_log('getKPIs: Buscando orçamentos do decorador_id: ' . $decoradorId . ' ou sem decorador_id');
-            }
+            // IMPORTANTE: Para o dashboard, SEMPRE buscar TODOS os orçamentos (como o painel gerencial faz)
+            // Isso garante que todos os orçamentos sejam exibidos, independente do decorador_id
+            // O painel gerencial mostra todos os orçamentos quando não há sessão válida
+            // Para o dashboard, vamos sempre buscar todos para garantir que os dados apareçam
+            $whereBase = '';
+            $paramsBase = [];
+            error_log('getKPIs: Modo dashboard - buscando TODOS os orçamentos (sem filtro de decorador_id)');
             
             // Verificar quantos orçamentos existem no total (todos os status)
             if (empty($whereBase)) {
@@ -406,62 +408,31 @@ class DashboardService {
             // Log para debug
             error_log('getProjetosConcluidosParaCustos: Decorador ID = ' . $decoradorId);
             
-            // Usar a mesma lógica do painel gerencial (listBudgets)
-            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
-            
-            // Se não houver sessão válida, buscar TODOS os orçamentos aprovados
-            if (!$hasValidSession) {
-                $stmt = $this->pdo->prepare("
-                    SELECT 
-                        o.id,
-                        o.cliente,
-                        o.email,
-                        o.data_evento,
-                        o.tipo_servico,
-                        o.valor_estimado,
-                        o.local_evento,
-                        o.descricao,
-                        o.hora_evento,
-                        o.status,
-                        CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
-                        COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
-                        COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
-                        COALESCE(pc.custos_diversos, 0) as custos_diversos
-                    FROM orcamentos o
-                    LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
-                    WHERE o.status = 'aprovado'
-                    ORDER BY o.data_evento DESC, o.hora_evento DESC
-                ");
-                $stmt->execute();
-                error_log('getProjetosConcluidosParaCustos: Modo compatibilidade - buscando TODOS os orçamentos aprovados');
-            } else {
-                // Buscar apenas orçamentos do decorador logado OU sem decorador_id (para compatibilidade)
-                $stmt = $this->pdo->prepare("
-                    SELECT 
-                        o.id,
-                        o.cliente,
-                        o.email,
-                        o.data_evento,
-                        o.tipo_servico,
-                        o.valor_estimado,
-                        o.local_evento,
-                        o.descricao,
-                        o.hora_evento,
-                        o.status,
-                        o.decorador_id,
-                        CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
-                        COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
-                        COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
-                        COALESCE(pc.custos_diversos, 0) as custos_diversos
-                    FROM orcamentos o
-                    LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
-                    WHERE (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0) 
-                    AND o.status = 'aprovado'
-                    ORDER BY o.data_evento DESC, o.hora_evento DESC
-                ");
-                $stmt->execute([$decoradorId]);
-                error_log('getProjetosConcluidosParaCustos: Buscando orçamentos do decorador_id: ' . $decoradorId . ' ou sem decorador_id');
-            }
+            // IMPORTANTE: Para o dashboard, SEMPRE buscar TODOS os orçamentos aprovados
+            // Isso garante que todos os projetos sejam exibidos, independente do decorador_id
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    o.id,
+                    o.cliente,
+                    o.email,
+                    o.data_evento,
+                    o.tipo_servico,
+                    o.valor_estimado,
+                    o.local_evento,
+                    o.descricao,
+                    o.hora_evento,
+                    o.status,
+                    CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
+                    COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
+                    COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
+                    COALESCE(pc.custos_diversos, 0) as custos_diversos
+                FROM orcamentos o
+                LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
+                WHERE o.status = 'aprovado'
+                ORDER BY o.data_evento DESC, o.hora_evento DESC
+            ");
+            $stmt->execute();
+            error_log('getProjetosConcluidosParaCustos: Buscando TODOS os orçamentos aprovados (sem filtro de decorador_id)');
             
             $results = $stmt->fetchAll();
             
