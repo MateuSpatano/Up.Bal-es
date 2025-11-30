@@ -108,6 +108,25 @@ class DashboardService {
             // Log para debug
             error_log('getDashboardData: Retornando ' . count($projetosConcluidos) . ' projeto(s) concluído(s)');
             
+            // TESTE DIRETO: Fazer uma query simples para verificar se há orçamentos
+            $testQuery = null;
+            $testCount = 0;
+            try {
+                $testStmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
+                $testResult = $testStmt->fetch();
+                $testCount = $testResult ? (int)$testResult['total'] : 0;
+                
+                // Buscar alguns orçamentos para debug
+                $testStmt2 = $this->pdo->query("SELECT id, cliente, status, decorador_id, created_via, valor_estimado FROM orcamentos LIMIT 10");
+                $testOrcamentos = $testStmt2->fetchAll();
+                $testQuery = [
+                    'total_encontrado' => $testCount,
+                    'primeiros_10' => $testOrcamentos
+                ];
+            } catch (Exception $e) {
+                $testQuery = ['erro' => $e->getMessage()];
+            }
+            
             $response = [
                 'success' => true,
                 'kpis' => $kpis,
@@ -119,7 +138,9 @@ class DashboardService {
                     'total_orcamentos' => $checkAll['total'] ?? 0,
                     'total_com_decorador_id' => $checkResult['total'] ?? 0,
                     'total_sem_decorador_id' => $checkNull['total'] ?? 0,
-                    'has_valid_session' => isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1
+                    'has_valid_session' => isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1,
+                    'test_query' => $testQuery,
+                    'kpis_recebidos' => $kpis
                 ]
             ];
             
