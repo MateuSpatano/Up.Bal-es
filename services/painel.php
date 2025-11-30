@@ -169,20 +169,7 @@ class DashboardService {
             // Isso garante que todos os orçamentos sejam exibidos, independente do decorador_id
             // O painel gerencial mostra todos os orçamentos quando não há sessão válida
             // Para o dashboard, vamos sempre buscar todos para garantir que os dados apareçam
-            
-            // TESTE DIRETO: Verificar se a tabela existe e quantos registros tem
-            try {
-                $testStmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
-                $testResult = $testStmt->fetch();
-                error_log('getKPIs: TESTE DIRETO - Total de orçamentos na tabela: ' . ($testResult['total'] ?? 'ERRO'));
-                
-                // Listar alguns orçamentos para debug
-                $testStmt2 = $this->pdo->query("SELECT id, cliente, status, decorador_id, created_via FROM orcamentos LIMIT 5");
-                $testOrcamentos = $testStmt2->fetchAll();
-                error_log('getKPIs: TESTE DIRETO - Primeiros 5 orçamentos: ' . json_encode($testOrcamentos));
-            } catch (Exception $e) {
-                error_log('getKPIs: ERRO no teste direto: ' . $e->getMessage());
-            }
+            // SEMPRE usar query direta sem WHERE para buscar TODOS os orçamentos
             
             // Verificar quantos orçamentos existem no total (todos os status)
             try {
@@ -200,6 +187,7 @@ class DashboardService {
             }
             
             // Total de festas (TODAS, independente do status, sem filtro de período)
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
                 $stmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
                 $result = $stmt->fetch();
@@ -211,6 +199,7 @@ class DashboardService {
             }
             
             // Festas solicitadas por clientes (criadas via fluxo do cliente) - TODAS
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
                 $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE created_via = ?");
                 $stmt->execute(['client']);
@@ -223,6 +212,7 @@ class DashboardService {
             }
             
             // Festas criadas pelo decorador (inseridas pelo próprio decorador) - TODAS
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
                 $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (created_via = ? OR created_via IS NULL)");
                 $stmt->execute(['decorator']);
@@ -235,6 +225,7 @@ class DashboardService {
             }
             
             // Receita recebida (TODOS os orçamentos aprovados, sem filtro de período)
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
                 $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE status = ?");
                 $stmt->execute(['aprovado']);
@@ -247,7 +238,8 @@ class DashboardService {
             }
             
             // Lucro total (TODOS os projetos com custos lançados, sem filtro de período)
-            if (empty($whereBase)) {
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
+            try {
                 $stmt = $this->pdo->prepare("
                     SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
                     FROM projeto_custos pc
@@ -255,20 +247,17 @@ class DashboardService {
                     WHERE o.status = ?
                 ");
                 $stmt->execute(['aprovado']);
-            } else {
-                $stmt = $this->pdo->prepare("
-                    SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
-                    FROM projeto_custos pc
-                    INNER JOIN orcamentos o ON pc.orcamento_id = o.id
-                    WHERE (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0) AND o.status = ?
-                ");
-                $stmt->execute(array_merge($paramsBase, ['aprovado']));
+                $result = $stmt->fetch();
+                $lucroTotalMes = $result ? (float)$result['total'] : 0.0;
+                error_log('getKPIs: Lucro total: ' . $lucroTotalMes);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao calcular lucro total: ' . $e->getMessage());
+                $lucroTotalMes = 0.0;
             }
-            $lucroTotalMes = $stmt->fetch()['total'];
-            error_log('getKPIs: Lucro total: ' . $lucroTotalMes);
             
             // Margem média de lucro (TODOS os projetos, sem filtro de período)
-            if (empty($whereBase)) {
+            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
+            try {
                 $stmt = $this->pdo->prepare("
                     SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
                     FROM projeto_custos pc
@@ -276,17 +265,13 @@ class DashboardService {
                     WHERE o.status = ?
                 ");
                 $stmt->execute(['aprovado']);
-            } else {
-                $stmt = $this->pdo->prepare("
-                    SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
-                    FROM projeto_custos pc
-                    INNER JOIN orcamentos o ON pc.orcamento_id = o.id
-                    WHERE (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0) AND o.status = ?
-                ");
-                $stmt->execute(array_merge($paramsBase, ['aprovado']));
+                $result = $stmt->fetch();
+                $margemMediaLucro = $result ? (float)$result['media'] : 0.0;
+                error_log('getKPIs: Margem média de lucro: ' . $margemMediaLucro);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao calcular margem média: ' . $e->getMessage());
+                $margemMediaLucro = 0.0;
             }
-            $margemMediaLucro = $stmt->fetch()['media'];
-            error_log('getKPIs: Margem média de lucro: ' . $margemMediaLucro);
             
             return [
                 'festas_total' => (int) $festasTotal,
