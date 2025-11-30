@@ -165,32 +165,33 @@ class DashboardService {
         try {
             error_log('getKPIs: Decorador ID = ' . $decoradorId . ', Período: ' . $dateFrom . ' até ' . $dateTo);
             
-            // IMPORTANTE: Para o dashboard, SEMPRE buscar TODOS os orçamentos (como o painel gerencial faz)
-            // Isso garante que todos os orçamentos sejam exibidos, independente do decorador_id
-            // O painel gerencial mostra todos os orçamentos quando não há sessão válida
-            // Para o dashboard, vamos sempre buscar todos para garantir que os dados apareçam
-            // SEMPRE usar query direta sem WHERE para buscar TODOS os orçamentos
+            // Usar a mesma lógica do painel gerencial (listBudgets)
+            // Se não houver user_id na sessão ou se for o ID padrão (1), buscar todos os orçamentos
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
             
-            // Verificar quantos orçamentos existem no total (todos os status)
-            try {
-                $stmt = $this->pdo->query("
-                    SELECT COUNT(*) as total, 
-                           GROUP_CONCAT(DISTINCT status) as status_list
-                    FROM orcamentos
-                ");
-                $totalCheck = $stmt->fetch();
-                error_log('getKPIs: Total de orçamentos (todos status): ' . ($totalCheck['total'] ?? 0));
-                error_log('getKPIs: Status encontrados: ' . ($totalCheck['status_list'] ?? 'nenhum'));
-            } catch (Exception $e) {
-                error_log('getKPIs: ERRO ao verificar total de orçamentos: ' . $e->getMessage());
-                $totalCheck = ['total' => 0, 'status_list' => ''];
+            // Construir filtro de decorador_id
+            if (!$hasValidSession) {
+                // Se não há sessão válida, buscar TODOS os orçamentos (modo compatibilidade)
+                $whereDecorador = '';
+                $paramsDecorador = [];
+                error_log('getKPIs: Modo compatibilidade - buscando TODOS os orçamentos (sem filtro de decorador_id)');
+            } else {
+                // Buscar apenas orçamentos do decorador logado OU sem decorador_id (para compatibilidade)
+                $whereDecorador = 'AND (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0)';
+                $paramsDecorador = [$decoradorId];
+                error_log('getKPIs: Buscando orçamentos do decorador_id: ' . $decoradorId . ' ou sem decorador_id');
             }
             
             // Total de festas (TODAS, independente do status, sem filtro de período)
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
-                $result = $stmt->fetch();
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
+                    $result = $stmt->fetch();
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)");
+                    $stmt->execute([$decoradorId]);
+                    $result = $stmt->fetch();
+                }
                 $festasTotal = $result ? (int)$result['total'] : 0;
                 error_log('getKPIs: Query executada com sucesso. Total de festas (todos status): ' . $festasTotal);
             } catch (Exception $e) {
@@ -199,10 +200,14 @@ class DashboardService {
             }
             
             // Festas solicitadas por clientes (criadas via fluxo do cliente) - TODAS
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE created_via = ?");
-                $stmt->execute(['client']);
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE created_via = ?");
+                    $stmt->execute(['client']);
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE created_via = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)");
+                    $stmt->execute(['client', $decoradorId]);
+                }
                 $result = $stmt->fetch();
                 $festasSolicitadasClientes = $result ? (int)$result['total'] : 0;
                 error_log('getKPIs: Festas solicitadas por clientes: ' . $festasSolicitadasClientes);
@@ -212,10 +217,14 @@ class DashboardService {
             }
             
             // Festas criadas pelo decorador (inseridas pelo próprio decorador) - TODAS
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (created_via = ? OR created_via IS NULL)");
-                $stmt->execute(['decorator']);
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (created_via = ? OR created_via IS NULL)");
+                    $stmt->execute(['decorator']);
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (created_via = ? OR created_via IS NULL) AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)");
+                    $stmt->execute(['decorator', $decoradorId]);
+                }
                 $result = $stmt->fetch();
                 $festasCriadasDecorador = $result ? (int)$result['total'] : 0;
                 error_log('getKPIs: Festas criadas pelo decorador: ' . $festasCriadasDecorador);
@@ -225,10 +234,14 @@ class DashboardService {
             }
             
             // Receita recebida (TODOS os orçamentos aprovados, sem filtro de período)
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE status = ?");
-                $stmt->execute(['aprovado']);
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE status = ?");
+                    $stmt->execute(['aprovado']);
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE status = ? AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)");
+                    $stmt->execute(['aprovado', $decoradorId]);
+                }
                 $result = $stmt->fetch();
                 $receitaRecebida = $result ? (float)$result['total'] : 0.0;
                 error_log('getKPIs: Receita recebida: ' . $receitaRecebida);
@@ -238,15 +251,38 @@ class DashboardService {
             }
             
             // Lucro total (TODOS os projetos com custos lançados, sem filtro de período)
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->prepare("
-                    SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
-                    FROM projeto_custos pc
-                    INNER JOIN orcamentos o ON pc.orcamento_id = o.id
-                    WHERE o.status = ?
-                ");
-                $stmt->execute(['aprovado']);
+                // Verificar se a tabela projeto_custos existe e tem registros
+                try {
+                    $testStmt = $this->pdo->query("SELECT COUNT(*) as total FROM projeto_custos");
+                    $testResult = $testStmt->fetch();
+                    error_log('getKPIs: TESTE - Total de registros em projeto_custos: ' . ($testResult['total'] ?? 0));
+                    
+                    // Verificar alguns registros
+                    $testStmt2 = $this->pdo->query("SELECT orcamento_id, lucro_real_liquido, margem_lucro_percentual FROM projeto_custos LIMIT 5");
+                    $testCustos = $testStmt2->fetchAll();
+                    error_log('getKPIs: TESTE - Primeiros 5 registros de projeto_custos: ' . json_encode($testCustos));
+                } catch (Exception $e) {
+                    error_log('getKPIs: ERRO ao testar tabela projeto_custos: ' . $e->getMessage());
+                }
+                
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->prepare("
+                        SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
+                        FROM projeto_custos pc
+                        INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                        WHERE o.status = ?
+                    ");
+                    $stmt->execute(['aprovado']);
+                } else {
+                    $stmt = $this->pdo->prepare("
+                        SELECT COALESCE(SUM(pc.lucro_real_liquido), 0) as total
+                        FROM projeto_custos pc
+                        INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                        WHERE o.status = ? AND (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0)
+                    ");
+                    $stmt->execute(['aprovado', $decoradorId]);
+                }
                 $result = $stmt->fetch();
                 $lucroTotalMes = $result ? (float)$result['total'] : 0.0;
                 error_log('getKPIs: Lucro total: ' . $lucroTotalMes);
@@ -256,18 +292,38 @@ class DashboardService {
             }
             
             // Margem média de lucro (TODOS os projetos, sem filtro de período)
-            // SEMPRE buscar TODOS os orçamentos, sem filtro de decorador_id
             try {
-                $stmt = $this->pdo->prepare("
-                    SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
-                    FROM projeto_custos pc
-                    INNER JOIN orcamentos o ON pc.orcamento_id = o.id
-                    WHERE o.status = ?
-                ");
-                $stmt->execute(['aprovado']);
+                if (!$hasValidSession) {
+                    $stmt = $this->pdo->prepare("
+                        SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
+                        FROM projeto_custos pc
+                        INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                        WHERE o.status = ?
+                    ");
+                    $stmt->execute(['aprovado']);
+                } else {
+                    $stmt = $this->pdo->prepare("
+                        SELECT COALESCE(AVG(pc.margem_lucro_percentual), 0) as media
+                        FROM projeto_custos pc
+                        INNER JOIN orcamentos o ON pc.orcamento_id = o.id
+                        WHERE o.status = ? AND (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0)
+                    ");
+                    $stmt->execute(['aprovado', $decoradorId]);
+                }
                 $result = $stmt->fetch();
                 $margemMediaLucro = $result ? (float)$result['media'] : 0.0;
                 error_log('getKPIs: Margem média de lucro: ' . $margemMediaLucro);
+                
+                // Se a margem média for 0, verificar se há registros na tabela projeto_custos
+                if ($margemMediaLucro == 0) {
+                    try {
+                        $testStmt = $this->pdo->query("SELECT COUNT(*) as total FROM projeto_custos");
+                        $testResult = $testStmt->fetch();
+                        error_log('getKPIs: AVISO - Margem média é 0. Total de registros em projeto_custos: ' . ($testResult['total'] ?? 0));
+                    } catch (Exception $e) {
+                        error_log('getKPIs: ERRO ao verificar projeto_custos: ' . $e->getMessage());
+                    }
+                }
             } catch (Exception $e) {
                 error_log('getKPIs: ERRO ao calcular margem média: ' . $e->getMessage());
                 $margemMediaLucro = 0.0;
@@ -325,18 +381,34 @@ class DashboardService {
      */
     private function getFestasPorMes($decoradorId) {
         try {
-            // Para o dashboard, sempre buscar TODOS os orçamentos (como no painel gerencial)
+            // Usar a mesma lógica do painel gerencial
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
+            
             // Contar TODOS os orçamentos nos gráficos (não apenas aprovados)
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    DATE_FORMAT(data_evento, '%Y-%m') as mes,
-                    COUNT(*) as total
-                FROM orcamentos 
-                WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-                GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
-                ORDER BY mes ASC
-            ");
-            $stmt->execute();
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        DATE_FORMAT(data_evento, '%Y-%m') as mes,
+                        COUNT(*) as total
+                    FROM orcamentos 
+                    WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                    GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
+                    ORDER BY mes ASC
+                ");
+                $stmt->execute();
+            } else {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        DATE_FORMAT(data_evento, '%Y-%m') as mes,
+                        COUNT(*) as total
+                    FROM orcamentos 
+                    WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                    AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                    GROUP BY DATE_FORMAT(data_evento, '%Y-%m')
+                    ORDER BY mes ASC
+                ");
+                $stmt->execute([$decoradorId]);
+            }
             $results = $stmt->fetchAll();
             
             // Criar array com todos os meses dos últimos 12 meses
@@ -372,18 +444,34 @@ class DashboardService {
      */
     private function getFestasPorAno($decoradorId) {
         try {
-            // Para o dashboard, sempre buscar TODOS os orçamentos (como no painel gerencial)
+            // Usar a mesma lógica do painel gerencial
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
+            
             // Contar TODOS os orçamentos nos gráficos (não apenas aprovados)
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    YEAR(data_evento) as ano,
-                    COUNT(*) as total
-                FROM orcamentos 
-                WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
-                GROUP BY YEAR(data_evento)
-                ORDER BY ano ASC
-            ");
-            $stmt->execute();
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        YEAR(data_evento) as ano,
+                        COUNT(*) as total
+                    FROM orcamentos 
+                    WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
+                    GROUP BY YEAR(data_evento)
+                    ORDER BY ano ASC
+                ");
+                $stmt->execute();
+            } else {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        YEAR(data_evento) as ano,
+                        COUNT(*) as total
+                    FROM orcamentos 
+                    WHERE data_evento >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
+                    AND (decorador_id = ? OR decorador_id IS NULL OR decorador_id = 0)
+                    GROUP BY YEAR(data_evento)
+                    ORDER BY ano ASC
+                ");
+                $stmt->execute([$decoradorId]);
+            }
             $results = $stmt->fetchAll();
             
             // Criar array com todos os anos dos últimos 5 anos
@@ -422,31 +510,61 @@ class DashboardService {
             // Log para debug
             error_log('getProjetosConcluidosParaCustos: Decorador ID = ' . $decoradorId);
             
-            // IMPORTANTE: Para o dashboard, SEMPRE buscar TODOS os orçamentos aprovados
-            // Isso garante que todos os projetos sejam exibidos, independente do decorador_id
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    o.id,
-                    o.cliente,
-                    o.email,
-                    o.data_evento,
-                    o.tipo_servico,
-                    o.valor_estimado,
-                    o.local_evento,
-                    o.descricao,
-                    o.hora_evento,
-                    o.status,
-                    CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
-                    COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
-                    COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
-                    COALESCE(pc.custos_diversos, 0) as custos_diversos
-                FROM orcamentos o
-                LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
-                WHERE o.status = 'aprovado'
-                ORDER BY o.data_evento DESC, o.hora_evento DESC
-            ");
-            $stmt->execute();
-            error_log('getProjetosConcluidosParaCustos: Buscando TODOS os orçamentos aprovados (sem filtro de decorador_id)');
+            // Usar a mesma lógica do painel gerencial
+            $hasValidSession = isset($_SESSION['user_id']) && $_SESSION['user_id'] != null && $_SESSION['user_id'] != 1;
+            
+            // Buscar orçamentos aprovados para lançamento de custos
+            if (!$hasValidSession) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        o.id,
+                        o.cliente,
+                        o.email,
+                        o.data_evento,
+                        o.tipo_servico,
+                        o.valor_estimado,
+                        o.local_evento,
+                        o.descricao,
+                        o.hora_evento,
+                        o.status,
+                        CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
+                        COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
+                        COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
+                        COALESCE(pc.custos_diversos, 0) as custos_diversos
+                    FROM orcamentos o
+                    LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
+                    WHERE o.status = 'aprovado'
+                    ORDER BY o.data_evento DESC, o.hora_evento DESC
+                ");
+                $stmt->execute();
+                error_log('getProjetosConcluidosParaCustos: Modo compatibilidade - buscando TODOS os orçamentos aprovados');
+            } else {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        o.id,
+                        o.cliente,
+                        o.email,
+                        o.data_evento,
+                        o.tipo_servico,
+                        o.valor_estimado,
+                        o.local_evento,
+                        o.descricao,
+                        o.hora_evento,
+                        o.status,
+                        o.decorador_id,
+                        CASE WHEN pc.id IS NOT NULL THEN 1 ELSE 0 END as custos_lancados,
+                        COALESCE(pc.custo_total_materiais, 0) as custo_total_materiais,
+                        COALESCE(pc.custo_total_mao_de_obra, 0) as custo_total_mao_de_obra,
+                        COALESCE(pc.custos_diversos, 0) as custos_diversos
+                    FROM orcamentos o
+                    LEFT JOIN projeto_custos pc ON o.id = pc.orcamento_id
+                    WHERE o.status = 'aprovado'
+                    AND (o.decorador_id = ? OR o.decorador_id IS NULL OR o.decorador_id = 0)
+                    ORDER BY o.data_evento DESC, o.hora_evento DESC
+                ");
+                $stmt->execute([$decoradorId]);
+                error_log('getProjetosConcluidosParaCustos: Buscando orçamentos do decorador_id: ' . $decoradorId . ' ou sem decorador_id');
+            }
             
             $results = $stmt->fetchAll();
             
