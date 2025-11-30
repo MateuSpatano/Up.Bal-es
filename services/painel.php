@@ -148,74 +148,82 @@ class DashboardService {
             // Isso garante que todos os orçamentos sejam exibidos, independente do decorador_id
             // O painel gerencial mostra todos os orçamentos quando não há sessão válida
             // Para o dashboard, vamos sempre buscar todos para garantir que os dados apareçam
-            $whereBase = '';
-            $paramsBase = [];
-            error_log('getKPIs: Modo dashboard - buscando TODOS os orçamentos (sem filtro de decorador_id)');
+            
+            // TESTE DIRETO: Verificar se a tabela existe e quantos registros tem
+            try {
+                $testStmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
+                $testResult = $testStmt->fetch();
+                error_log('getKPIs: TESTE DIRETO - Total de orçamentos na tabela: ' . ($testResult['total'] ?? 'ERRO'));
+                
+                // Listar alguns orçamentos para debug
+                $testStmt2 = $this->pdo->query("SELECT id, cliente, status, decorador_id, created_via FROM orcamentos LIMIT 5");
+                $testOrcamentos = $testStmt2->fetchAll();
+                error_log('getKPIs: TESTE DIRETO - Primeiros 5 orçamentos: ' . json_encode($testOrcamentos));
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO no teste direto: ' . $e->getMessage());
+            }
             
             // Verificar quantos orçamentos existem no total (todos os status)
-            if (empty($whereBase)) {
+            try {
                 $stmt = $this->pdo->query("
                     SELECT COUNT(*) as total, 
                            GROUP_CONCAT(DISTINCT status) as status_list
                     FROM orcamentos
                 ");
                 $totalCheck = $stmt->fetch();
-            } else {
-                $stmt = $this->pdo->prepare("
-                    SELECT COUNT(*) as total, 
-                           GROUP_CONCAT(DISTINCT status) as status_list
-                    FROM orcamentos 
-                    WHERE " . $whereBase . "
-                ");
-                $stmt->execute($paramsBase);
-                $totalCheck = $stmt->fetch();
+                error_log('getKPIs: Total de orçamentos (todos status): ' . ($totalCheck['total'] ?? 0));
+                error_log('getKPIs: Status encontrados: ' . ($totalCheck['status_list'] ?? 'nenhum'));
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao verificar total de orçamentos: ' . $e->getMessage());
+                $totalCheck = ['total' => 0, 'status_list' => ''];
             }
-            error_log('getKPIs: Total de orçamentos (todos status): ' . ($totalCheck['total'] ?? 0));
-            error_log('getKPIs: Status encontrados: ' . ($totalCheck['status_list'] ?? 'nenhum'));
             
             // Total de festas (TODAS, independente do status, sem filtro de período)
-            if (empty($whereBase)) {
+            try {
                 $stmt = $this->pdo->query("SELECT COUNT(*) as total FROM orcamentos");
-                $festasTotal = $stmt->fetch()['total'];
-            } else {
-                $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE " . $whereBase);
-                $stmt->execute($paramsBase);
-                $festasTotal = $stmt->fetch()['total'];
+                $result = $stmt->fetch();
+                $festasTotal = $result ? (int)$result['total'] : 0;
+                error_log('getKPIs: Query executada com sucesso. Total de festas (todos status): ' . $festasTotal);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao contar festas: ' . $e->getMessage());
+                $festasTotal = 0;
             }
-            error_log('getKPIs: Total de festas (todos status): ' . $festasTotal);
             
             // Festas solicitadas por clientes (criadas via fluxo do cliente) - TODAS
-            if (empty($whereBase)) {
+            try {
                 $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE created_via = ?");
                 $stmt->execute(['client']);
-            } else {
-                $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE " . $whereBase . " AND created_via = ?");
-                $stmt->execute(array_merge($paramsBase, ['client']));
+                $result = $stmt->fetch();
+                $festasSolicitadasClientes = $result ? (int)$result['total'] : 0;
+                error_log('getKPIs: Festas solicitadas por clientes: ' . $festasSolicitadasClientes);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao contar festas solicitadas por clientes: ' . $e->getMessage());
+                $festasSolicitadasClientes = 0;
             }
-            $festasSolicitadasClientes = $stmt->fetch()['total'];
-            error_log('getKPIs: Festas solicitadas por clientes: ' . $festasSolicitadasClientes);
             
             // Festas criadas pelo decorador (inseridas pelo próprio decorador) - TODAS
-            if (empty($whereBase)) {
+            try {
                 $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE (created_via = ? OR created_via IS NULL)");
                 $stmt->execute(['decorator']);
-            } else {
-                $stmt = $this->pdo->prepare("SELECT COUNT(*) as total FROM orcamentos WHERE " . $whereBase . " AND (created_via = ? OR created_via IS NULL)");
-                $stmt->execute(array_merge($paramsBase, ['decorator']));
+                $result = $stmt->fetch();
+                $festasCriadasDecorador = $result ? (int)$result['total'] : 0;
+                error_log('getKPIs: Festas criadas pelo decorador: ' . $festasCriadasDecorador);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao contar festas criadas pelo decorador: ' . $e->getMessage());
+                $festasCriadasDecorador = 0;
             }
-            $festasCriadasDecorador = $stmt->fetch()['total'];
-            error_log('getKPIs: Festas criadas pelo decorador: ' . $festasCriadasDecorador);
             
             // Receita recebida (TODOS os orçamentos aprovados, sem filtro de período)
-            if (empty($whereBase)) {
+            try {
                 $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE status = ?");
                 $stmt->execute(['aprovado']);
-            } else {
-                $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(valor_estimado), 0) as total FROM orcamentos WHERE " . $whereBase . " AND status = ?");
-                $stmt->execute(array_merge($paramsBase, ['aprovado']));
+                $result = $stmt->fetch();
+                $receitaRecebida = $result ? (float)$result['total'] : 0.0;
+                error_log('getKPIs: Receita recebida: ' . $receitaRecebida);
+            } catch (Exception $e) {
+                error_log('getKPIs: ERRO ao calcular receita recebida: ' . $e->getMessage());
+                $receitaRecebida = 0.0;
             }
-            $receitaRecebida = $stmt->fetch()['total'];
-            error_log('getKPIs: Receita recebida: ' . $receitaRecebida);
             
             // Lucro total (TODOS os projetos com custos lançados, sem filtro de período)
             if (empty($whereBase)) {
